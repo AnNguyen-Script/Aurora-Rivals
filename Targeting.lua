@@ -12,6 +12,8 @@ return function(Shared, Shield)
     local Const = Shared.Const
     local UserInputService = Shared.UserInputService
     local WallCheckRayParams = Shared.WallCheckRayParams
+    local ESPTable = Shared.ESPTable
+    local createESP = function(p) if Shared.createESP then Shared.createESP(p) end end
 
     local cachedProTarget = nil
     local cachedProValid = 0
@@ -124,7 +126,8 @@ local function isSafeShield(target, char)
 end
 
 -- Bộ đệm & Bộ quét Bot (Tối ưu hóa: Squared Distance, 0 GC Churn)
-local NPCCache = {}
+local NPCCache = Shared.NPCCache or {}
+    Shared.NPCCache = NPCCache
 local lastNPCRefresh = 0
 local playerCharsCache = {}
 local npcAddedSet = {}

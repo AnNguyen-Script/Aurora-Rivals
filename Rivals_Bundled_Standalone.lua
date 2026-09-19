@@ -95,6 +95,40 @@ Shared.Theme = {
 
 -- Static Constant Tables
 Shared.Const = {
+    R15_BONES = {
+        {"Head", "UpperTorso"},
+        {"UpperTorso", "LowerTorso"},
+        {"UpperTorso", "LeftUpperArm"},
+        {"LeftUpperArm", "LeftLowerArm"},
+        {"LeftLowerArm", "LeftHand"},
+        {"UpperTorso", "RightUpperArm"},
+        {"RightUpperArm", "RightLowerArm"},
+        {"RightLowerArm", "RightHand"},
+        {"LowerTorso", "LeftUpperLeg"},
+        {"LeftUpperLeg", "LeftLowerLeg"},
+        {"LeftLowerLeg", "LeftFoot"},
+        {"LowerTorso", "RightUpperLeg"},
+        {"RightUpperLeg", "RightLowerLeg"},
+        {"RightLowerLeg", "RightFoot"}
+    },
+    R6_BONES = {
+        {"Head", "Torso"},
+        {"Torso", "Left Arm"},
+        {"Torso", "Right Arm"},
+        {"Torso", "Left Leg"},
+        {"Torso", "Right Leg"}
+    },
+    TEAM_ATTR_NAMES = {"Team", "team", "TeamName", "teamName"},
+    SHIELD_ATTRIBUTES = {
+        "SpawnShield", "Shield", "Invulnerable", "Safe", "Immune",
+        "SpawnProtection", "Protected", "IsShielded", "SpawnImmunity",
+        "Invincible", "SafeShield", "SpawnInvulnerable"
+    },
+    SAFE_PARTS = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"},
+    TELE_TYPES = {"Sau Lưng", "Trên Đầu", "Trái", "Phải"},
+    BOT_TAGS = {"Entity", "NPCCharacter", "Dummy", "BotLookAt", "NPCAnimationPVPBot", "NPCPathfindingPVPBot", "NPCWeaponPVPBot"},
+    STATIC_RAY_FILTER = {nil, nil},
+    -- Tương thích thêm
     SkeletonPairsR15 = {
         {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
         {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},

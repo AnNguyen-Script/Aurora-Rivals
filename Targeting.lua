@@ -360,11 +360,11 @@ local function getClosestPlayer()
                 if onScreen then
                     local dx = pos.X - fovPos.X
                     local dy = pos.Y - fovPos.Y
-                    local distFromCenter = math.sqrt(dx * dx + dy * dy)
-                    if distFromCenter < shortestDist then
+                    local distSq = dx * dx + dy * dy
+                    if distSq < (shortestDist * shortestDist) then
                         if isVisible(head) or isVisible(hrp) then
                             target = source
-                            shortestDist = distFromCenter
+                            shortestDist = math.sqrt(distSq)
                         end
                     end
                 end

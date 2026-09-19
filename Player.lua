@@ -13,6 +13,7 @@ return function(Shared, Targeting)
     local UserInputService = Shared.UserInputService
     local RunService = Shared.RunService
     local forEachEnemy = Targeting.forEachEnemy
+    local isSafeShield = Targeting.isSafeShield
     local undergroundSurfaceY = nil
 
 -- Hitbox Expander Cache & Reset Logic

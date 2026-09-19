@@ -15,6 +15,7 @@ return function(Shared, Shield)
 
     local cachedProTarget = nil
     local cachedProValid = 0
+    local aimSafeCounter = 0
 
     local function isSameTeam(target)
     if not target then return true end
@@ -479,6 +480,7 @@ end
 
     Targeting.isSameTeam = isSameTeam
     Targeting.hasShieldProtection = hasShieldProtection
+    Targeting.isSafeShield = isSafeShield
     Targeting.isAutoFireVisible = isAutoFireVisible
     Targeting.WallCheck = WallCheck
     Targeting.getTargetPart = getTargetPart

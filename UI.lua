@@ -16,7 +16,7 @@ return function(Shared, Shield, Targeting, ESP, Aim, Player)
     local Lighting = Shared.Lighting
     local TeleportService = Shared.TeleportService
     local RandomString = Shared.RandomString
-    local isMenuConnected = false
+    local isMenuConnected = true
     local SendNotification = nil
     local GetActivePreset = Shared.GetActivePreset
     local Theme = Shared.Theme
@@ -50,7 +50,7 @@ MainFrame.Size = UDim2.new(0, 650, 0, 420)
 MainFrame.Position = UDim2.new(0.5, -325, 0.5, -210)
 MainFrame.BackgroundColor3 = Theme.MainBg
 MainFrame.BorderSizePixel = 0
-MainFrame.Visible = false
+MainFrame.Visible = true
 MainFrame.Parent = ScreenGui
 
 MainStroke = Instance.new("UIStroke")
@@ -253,7 +253,7 @@ StatusText.Size = UDim2.new(0, 400, 1, 0)
 StatusText.Position = UDim2.new(0, 15, 0, 0)
 StatusText.BackgroundTransparency = 1
 StatusText.RichText = true
-StatusText.Text = "<font color=\"#ffffff\">● Rivals Menu</font>   <font color=\"#666677\">/</font>   <font color=\"#aaaaaa\">Login</font>"
+StatusText.Text = "<font color=\"#ffffff\">● Rivals Menu</font>   <font color=\"#666677\">/</font>   <font color=\"#aaaaaa\">Main</font>"
 StatusText.TextColor3 = Theme.TopBarText
 StatusText.Font = Theme.Font
 StatusText.TextSize = 12
@@ -277,7 +277,7 @@ local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 50, 1, -40)
 Sidebar.Position = UDim2.new(0, 0, 0, 40)
 Sidebar.BackgroundTransparency = 1
-Sidebar.Visible = false
+Sidebar.Visible = true
 Sidebar.Parent = MainFrame
 
 do local l = Instance.new("Frame", Sidebar); l.Size = UDim2.new(0, 1, 1, 0); l.Position = UDim2.new(1, -1, 0, 0); l.BackgroundColor3 = Color3.fromRGB(35, 35, 40); l.BorderSizePixel = 0 end
@@ -286,436 +286,16 @@ local ContentArea = Instance.new("Frame")
 ContentArea.Size = UDim2.new(1, -60, 1, -50)
 ContentArea.Position = UDim2.new(0, 50, 0, 40)
 ContentArea.BackgroundTransparency = 1
-ContentArea.Visible = false
+ContentArea.Visible = true
 ContentArea.Parent = MainFrame
 
--- ============================================================
--- CỬA SỔ CHECK KEY (LOGIN FRAME ĐỘC LẬP)
-local LoginFrame = nil
-do
-    -- ============================================================
-    LoginFrame = Instance.new("Frame")
-    LoginFrame.Name = "LoginFrame"
-    LoginFrame.Size = UDim2.new(0, 360, 0, 225)
-    LoginFrame.Position = UDim2.new(0.5, -180, 0.5, -112)
-    LoginFrame.BackgroundColor3 = Theme.MainBg
-    LoginFrame.BorderSizePixel = 0
-    LoginFrame.Visible = true
-    LoginFrame.Parent = ScreenGui
-    Instance.new("UICorner", LoginFrame).CornerRadius = UDim.new(0, 10)
-
-    local LoginStroke = Instance.new("UIStroke", LoginFrame)
-    LoginStroke.Color = Color3.fromRGB(45, 45, 50)
-    LoginStroke.Thickness = 1
-
-    local LoginTopBar = Instance.new("Frame")
-    LoginTopBar.Size = UDim2.new(1, 0, 0, 40)
-    LoginTopBar.BackgroundTransparency = 1
-    LoginTopBar.Parent = LoginFrame
-    MakeDraggable(LoginTopBar, LoginFrame)
-
-    local LoginTopLine = Instance.new("Frame")
-    LoginTopLine.Size = UDim2.new(1, 0, 0, 1)
-    LoginTopLine.Position = UDim2.new(0, 0, 1, -1)
-    LoginTopLine.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    LoginTopLine.BorderSizePixel = 0
-    LoginTopLine.Parent = LoginTopBar
-
-    local LoginTitle = Instance.new("TextLabel")
-    LoginTitle.Size = UDim2.new(0, 300, 1, 0)
-    LoginTitle.Position = UDim2.new(0, 15, 0, 0)
-    LoginTitle.BackgroundTransparency = 1
-    LoginTitle.RichText = true
-    LoginTitle.Text = "<font color=\"#ffffff\">● Rivals Menu</font>   <font color=\"#666677\">/</font>   <font color=\"#aaaaaa\">Login</font>"
-    LoginTitle.TextColor3 = Theme.TopBarText
-    LoginTitle.Font = Theme.Font
-    LoginTitle.TextSize = 12
-    LoginTitle.TextXAlignment = Enum.TextXAlignment.Left
-    LoginTitle.Parent = LoginTopBar
-
-    local LoginCloseBtn = Instance.new("TextButton")
-    LoginCloseBtn.Size = UDim2.new(0, 40, 1, 0)
-    LoginCloseBtn.Position = UDim2.new(1, -40, 0, 0)
-    LoginCloseBtn.BackgroundTransparency = 1
-    LoginCloseBtn.Text = "X"
-    LoginCloseBtn.TextColor3 = Theme.TextDark
-    LoginCloseBtn.Font = Theme.Font
-    LoginCloseBtn.TextSize = 14
-    LoginCloseBtn.Parent = LoginTopBar
-    LoginCloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
-    local LoginBody = Instance.new("Frame")
-    LoginBody.Size = UDim2.new(1, 0, 1, -40)
-    LoginBody.Position = UDim2.new(0, 0, 0, 40)
-    LoginBody.BackgroundTransparency = 1
-    LoginBody.Parent = LoginFrame
-
-    local LicenseKeyLbl = Instance.new("TextLabel")
-    LicenseKeyLbl.Size = UDim2.new(1, -36, 0, 18)
-    LicenseKeyLbl.Position = UDim2.new(0, 18, 0, 10)
-    LicenseKeyLbl.BackgroundTransparency = 1
-    LicenseKeyLbl.Text = "LICENSE KEY"
-    LicenseKeyLbl.TextColor3 = Color3.fromRGB(130, 130, 145)
-    LicenseKeyLbl.Font = Theme.FontBold
-    LicenseKeyLbl.TextSize = 11
-    LicenseKeyLbl.TextXAlignment = Enum.TextXAlignment.Left
-    LicenseKeyLbl.Parent = LoginBody
-
-    local KeyInputBox = Instance.new("TextBox")
-    KeyInputBox.Size = UDim2.new(1, -36, 0, 42)
-    KeyInputBox.Position = UDim2.new(0, 18, 0, 32)
-    KeyInputBox.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-    KeyInputBox.TextColor3 = Theme.TextWhite
-    KeyInputBox.PlaceholderText = "RLX-XXXX-XXXX-XXXX"
-    KeyInputBox.PlaceholderColor3 = Color3.fromRGB(70, 70, 85)
-    KeyInputBox.Font = Enum.Font.Gotham
-    KeyInputBox.TextSize = 13
-    KeyInputBox.Text = ""
-    KeyInputBox.TextStrokeTransparency = 1
-    KeyInputBox.ClearTextOnFocus = false
-    KeyInputBox.TextXAlignment = Enum.TextXAlignment.Left
-    KeyInputBox.Parent = LoginBody
-    Instance.new("UICorner", KeyInputBox).CornerRadius = UDim.new(0, 8)
-
-    local KeyInputPadding = Instance.new("UIPadding", KeyInputBox)
-    KeyInputPadding.PaddingLeft = UDim.new(0, 14)
-    KeyInputPadding.PaddingRight = UDim.new(0, 14)
-
-    local KeyInputStroke = Instance.new("UIStroke", KeyInputBox)
-    KeyInputStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    KeyInputStroke.Color = Color3.fromRGB(35, 35, 45)
-    KeyInputStroke.Thickness = 1
-
-    local LoginBtn = Instance.new("TextButton")
-    LoginBtn.Size = UDim2.new(1, -36, 0, 40)
-    LoginBtn.Position = UDim2.new(0, 18, 0, 84)
-    LoginBtn.BackgroundColor3 = Color3.fromRGB(245, 245, 250)
-    LoginBtn.TextColor3 = Color3.fromRGB(10, 10, 15)
-    LoginBtn.Font = Theme.FontBold
-    LoginBtn.TextSize = 14
-    LoginBtn.Text = "LOGIN"
-    LoginBtn.AutoButtonColor = false
-    LoginBtn.Parent = LoginBody
-    Instance.new("UICorner", LoginBtn).CornerRadius = UDim.new(0, 8)
-
-    -- KHUNG TRẠNG THÁI MÀU ĐỎ (CHỈ HIỆN KHI NHẬP VÀ BẤM LOGIN)
-    local StatusBox = Instance.new("Frame")
-    StatusBox.Size = UDim2.new(1, -36, 0, 38)
-    StatusBox.Position = UDim2.new(0, 18, 0, 134)
-    StatusBox.BackgroundColor3 = Color3.fromRGB(28, 16, 18)
-    StatusBox.BorderSizePixel = 0
-    StatusBox.Visible = false
-    StatusBox.Parent = LoginBody
-    Instance.new("UICorner", StatusBox).CornerRadius = UDim.new(0, 6)
-
-    local StatusStroke = Instance.new("UIStroke", StatusBox)
-    StatusStroke.Color = Color3.fromRGB(180, 45, 50)
-    StatusStroke.Thickness = 1
-
-    local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(1, -20, 1, 0)
-    StatusLabel.Position = UDim2.new(0, 12, 0, 0)
-    StatusLabel.BackgroundTransparency = 1
-    StatusLabel.Text = ""
-    StatusLabel.TextColor3 = Color3.fromRGB(255, 130, 140)
-    StatusLabel.Font = Enum.Font.Code
-    StatusLabel.TextSize = 13
-    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    StatusLabel.Parent = StatusBox
-
-    local FooterLicenseLink = Instance.new("TextLabel")
-    FooterLicenseLink.Size = UDim2.new(0.5, -18, 0, 20)
-    FooterLicenseLink.Position = UDim2.new(0, 18, 1, -22)
-    FooterLicenseLink.BackgroundTransparency = 1
-    FooterLicenseLink.Text = "Get a license →"
-    FooterLicenseLink.TextColor3 = Color3.fromRGB(140, 140, 160)
-    FooterLicenseLink.Font = Theme.Font
-    FooterLicenseLink.TextSize = 12
-    FooterLicenseLink.TextXAlignment = Enum.TextXAlignment.Left
-    FooterLicenseLink.Parent = LoginBody
-
-    local FooterVersion = Instance.new("TextLabel")
-    FooterVersion.Size = UDim2.new(0.5, -18, 0, 20)
-    FooterVersion.Position = UDim2.new(0.5, 0, 1, -22)
-    FooterVersion.BackgroundTransparency = 1
-    FooterVersion.Text = "v2.14.0"
-    FooterVersion.TextColor3 = Color3.fromRGB(85, 85, 100)
-    FooterVersion.Font = Theme.Font
-    FooterVersion.TextSize = 12
-    FooterVersion.TextXAlignment = Enum.TextXAlignment.Right
-    FooterVersion.Parent = LoginBody
-
-    KeyInputBox.Focused:Connect(function()
-        TweenService:Create(KeyInputStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(65, 65, 80)}):Play()
-        if StatusBox.Visible then
-            StatusBox.Visible = false
-            TweenService:Create(LoginFrame, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 360, 0, 225),
-                Position = UDim2.new(0.5, -180, 0.5, -112)
-            }):Play()
-        end
-    end)
-    KeyInputBox.FocusLost:Connect(function()
-        TweenService:Create(KeyInputStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(35, 35, 45)}):Play()
-    end)
-
-    local isCheckingKey = false
-    local function ProcessLogin()
-        if isCheckingKey then return end
-        isCheckingKey = true
-
-        local inputKey = string.gsub(KeyInputBox.Text, "%s+", "")
-
-        -- 1. Phóng to khung mượt mà để vừa khung đỏ trạng thái loading
-        TweenService:Create(LoginFrame, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 360, 0, 280),
-            Position = UDim2.new(0.5, -180, 0.5, -140)
-        }):Play()
-    
-        StatusBox.Visible = true
-        StatusBox.BackgroundColor3 = Color3.fromRGB(28, 16, 18)
-        StatusStroke.Color = Color3.fromRGB(180, 45, 50)
-        StatusLabel.TextColor3 = Color3.fromRGB(255, 130, 140)
-
-        -- Random thời gian kiểm tra từ 2s đến 4s
-        local totalDuration = math.random(200, 400) / 100
-        local step1Time = totalDuration * 0.45
-        local step2Time = totalDuration * 0.55
-
-        -- Bước 1: Kết nối server key với hiệu ứng chấm động
-        local startTime = tick()
-        local dotCount = 1
-        while (tick() - startTime) < step1Time do
-            StatusLabel.Text = "Connecting to key server" .. string.rep(".", dotCount)
-            dotCount = (dotCount % 3) + 1
-            task.wait(0.25)
-        end
-
-        -- Bước 2: Xác thực key với hiệu ứng chấm động
-        startTime = tick()
-        dotCount = 1
-        while (tick() - startTime) < step2Time do
-            StatusLabel.Text = "Authenticating key" .. string.rep(".", dotCount)
-            dotCount = (dotCount % 3) + 1
-            task.wait(0.25)
-        end
-
-        if string.lower(inputKey) == "admin" then
-            -- Bước 3: Key hợp lệ (thành công)
-            StatusBox.BackgroundColor3 = Color3.fromRGB(16, 30, 20)
-            StatusStroke.Color = Color3.fromRGB(40, 180, 80)
-            StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 140)
-            StatusLabel.Text = "Valid license key"
-
-            LoginBtn.BackgroundColor3 = Color3.fromRGB(0, 220, 100)
-            LoginBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-            LoginBtn.Text = "ACCESS GRANTED ✓"
-            task.wait(0.4)
-
-            -- Đóng LoginFrame và hiện MainFrame cùng nút Kết Nối cũ
-            LoginFrame.Visible = false
-            MainFrame.Visible = true
-            ConnectFrame.Visible = true
-            ConnectBtn.Visible = true
-            TerminalFrame.Visible = false
-            isCheckingKey = false
-        else
-            -- Bước 3: Key không hợp lệ (thất bại)
-            StatusBox.BackgroundColor3 = Color3.fromRGB(32, 14, 16)
-            StatusStroke.Color = Color3.fromRGB(220, 50, 60)
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 110, 120)
-            StatusLabel.Text = "Invalid license key"
-
-            LoginBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-            LoginBtn.TextColor3 = Theme.TextWhite
-            LoginBtn.Text = "LOGIN FAILED"
-
-            task.wait(1)
-
-            LoginBtn.BackgroundColor3 = Color3.fromRGB(245, 245, 250)
-            LoginBtn.TextColor3 = Color3.fromRGB(10, 10, 15)
-            LoginBtn.Text = "LOGIN"
-            isCheckingKey = false
-        end
+-- [ĐÃ BỎ CHECK KEY VÀ SET PROSERS THEO YÊU CẦU: MENU TỰ ĐỘNG MỞ TRỰC TIẾP]
+task.spawn(function()
+    task.wait(0.5)
+    if SendNotification then
+        SendNotification("System", "Rivals Pro Menu đã kích hoạt thành công!")
     end
-
-    LoginBtn.MouseButton1Click:Connect(ProcessLogin)
-    KeyInputBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed then ProcessLogin() end
-    end)
-
-
-    -- ============================================================
-    -- KHUNG KẾT NỐI CŨ TRONG MENU CHÍNH (CONNECT FRAME)
-    -- ============================================================
-    local ConnectFrame = Instance.new("Frame")
-    ConnectFrame.Size = UDim2.new(1, 0, 1, -40)
-    ConnectFrame.Position = UDim2.new(0, 0, 0, 40)
-    ConnectFrame.BackgroundTransparency = 1
-    ConnectFrame.Visible = true
-    ConnectFrame.Parent = MainFrame
-
-    local ConnectBtn = Instance.new("TextButton")
-    ConnectBtn.Size = UDim2.new(0, 150, 0, 40)
-    ConnectBtn.Position = UDim2.new(0.5, -75, 0.5, -20)
-    ConnectBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-    ConnectBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    ConnectBtn.Font = Theme.FontBold
-    ConnectBtn.TextSize = 16
-    ConnectBtn.Text = "Set Prosers"
-    ConnectBtn.Parent = ConnectFrame
-    Instance.new("UICorner", ConnectBtn).CornerRadius = UDim.new(0, 8)
-
-    local TerminalFrame = Instance.new("Frame")
-    TerminalFrame.Size = UDim2.new(0.8, 0, 0.8, 0)
-    TerminalFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
-    TerminalFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-    TerminalFrame.BorderSizePixel = 0
-    TerminalFrame.Visible = false
-    TerminalFrame.Parent = ConnectFrame
-    Instance.new("UICorner", TerminalFrame).CornerRadius = UDim.new(0, 5)
-
-    local TerminalStroke = Instance.new("UIStroke")
-    TerminalStroke.Color = Color3.fromRGB(0, 255, 0)
-    TerminalStroke.Thickness = 1
-    TerminalStroke.Parent = TerminalFrame
-
-    local TerminalText = Instance.new("TextLabel")
-    TerminalText.Size = UDim2.new(1, -20, 1, -20)
-    TerminalText.Position = UDim2.new(0, 10, 0, 10)
-    TerminalText.BackgroundTransparency = 1
-    TerminalText.Text = ""
-    TerminalText.TextColor3 = Color3.fromRGB(0, 255, 0)
-    TerminalText.Font = Enum.Font.Code
-    TerminalText.TextSize = 14
-    TerminalText.TextXAlignment = Enum.TextXAlignment.Left
-    TerminalText.TextYAlignment = Enum.TextYAlignment.Top
-    TerminalText.RichText = true
-    TerminalText.Parent = TerminalFrame
-
-    local function TypeWriter(text, label, delayMs)
-        local currentText = label.Text
-        if currentText ~= "" then currentText = currentText .. "\n" end
-        label.Text = currentText
-        for i = 1, #text do
-            label.Text = currentText .. string.sub(text, 1, i) .. (i % 2 == 0 and "_" or "")
-            task.wait(delayMs or 0.02)
-        end
-        label.Text = currentText .. text
-    end
-
-    local function UnlockMenuFully(msg)
-        isMenuConnected = true
-        LoginFrame.Visible = false
-        MainFrame.Visible = true
-        ConnectFrame.Visible = false
-        Sidebar.Visible = true
-        ContentArea.Visible = true
-        StatusText.Visible = true
-        SendNotification("System", msg or "Đã kết nối thành công!")
-    end
-
-
-
-    -- XỬ LÝ NÚT KẾT NỐI CŨ TRONG MENU CHÍNH
-    ConnectBtn.MouseButton1Click:Connect(function()
-        if ConnectBtn.Text ~= "Set Prosers" then return end
-        ConnectBtn.Visible = false
-        TerminalFrame.Visible = true
-
-        task.spawn(function()
-            local gameName = "RIVALS"
-            pcall(function()
-                local mps = game:GetService("MarketplaceService")
-                local info = mps:GetProductInfo(game.PlaceId)
-                if info and info.Name then gameName = info.Name end
-            end)
-
-            TypeWriter("> Khởi tạo phiên bảo mật...", TerminalText, 0.001)
-            task.wait(0.02)
-            TypeWriter("[+] Shield v3 đã kích hoạt... " .. (Shield.ShieldActive and "ACTIVE" or "MANUAL"), TerminalText, 0.001)
-            task.wait(0.02)
-            TypeWriter("[+] GUI ẩn: " .. IDS.UI, TerminalText, 0.001)
-            task.wait(0.02)
-            TypeWriter("[+] Đang tải tài nguyên... 100%", TerminalText, 0.001)
-            task.wait(0.02)
-            TypeWriter("> Xác nhận: " .. gameName, TerminalText, 0.001)
-            task.wait(0.06)
-
-            TweenService:Create(TerminalText, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 1}):Play()
-            task.wait(0.1)
-
-            local GameLogo = Instance.new("ImageLabel")
-            GameLogo.Size = UDim2.new(0, 110, 0, 110)
-            GameLogo.Position = UDim2.new(0.5, -55, 0.5, -70)
-            GameLogo.BackgroundTransparency = 1
-            GameLogo.Image = "rbxthumb://type=Asset&id=" .. game.PlaceId .. "&w=150&h=150"
-            GameLogo.ImageTransparency = 1
-            GameLogo.Parent = TerminalFrame
-            Instance.new("UICorner", GameLogo).CornerRadius = UDim.new(0, 12)
-            local LogoStroke = Instance.new("UIStroke", GameLogo)
-            LogoStroke.Color = Color3.fromRGB(0, 255, 0)
-            LogoStroke.Thickness = 2
-            LogoStroke.Transparency = 1
-
-            local GameNameLbl = Instance.new("TextLabel")
-            GameNameLbl.Size = UDim2.new(1, 0, 0, 30)
-            GameNameLbl.Position = UDim2.new(0, 0, 0.5, 55)
-            GameNameLbl.BackgroundTransparency = 1
-            GameNameLbl.Text = "XÁC MINH: " .. string.upper(gameName)
-            GameNameLbl.TextColor3 = Color3.fromRGB(50, 255, 50)
-            GameNameLbl.Font = Enum.Font.GothamBold
-            GameNameLbl.TextSize = 18
-            GameNameLbl.TextTransparency = 1
-            GameNameLbl.Parent = TerminalFrame
-
-            local GameStatusLbl = Instance.new("TextLabel")
-            GameStatusLbl.Size = UDim2.new(1, 0, 0, 20)
-            GameStatusLbl.Position = UDim2.new(0, 0, 0.5, 80)
-            GameStatusLbl.BackgroundTransparency = 1
-            GameStatusLbl.Text = "Shield bảo vệ: " .. (Settings.AntiCheatBypass and "BẬT" or "TẮT")
-            GameStatusLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
-            GameStatusLbl.Font = Enum.Font.Gotham
-            GameStatusLbl.TextSize = 13
-            GameStatusLbl.TextTransparency = 1
-            GameStatusLbl.Parent = TerminalFrame
-
-            local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-            TweenService:Create(GameLogo, tweenInfo, {ImageTransparency = 0, Position = UDim2.new(0.5, -55, 0.5, -90)}):Play()
-            TweenService:Create(LogoStroke, tweenInfo, {Transparency = 0.5}):Play()
-            TweenService:Create(GameNameLbl, tweenInfo, {TextTransparency = 0, Position = UDim2.new(0, 0, 0.5, 35)}):Play()
-            TweenService:Create(GameStatusLbl, tweenInfo, {TextTransparency = 0, Position = UDim2.new(0, 0, 0.5, 60)}):Play()
-            task.wait(0.35)
-
-            local fadeOutInfo = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            TweenService:Create(GameLogo, fadeOutInfo, {ImageTransparency = 1, Position = UDim2.new(0.5, -55, 0.5, -100)}):Play()
-            TweenService:Create(LogoStroke, fadeOutInfo, {Transparency = 1}):Play()
-            TweenService:Create(GameNameLbl, fadeOutInfo, {TextTransparency = 1}):Play()
-            TweenService:Create(GameStatusLbl, fadeOutInfo, {TextTransparency = 1}):Play()
-            TweenService:Create(TerminalFrame, fadeOutInfo, {BackgroundTransparency = 1}):Play()
-            task.wait(0.12)
-
-            GameLogo:Destroy()
-            GameNameLbl:Destroy()
-            GameStatusLbl:Destroy()
-
-            UnlockMenuFully("Đã kết nối: " .. gameName)
-        end)
-    end)
-
-    -- Phím tắt ẩn bỏ qua toàn bộ check key & kết nối: Shift + Enter
-    UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        if input.KeyCode == Enum.KeyCode.Return
-            and (UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
-            or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)) then
-            if LoginFrame.Visible or ConnectFrame.Visible then
-                UnlockMenuFully("Bỏ qua xác thực License Key & Trình kết nối")
-            end
-        end
-    end)
-
-end
+end)
 
 local Tabs = {}
 local SidebarButtons = {}
@@ -2580,13 +2160,7 @@ end
 -- Toggle UI với slide animation (Chặn mở Menu khi chưa check key/kết nối)
 UserInputService.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Settings.ToggleKeybind then
-        -- Khi chưa check key hoặc chưa kết nối: KHÔNG BAO GIỜ mở MainFrame
-        if not isMenuConnected then
-            if LoginFrame then
-                LoginFrame.Visible = not LoginFrame.Visible
-            end
-            return
-        end
+
 
         if MainFrame.Visible then
             TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),

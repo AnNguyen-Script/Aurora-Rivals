@@ -2157,6 +2157,12 @@ return function(Shared, Shield, Targeting, ESP, Aim, Player)
     local UserInputService = Shared.UserInputService
     local HttpService = Shared.HttpService
     local CoreGui = Shared.CoreGui
+    local Workspace = Shared.Workspace
+    local Lighting = Shared.Lighting
+    local TeleportService = Shared.TeleportService
+    local RandomString = Shared.RandomString
+    local isMenuConnected = false
+    local SendNotification = nil
     local Theme = Shared.Theme
     local ThemePresets = Shared.ThemePresets
     local ThemeObjects = Shared.ThemeObjects

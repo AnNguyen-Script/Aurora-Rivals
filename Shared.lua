@@ -256,7 +256,9 @@ Shared.Settings = {
 }
 
 Shared.GetActivePreset = function()
-    Shared.undergroundSurfaceY = nil
+    Shared.ESPTable = {}
+Shared.NPCCache = {}
+Shared.undergroundSurfaceY = nil
 Shared.originalTeleportCFrame = nil
 Shared.originalSpeedTeleCFrame = nil
 

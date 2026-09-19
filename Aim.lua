@@ -93,14 +93,21 @@ local ESPTable = {}
     end
     local closestTarget = cachedClosest
 
-    -- 1. FOV & SNAPLINE (1 VÒNG TRÒN DUY NHẤT ĐỒNG BỘ)
-    FOVring.Visible = Settings.FOVVisible
+    -- 1. FOV & SNAPLINE (1 VÒNG TRÒN DUY NHẤT ĐỒNG BỘ - CHỐNG PROPERTY THRASHING)
+    if FOVring.Visible ~= Settings.FOVVisible then
+        FOVring.Visible = Settings.FOVVisible
+    end
     if Settings.FOVVisible then
         local mousePos = UserInputService:GetMouseLocation()
         FOVring.Position = mousePos
-        FOVring.Radius = Settings.FOV
+        if FOVring.Radius ~= Settings.FOV then
+            FOVring.Radius = Settings.FOV
+        end
         local hasTarget = (Settings.AimEnabled and closestTarget) or (Settings.ProAimEnabled and (ProAimLockedTarget ~= nil))
-        FOVring.Color = hasTarget and Color3.fromRGB(255, 50, 50) or Theme.AccentOn
+        local targetColor = hasTarget and Color3.fromRGB(255, 50, 50) or Theme.AccentOn
+        if FOVring.Color ~= targetColor then
+            FOVring.Color = targetColor
+        end
     end
 
     local snapTarget = nil
@@ -121,12 +128,12 @@ local ESPTable = {}
         if onScreen then
             AimSnaplineDraw.From = center
             AimSnaplineDraw.To = Vector2.new(targetPos.X, targetPos.Y)
-            AimSnaplineDraw.Visible = true
+            if not AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = true end
         else
-            AimSnaplineDraw.Visible = false
+            if AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = false end
         end
     else
-        AimSnaplineDraw.Visible = false
+        if AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = false end
     end
 
     -- 2. AIM HOLD (Hard Lock + smooth + jitter)
@@ -199,10 +206,11 @@ local ESPTable = {}
         if targetPart then
             local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
             if onScreen then
-                local adist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
                 local maxFov = Settings.FOV or 100
+                local dx = pos.X - center.X
+                local dy = pos.Y - center.Y
                 local delayTime = math.max(Settings.AutoFireDelay or 0, 0.05)
-                if adist <= maxFov and (now - lastShotTime) >= delayTime then
+                if (dx * dx + dy * dy) <= (maxFov * maxFov) and (now - lastShotTime) >= delayTime then
                     if isAutoFireVisible(targetPart) then
                         lastShotTime = now
                         FireShot()

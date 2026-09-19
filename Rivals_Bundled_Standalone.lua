@@ -1790,9 +1790,9 @@ local function createESP(player)
     esp.Chams.Parent = ChamsFolder
 
     esp.ArrowLines = {}
-    for i = 1, 7 do
+    for i = 1, 18 do
         local l = Drawing.new("Line")
-        l.Thickness = 3.5
+        l.Thickness = 2
         l.Color = Color3.fromRGB(255, 255, 255)
         l.Visible = false
         esp.ArrowLines[i] = l
@@ -2244,27 +2244,41 @@ Players.PlayerRemoving:Connect(removeESP)
                                 local pC = base - perp * sideWidth
                                 local arrowCenter = (tip + base) * 0.5
 
-                                -- 1. Mũi tên tam giác trắng đặc bằng 7 đường Line xếp lớp (100% tương thích mọi executor)
+                                -- 1. Mũi tên tam giác trắng đặc mịn màng (Smooth Triangle Fan - 0 răng cưa)
                                 if esp.ArrowLines then
-                                    for i = 1, 7 do
-                                        local t = (i - 1) / 6
-                                        local currentCenter = base:Lerp(tip, t)
-                                        local currentWidth = sideWidth * (1 - t)
+                                    -- 17 tia từ đỉnh tip phủ kín toàn bộ bề mặt tam giác với cạnh biên mượt mà
+                                    for i = 1, 17 do
+                                        local t = (i - 1) / 16
+                                        local targetPt = pB:Lerp(pC, t)
                                         local l = esp.ArrowLines[i]
                                         if l then
-                                            l.From = currentCenter + perp * currentWidth
-                                            l.To = currentCenter - perp * currentWidth
+                                            l.From = tip
+                                            l.To = targetPt
                                             if not l.Visible then l.Visible = true end
                                         end
                                     end
+                                    -- Tia thứ 18 đóng kín cạnh đáy pB -> pC
+                                    local baseLine = esp.ArrowLines[18]
+                                    if baseLine then
+                                        baseLine.From = pB
+                                        baseLine.To = pC
+                                        if not baseLine.Visible then baseLine.Visible = true end
+                                    end
                                 end
+
+                                -- Tọa độ bounding để định vị chữ và thanh máu không bị đè vào tam giác
+                                local minY = math.min(tip.Y, pB.Y, pC.Y)
+                                local maxY = math.max(tip.Y, pB.Y, pC.Y)
+                                local minX = math.min(tip.X, pB.X, pC.X)
+                                local maxX = math.max(tip.X, pB.X, pC.X)
+                                local centerX = (minX + maxX) * 0.5
 
                                 -- 2. Tên kẻ địch (Tương ứng với ESP Name)
                                 if Settings.ESPName and esp.ArrowName then
                                     if esp.ArrowName.Text ~= targetName then
                                         esp.ArrowName.Text = targetName
                                     end
-                                    esp.ArrowName.Position = Vector2.new(arrowCenter.X, arrowCenter.Y - 26)
+                                    esp.ArrowName.Position = Vector2.new(centerX, minY - 16)
                                     if not esp.ArrowName.Visible then esp.ArrowName.Visible = true end
                                 else
                                     if esp.ArrowName and esp.ArrowName.Visible then esp.ArrowName.Visible = false end
@@ -2276,7 +2290,7 @@ Players.PlayerRemoving:Connect(removeESP)
                                     if esp.ArrowDist.Text ~= distText then
                                         esp.ArrowDist.Text = distText
                                     end
-                                    esp.ArrowDist.Position = Vector2.new(arrowCenter.X, arrowCenter.Y + 14)
+                                    esp.ArrowDist.Position = Vector2.new(centerX, maxY + 4)
                                     if not esp.ArrowDist.Visible then esp.ArrowDist.Visible = true end
                                 else
                                     if esp.ArrowDist and esp.ArrowDist.Visible then esp.ArrowDist.Visible = false end
@@ -2284,10 +2298,10 @@ Players.PlayerRemoving:Connect(removeESP)
 
                                 -- 4. Thanh máu dọc (Tương ứng với ESP Health)
                                 if Settings.ESPHealth and esp.ArrowHealth and esp.ArrowHealthBg then
-                                    local barX = arrowCenter.X + (sideWidth + 8)
-                                    local barTop = arrowCenter.Y - 14
-                                    local barBottom = arrowCenter.Y + 14
-                                    local barHeight = 28
+                                    local barX = maxX + 6
+                                    local barTop = minY
+                                    local barBottom = maxY
+                                    local barHeight = math.max(barBottom - barTop, 14)
 
                                     esp.ArrowHealthBg.From = Vector2.new(barX, barTop)
                                     esp.ArrowHealthBg.To = Vector2.new(barX, barBottom)

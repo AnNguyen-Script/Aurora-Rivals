@@ -9,7 +9,7 @@
 local GITHUB_CONFIG = {
     Enabled = true,                    -- Bật true để tải trực tiếp từ link GitHub
     Username = "AnNguyen-Script", -- Thay bằng Tên tài khoản GitHub của bạn
-    Repository = "Rivals",      -- Thay bằng Tên Repository GitHub
+    Repository = "Aurora-Rivals",      -- Thay bằng Tên Repository GitHub
     Branch = "main",                   -- Nhánh chính (mặc định: main)
     Folder = ""                        -- Nếu để trong thư mục con trên GitHub thì điền (ví dụ: "Modular_Rivals"), để trống nếu ở gốc
 }

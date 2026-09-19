@@ -1883,10 +1883,6 @@ local function CheckAndBypassCharacterAC(featureName)
     return true
 end
 
-local undergroundSurfaceY = nil
-local originalTeleportCFrame = nil
-local originalSpeedTeleCFrame = nil
-
 CreateToggle(PanelPlayer, "Speed Buff", Theme.DotGreen, "SpeedHack", function(v)
     if v and not CheckAndBypassCharacterAC("SpeedHack") then
         Settings.SpeedHack = false
@@ -1952,11 +1948,11 @@ end)
 CreateToggleWithKeybind(PanelPlayer, "Chui Đất", Theme.DotGreen, "UndergroundNoclip", "UndergroundHotkey", function(v)
     Settings.UndergroundNoclip = v
     if v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        undergroundSurfaceY = LocalPlayer.Character.HumanoidRootPart.Position.Y
-    elseif not v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and undergroundSurfaceY then
+        Shared.undergroundSurfaceY = LocalPlayer.Character.HumanoidRootPart.Position.Y
+    elseif not v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and Shared.undergroundSurfaceY then
         local hrp = LocalPlayer.Character.HumanoidRootPart
-        hrp.CFrame = hrp.CFrame + Vector3.new(0, undergroundSurfaceY - hrp.Position.Y, 0)
-        undergroundSurfaceY = nil
+        hrp.CFrame = hrp.CFrame + Vector3.new(0, Shared.undergroundSurfaceY - hrp.Position.Y, 0)
+        Shared.undergroundSurfaceY = nil
     end
 end, function(v)
     Settings.UndergroundHotkey = v
@@ -1970,12 +1966,12 @@ CreateToggleWithKeybind(PanelPlayer, "Tele", Theme.DotGreen, "AutoTeleport", "Au
     end
     Settings.AutoTeleport = v
     if v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        originalTeleportCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-    elseif not v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and originalTeleportCFrame then
+        Shared.originalTeleportCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+    elseif not v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and Shared.originalTeleportCFrame then
         if Settings.AutoTeleportReturn then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = originalTeleportCFrame
+            LocalPlayer.Character.HumanoidRootPart.CFrame = Shared.originalTeleportCFrame
         end
-        originalTeleportCFrame = nil
+        Shared.originalTeleportCFrame = nil
     end
 end, function(v)
     Settings.AutoTeleportHotkey = v
@@ -1988,12 +1984,12 @@ CreateToggleWithKeybind(PanelPlayer, 'Speed Tele <font color="#ff3333">[BETA]</f
     end
     Settings.SpeedTele = v
     if v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        originalSpeedTeleCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-    elseif not v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and originalSpeedTeleCFrame then
+        Shared.originalSpeedTeleCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+    elseif not v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and Shared.originalSpeedTeleCFrame then
         if Settings.AutoTeleportReturn then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = originalSpeedTeleCFrame
+            LocalPlayer.Character.HumanoidRootPart.CFrame = Shared.originalSpeedTeleCFrame
         end
-        originalSpeedTeleCFrame = nil
+        Shared.originalSpeedTeleCFrame = nil
     end
 end, function(v)
     Settings.SpeedTeleHotkey = v
@@ -2203,12 +2199,12 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         if UI_Elements.AutoTeleport then UI_Elements.AutoTeleport.SetValue(Settings.AutoTeleport) end
         
         if Settings.AutoTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            originalTeleportCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-        elseif not Settings.AutoTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and originalTeleportCFrame then
+            Shared.originalTeleportCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+        elseif not Settings.AutoTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and Shared.originalTeleportCFrame then
             if Settings.AutoTeleportReturn then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = originalTeleportCFrame
+                LocalPlayer.Character.HumanoidRootPart.CFrame = Shared.originalTeleportCFrame
             end
-            originalTeleportCFrame = nil
+            Shared.originalTeleportCFrame = nil
         end
         
         UpdateTabDots()
@@ -2221,12 +2217,12 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         if UI_Elements.SpeedTele then UI_Elements.SpeedTele.SetValue(Settings.SpeedTele) end
         
         if Settings.SpeedTele and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            originalSpeedTeleCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-        elseif not Settings.SpeedTele and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and originalSpeedTeleCFrame then
+            Shared.originalSpeedTeleCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+        elseif not Settings.SpeedTele and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and Shared.originalSpeedTeleCFrame then
             if Settings.AutoTeleportReturn then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = originalSpeedTeleCFrame
+                LocalPlayer.Character.HumanoidRootPart.CFrame = Shared.originalSpeedTeleCFrame
             end
-            originalSpeedTeleCFrame = nil
+            Shared.originalSpeedTeleCFrame = nil
         end
         
         UpdateTabDots()
@@ -2236,11 +2232,11 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         if UI_Elements.UndergroundNoclip then UI_Elements.UndergroundNoclip.SetValue(Settings.UndergroundNoclip) end
         
         if Settings.UndergroundNoclip and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            undergroundSurfaceY = LocalPlayer.Character.HumanoidRootPart.Position.Y
-        elseif not Settings.UndergroundNoclip and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and undergroundSurfaceY then
+            Shared.undergroundSurfaceY = LocalPlayer.Character.HumanoidRootPart.Position.Y
+        elseif not Settings.UndergroundNoclip and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and Shared.undergroundSurfaceY then
             local hrp = LocalPlayer.Character.HumanoidRootPart
-            hrp.CFrame = hrp.CFrame + Vector3.new(0, undergroundSurfaceY - hrp.Position.Y, 0)
-            undergroundSurfaceY = nil
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, Shared.undergroundSurfaceY - hrp.Position.Y, 0)
+            Shared.undergroundSurfaceY = nil
         end
         UpdateTabDots()
         SendNotification("Hotkey", "Chui Đất: " .. (Settings.UndergroundNoclip and "BẬT" or "TẮT"))

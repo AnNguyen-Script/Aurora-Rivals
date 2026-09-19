@@ -256,7 +256,11 @@ Shared.Settings = {
 }
 
 Shared.GetActivePreset = function()
-    return Shared.ThemePresets[Shared.Settings.ThemeName] or Shared.ThemePresets.Dark
+    Shared.undergroundSurfaceY = nil
+Shared.originalTeleportCFrame = nil
+Shared.originalSpeedTeleCFrame = nil
+
+return Shared.ThemePresets[Shared.Settings.ThemeName] or Shared.ThemePresets.Dark
 end
 
 Shared.ColorList = {

@@ -14,9 +14,7 @@ return function(Shared, Targeting)
     local RunService = Shared.RunService
     local forEachEnemy = Targeting.forEachEnemy
     local isSafeShield = Targeting.isSafeShield
-    local undergroundSurfaceY = nil
-
--- Hitbox Expander Cache & Reset Logic
+    -- Hitbox Expander Cache & Reset Logic
 local originalHitboxes = {}
 local function ResetHitboxes()
     for part, orig in pairs(originalHitboxes) do
@@ -70,7 +68,7 @@ end
 
     local function UpdatePhysics(step)
         -- Xuyên tường, Chui đất & Speed Tele không cấp phát bộ nhớ
-    if Settings.Noclip or (Settings.UndergroundNoclip and undergroundSurfaceY) or Settings.SpeedTele then
+    if Settings.Noclip or (Settings.UndergroundNoclip and Shared.undergroundSurfaceY) or Settings.SpeedTele then
         for i = 1, #noClipParts do
             local part = noClipParts[i]
             if part and part.Parent and part.CanCollide then
@@ -80,7 +78,7 @@ end
     end
 
     -- Slow Fall (Hãm tốc độ rơi chậm mượt mà)
-    if Settings.SlowFall and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and not Settings.Fly and not (Settings.UndergroundNoclip and undergroundSurfaceY) then
+    if Settings.SlowFall and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and not Settings.Fly and not (Settings.UndergroundNoclip and Shared.undergroundSurfaceY) then
         local hrp = LocalPlayer.Character.HumanoidRootPart
         local currentVel = hrp.Velocity
         local maxDown = -(Settings.SlowFallSpeed or 5)
@@ -128,8 +126,8 @@ end
     -- Auto Teleport bám địch (Hỗ trợ cả Người chơi & NPC/Bot - Tối ưu hóa Squared Distance)
     if Settings.AutoTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local myHrp = LocalPlayer.Character.HumanoidRootPart
-        if not originalTeleportCFrame then
-            originalTeleportCFrame = myHrp.CFrame
+        if not Shared.originalTeleportCFrame then
+            Shared.originalTeleportCFrame = myHrp.CFrame
         end
         local closestEnemy = nil
         local shortestDistSq = math.huge
@@ -175,9 +173,9 @@ end
             if Settings.AutoTeleportCameraLock then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestEnemy.Position)
             end
-        elseif Settings.AutoTeleportReturn and originalTeleportCFrame then
+        elseif Settings.AutoTeleportReturn and Shared.originalTeleportCFrame then
             -- Không còn kẻ địch nào (hoặc toàn bộ đang có khiên an toàn) -> Tự tele về vị trí ban đầu
-            myHrp.CFrame = originalTeleportCFrame
+            myHrp.CFrame = Shared.originalTeleportCFrame
             myHrp.Velocity = Vector3.zero
         end
     end
@@ -185,8 +183,8 @@ end
     -- Speed Tele bám địch (Tốc độ Speed + Noclip di chuyển đến kẻ địch - Tối ưu hóa Squared Distance)
     if Settings.SpeedTele and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local myHrp = LocalPlayer.Character.HumanoidRootPart
-        if not originalSpeedTeleCFrame then
-            originalSpeedTeleCFrame = myHrp.CFrame
+        if not Shared.originalSpeedTeleCFrame then
+            Shared.originalSpeedTeleCFrame = myHrp.CFrame
         end
         local closestEnemy = nil
         local shortestDistSq = math.huge
@@ -242,17 +240,17 @@ end
             if Settings.AutoTeleportCameraLock then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestEnemy.Position)
             end
-        elseif Settings.AutoTeleportReturn and originalSpeedTeleCFrame then
-            local diff = originalSpeedTeleCFrame.Position - myHrp.Position
+        elseif Settings.AutoTeleportReturn and Shared.originalSpeedTeleCFrame then
+            local diff = Shared.originalSpeedTeleCFrame.Position - myHrp.Position
             local dist = diff.Magnitude
             local moveSpeed = Settings.SpeedTeleSpeed or 50
             local stepDist = moveSpeed * 0.016
             
             if dist <= stepDist or dist <= 0.5 then
-                myHrp.CFrame = originalSpeedTeleCFrame
+                myHrp.CFrame = Shared.originalSpeedTeleCFrame
             else
                 local moveDir = diff.Unit
-                local lookAtTarget = originalSpeedTeleCFrame.Position + originalSpeedTeleCFrame.LookVector * 10
+                local lookAtTarget = Shared.originalSpeedTeleCFrame.Position + Shared.originalSpeedTeleCFrame.LookVector * 10
                 myHrp.CFrame = CFrame.new(myHrp.Position + (moveDir * stepDist), lookAtTarget)
             end
             myHrp.Velocity = Vector3.zero
@@ -307,7 +305,7 @@ end
                 end
                 hrp.Velocity = moveDir
                 hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + camCFrame.LookVector)
-            elseif Settings.UndergroundNoclip and undergroundSurfaceY then
+            elseif Settings.UndergroundNoclip and Shared.undergroundSurfaceY then
                 humanoid.PlatformStand = true
                 local moveDir = Vector3.zero
                 local camCFrame = Camera.CFrame
@@ -322,7 +320,7 @@ end
                     moveDir = moveDir.Unit * Settings.WalkSpeed
                 end
                 
-                local targetY = undergroundSurfaceY - Settings.UndergroundDistance
+                local targetY = Shared.undergroundSurfaceY - Settings.UndergroundDistance
                 hrp.Velocity = moveDir
                 
                 local camLx, camLz = camCFrame.LookVector.X, camCFrame.LookVector.Z

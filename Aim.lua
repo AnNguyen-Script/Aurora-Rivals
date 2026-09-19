@@ -140,10 +140,8 @@ local ESPTable = {}
                 if Settings.AimSmoothness >= 1 then
                     Camera.CFrame = desired
                 else
-                    -- [EXPONENTIAL SMOOTHING]: Khóa tâm mượt mà độc lập với tốc độ khung hình
-                    local baseRate = (1 / math.max(1 - Settings.AimSmoothness * 0.93, 0.05)) * 15
-                    local t = 1 - math.exp(-baseRate * step)
-                    Camera.CFrame = Camera.CFrame:Lerp(desired, math.clamp(t, 0, 1))
+                    local t = 1 - math.pow(1 - math.clamp(Settings.AimSmoothness, 0, 1), step * 60)
+                    Camera.CFrame = Camera.CFrame:Lerp(desired, t)
                 end
             end
         end
@@ -168,27 +166,13 @@ local ESPTable = {}
 
         if targetPart and targetScreenPos then
             ProAimLockedTarget = targetPart
-            local smoothSetting = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1)
+            local smoothVal = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1)
             local xOffset = Settings.ProAimXOffset or 0
             local yOffset = Settings.ProAimYOffset or 0
-            local diffX = (targetScreenPos.X - mousePos.X + xOffset)
-            local diffY = (targetScreenPos.Y - mousePos.Y + yOffset)
-            local dist = math.sqrt(diffX * diffX + diffY * diffY)
-
-            if dist > 0.1 then
-                -- [EXPONENTIAL SMOOTHING & HUMANIZED CURVE]
-                -- Đồng nhất tốc độ trên mọi FPS (60hz, 144hz, 240hz)
-                local baseRate = (1 / math.max(1 - smoothSetting * 0.93, 0.05)) * 15
-                local factor = 1 - math.exp(-baseRate * step)
-
-                -- Hãm tốc tự nhiên khi gần chạm mục tiêu (< 30px) để không bị rung giật hoặc overshoot
-                local dampFactor = math.clamp(dist / 32, 0.35, 1.0)
-                factor = factor * dampFactor
-
-                local moveX = diffX * factor
-                local moveY = diffY * factor
-                mousemoverel(moveX, moveY)
-            end
+            local deltaX = (targetScreenPos.X - mousePos.X + xOffset) * smoothVal
+            local deltaY = (targetScreenPos.Y - mousePos.Y + yOffset) * smoothVal
+            
+            mousemoverel(deltaX, deltaY)
         else
             ProAimLockedTarget = nil
         end

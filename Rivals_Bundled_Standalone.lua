@@ -805,11 +805,11 @@ local function getClosestPlayer()
                 if onScreen then
                     local dx = pos.X - fovPos.X
                     local dy = pos.Y - fovPos.Y
-                    local distFromCenter = math.sqrt(dx * dx + dy * dy)
-                    if distFromCenter < shortestDist then
+                    local distSq = dx * dx + dy * dy
+                    if distSq < (shortestDist * shortestDist) then
                         if isVisible(head) or isVisible(hrp) then
                             target = source
-                            shortestDist = distFromCenter
+                            shortestDist = math.sqrt(distSq)
                         end
                     end
                 end
@@ -1408,14 +1408,21 @@ local ESPTable = {}
     end
     local closestTarget = cachedClosest
 
-    -- 1. FOV & SNAPLINE (1 VÒNG TRÒN DUY NHẤT ĐỒNG BỘ)
-    FOVring.Visible = Settings.FOVVisible
+    -- 1. FOV & SNAPLINE (1 VÒNG TRÒN DUY NHẤT ĐỒNG BỘ - CHỐNG PROPERTY THRASHING)
+    if FOVring.Visible ~= Settings.FOVVisible then
+        FOVring.Visible = Settings.FOVVisible
+    end
     if Settings.FOVVisible then
         local mousePos = UserInputService:GetMouseLocation()
         FOVring.Position = mousePos
-        FOVring.Radius = Settings.FOV
+        if FOVring.Radius ~= Settings.FOV then
+            FOVring.Radius = Settings.FOV
+        end
         local hasTarget = (Settings.AimEnabled and closestTarget) or (Settings.ProAimEnabled and (ProAimLockedTarget ~= nil))
-        FOVring.Color = hasTarget and Color3.fromRGB(255, 50, 50) or Theme.AccentOn
+        local targetColor = hasTarget and Color3.fromRGB(255, 50, 50) or Theme.AccentOn
+        if FOVring.Color ~= targetColor then
+            FOVring.Color = targetColor
+        end
     end
 
     local snapTarget = nil
@@ -1436,12 +1443,12 @@ local ESPTable = {}
         if onScreen then
             AimSnaplineDraw.From = center
             AimSnaplineDraw.To = Vector2.new(targetPos.X, targetPos.Y)
-            AimSnaplineDraw.Visible = true
+            if not AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = true end
         else
-            AimSnaplineDraw.Visible = false
+            if AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = false end
         end
     else
-        AimSnaplineDraw.Visible = false
+        if AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = false end
     end
 
     -- 2. AIM HOLD (Hard Lock + smooth + jitter)
@@ -1514,10 +1521,11 @@ local ESPTable = {}
         if targetPart then
             local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
             if onScreen then
-                local adist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
                 local maxFov = Settings.FOV or 100
+                local dx = pos.X - center.X
+                local dy = pos.Y - center.Y
                 local delayTime = math.max(Settings.AutoFireDelay or 0, 0.05)
-                if adist <= maxFov and (now - lastShotTime) >= delayTime then
+                if (dx * dx + dy * dy) <= (maxFov * maxFov) and (now - lastShotTime) >= delayTime then
                     if isAutoFireVisible(targetPart) then
                         lastShotTime = now
                         FireShot()
@@ -1997,9 +2005,9 @@ Players.PlayerRemoving:Connect(removeESP)
                             if Settings.ESPBox then
                                 esp.Box.Size = Vector2.new(width, height)
                                 esp.Box.Position = Vector2.new(rootPos.X - width / 2, headPos.Y)
-                                esp.Box.Visible = true
+                                if not esp.Box.Visible then esp.Box.Visible = true end
                             else
-                                esp.Box.Visible = false
+                                if esp.Box.Visible then esp.Box.Visible = false end
                             end
 
                             -- [ESP THROTTLING]: Cập nhật chuỗi & dữ liệu chỉ 12-15 FPS để tiết kiệm CPU
@@ -2064,15 +2072,15 @@ Players.PlayerRemoving:Connect(removeESP)
                                 end
                             end
 
-                            -- [VỊ TRÍ RENDER MƯỢT 60-144 FPS]: Chỉ cập nhật tọa độ hình học
+                            -- [VỊ TRÍ RENDER MƯỢT 60-144 FPS]: Chỉ cập nhật tọa độ hình học (Chống Property Thrashing)
                             if Settings.ESPName or Settings.ESPDistance then
                                 if esp.Name.Text ~= esp._cachedNameText then
                                     esp.Name.Text = esp._cachedNameText
                                 end
                                 esp.Name.Position = Vector2.new(rootPos.X, headPos.Y - 18)
-                                esp.Name.Visible = true
+                                if not esp.Name.Visible then esp.Name.Visible = true end
                             else
-                                esp.Name.Visible = false
+                                if esp.Name.Visible then esp.Name.Visible = false end
                             end
 
                             if (Settings.ESPWeapon or Settings.ESPLevel) and esp._cachedInfoText ~= "" then
@@ -2080,36 +2088,37 @@ Players.PlayerRemoving:Connect(removeESP)
                                     esp.Info.Text = esp._cachedInfoText
                                 end
                                 esp.Info.Position = Vector2.new(rootPos.X, headPos.Y - 32)
-                                esp.Info.Visible = true
+                                if not esp.Info.Visible then esp.Info.Visible = true end
                             else
-                                esp.Info.Visible = false
+                                if esp.Info.Visible then esp.Info.Visible = false end
                             end
 
                             if Settings.ESPHealth then
                                 local dynamicThickness = math.clamp(150 / math.max(dist, 1), 1, 4)
                                 local barX = rootPos.X - width / 2 - (dynamicThickness + 2)
-                                esp.HealthBg.Thickness = dynamicThickness
+                                if esp.HealthBg.Thickness ~= dynamicThickness then esp.HealthBg.Thickness = dynamicThickness end
                                 esp.HealthBg.From = Vector2.new(barX, headPos.Y)
                                 esp.HealthBg.To = Vector2.new(barX, legPos.Y)
-                                esp.HealthBg.Visible = true
+                                if not esp.HealthBg.Visible then esp.HealthBg.Visible = true end
 
                                 local yOffset = height * (esp._cachedHealthPct or 1)
-                                esp.Health.Thickness = dynamicThickness
+                                if esp.Health.Thickness ~= dynamicThickness then esp.Health.Thickness = dynamicThickness end
                                 esp.Health.From = Vector2.new(barX, legPos.Y - yOffset)
                                 esp.Health.To = Vector2.new(barX, legPos.Y)
-                                esp.Health.Color = esp._cachedHealthCol or Color3.fromRGB(0, 255, 0)
-                                esp.Health.Visible = true
+                                local hCol = esp._cachedHealthCol or Color3.fromRGB(0, 255, 0)
+                                if esp.Health.Color ~= hCol then esp.Health.Color = hCol end
+                                if not esp.Health.Visible then esp.Health.Visible = true end
                             else
-                                esp.HealthBg.Visible = false
-                                esp.Health.Visible = false
+                                if esp.HealthBg.Visible then esp.HealthBg.Visible = false end
+                                if esp.Health.Visible then esp.Health.Visible = false end
                             end
 
                             if Settings.ESPLine then
                                 esp.Tracer.From = Vector2.new(center.X, 0)
                                 esp.Tracer.To = Vector2.new(rootPos.X, headPos.Y)
-                                esp.Tracer.Visible = true
+                                if not esp.Tracer.Visible then esp.Tracer.Visible = true end
                             else
-                                esp.Tracer.Visible = false
+                                if esp.Tracer.Visible then esp.Tracer.Visible = false end
                             end
 
                             -- [SKELETON LOD]: Tự động ẩn Skeleton khi địch > 150m (quá xa, nhìn rối mắt và tốn FPS)
@@ -2146,15 +2155,15 @@ Players.PlayerRemoving:Connect(removeESP)
                                             if visA or visB then
                                                 boneDraw.From = Vector2.new(posA.X, posA.Y)
                                                 boneDraw.To = Vector2.new(posB.X, posB.Y)
-                                                boneDraw.Visible = true
+                                                if not boneDraw.Visible then boneDraw.Visible = true end
                                             else
-                                                boneDraw.Visible = false
+                                                if boneDraw.Visible then boneDraw.Visible = false end
                                             end
                                         else
-                                            boneDraw.Visible = false
+                                            if boneDraw.Visible then boneDraw.Visible = false end
                                         end
                                     else
-                                        boneDraw.Visible = false
+                                        if boneDraw.Visible then boneDraw.Visible = false end
                                     end
                                 end
                             else
@@ -2184,15 +2193,15 @@ Players.PlayerRemoving:Connect(removeESP)
                                 local perp = Vector2.new(-math.cos(angle), -math.sin(angle)) * 9
                                 esp.Arrow1.From = tip
                                 esp.Arrow1.To = base + perp
-                                esp.Arrow1.Visible = true
+                                if not esp.Arrow1.Visible then esp.Arrow1.Visible = true end
 
                                 esp.Arrow2.From = tip
                                 esp.Arrow2.To = base - perp
-                                esp.Arrow2.Visible = true
+                                if not esp.Arrow2.Visible then esp.Arrow2.Visible = true end
 
                                 esp.Arrow3.From = base + perp
                                 esp.Arrow3.To = base - perp
-                                esp.Arrow3.Visible = true
+                                if not esp.Arrow3.Visible then esp.Arrow3.Visible = true end
                                 isVisibleNow = true
                             else
                                 if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end

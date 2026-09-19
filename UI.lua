@@ -1797,6 +1797,15 @@ end)
 local PanelESP = CreatePanel(TabESP, "ESP", "", 0, 0, 0.5, 1)
 CreateToggle(PanelESP, "Enable ESP", Theme.DotGreen, "ESPEnabled", function(v)
     Settings.ESPEnabled = v
+    if not v and Shared.ESPTable then
+        for _, esp in pairs(Shared.ESPTable) do
+            if Shared.hideAllESP then
+                Shared.hideAllESP(esp)
+            elseif ESP and ESP.hideAllESP then
+                ESP.hideAllESP(esp)
+            end
+        end
+    end
     if ESPCounterBox then
         ESPCounterBox.Visible = v and Settings.ESPCount
     end
@@ -1817,7 +1826,16 @@ CreateToggle(PanelESP, "Player Count (Top)", Theme.DotGreen, "ESPCount", functio
     end
 end)
 CreateToggle(PanelESP, "Aim Warning", Theme.DotGreen, "AimWarning", function(v) Settings.AimWarning = v end)
-CreateToggle(PanelESP, 'Arrows <font color="#ff3333">[BETA]</font>', Theme.DotGreen, "OffscreenArrows", function(v) Settings.OffscreenArrows = v end)
+CreateToggle(PanelESP, 'Arrows <font color="#ff3333">[BETA]</font>', Theme.DotGreen, "OffscreenArrows", function(v)
+    Settings.OffscreenArrows = v
+    if not v and Shared.ESPTable then
+        for _, esp in pairs(Shared.ESPTable) do
+            if esp.Arrow1 then esp.Arrow1.Visible = false end
+            if esp.Arrow2 then esp.Arrow2.Visible = false end
+            if esp.Arrow3 then esp.Arrow3.Visible = false end
+        end
+    end
+end)
 
 local PanelESPSet = CreatePanel(TabESP, "Settings", "⚙", 0.5, 0, 0.5, 1)
 CreateToggle(PanelESPSet, "Team Check", Theme.DotGreen, "TeamCheck", function(v)
@@ -1828,10 +1846,16 @@ end)
 CreateToggle(PanelESPSet, "Bot [BETA]", Theme.DotGreen, "TargetNPC", function(v)
     Settings.TargetNPC = v
     if not v then
-        table.clear(NPCCache)
-        for target, esp in pairs(ESPTable) do
-            if typeof(target) == "Instance" and not target:IsA("Player") then
-                removeESP(target)
+        if Shared.NPCCache then table.clear(Shared.NPCCache) end
+        if Shared.ESPTable then
+            for target, esp in pairs(Shared.ESPTable) do
+                if typeof(target) == "Instance" and not target:IsA("Player") then
+                    if Shared.removeESP then
+                        Shared.removeESP(target)
+                    elseif ESP and ESP.removeESP then
+                        ESP.removeESP(target)
+                    end
+                end
             end
         end
     end

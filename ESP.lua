@@ -66,16 +66,13 @@ local function createESP(player)
     esp.Chams.Enabled = false
     esp.Chams.Parent = ChamsFolder
 
-    local okTri, tri = pcall(Drawing.new, "Triangle")
-    if okTri and tri then
-        tri.Filled = true
-        tri.Color = Color3.fromRGB(255, 255, 255)
-        tri.Visible = false
-        esp.ArrowTriangle = tri
-    else
-        esp.Arrow1 = Drawing.new("Line"); esp.Arrow1.Thickness = 2.5; esp.Arrow1.Color = Color3.fromRGB(255, 255, 255); esp.Arrow1.Visible = false
-        esp.Arrow2 = Drawing.new("Line"); esp.Arrow2.Thickness = 2.5; esp.Arrow2.Color = Color3.fromRGB(255, 255, 255); esp.Arrow2.Visible = false
-        esp.Arrow3 = Drawing.new("Line"); esp.Arrow3.Thickness = 2; esp.Arrow3.Color = Color3.fromRGB(255, 255, 255); esp.Arrow3.Visible = false
+    esp.ArrowLines = {}
+    for i = 1, 7 do
+        local l = Drawing.new("Line")
+        l.Thickness = 3.5
+        l.Color = Color3.fromRGB(255, 255, 255)
+        l.Visible = false
+        esp.ArrowLines[i] = l
     end
 
     esp.ArrowName = Drawing.new("Text")
@@ -124,14 +121,15 @@ local function removeESP(player)
         pcall(function() if esp.Info then esp.Info:Remove() end end)
         pcall(function() if esp.Chams then esp.Chams:Destroy() end end)
         pcall(function()
-            if esp.ArrowTriangle then esp.ArrowTriangle:Remove() end
+            if esp.ArrowLines then
+                for i = 1, #esp.ArrowLines do
+                    if esp.ArrowLines[i] then esp.ArrowLines[i]:Remove() end
+                end
+            end
             if esp.ArrowName then esp.ArrowName:Remove() end
             if esp.ArrowDist then esp.ArrowDist:Remove() end
             if esp.ArrowHealthBg then esp.ArrowHealthBg:Remove() end
             if esp.ArrowHealth then esp.ArrowHealth:Remove() end
-            if esp.Arrow1 then esp.Arrow1:Remove() end
-            if esp.Arrow2 then esp.Arrow2:Remove() end
-            if esp.Arrow3 then esp.Arrow3:Remove() end
         end)
         if esp.Skeleton then
             for i = 1, #esp.Skeleton do
@@ -161,14 +159,16 @@ end
 
 local function hideArrowESP(esp)
     if not esp then return end
-    if esp.ArrowTriangle and esp.ArrowTriangle.Visible then esp.ArrowTriangle.Visible = false end
+    if esp.ArrowLines then
+        for i = 1, #esp.ArrowLines do
+            local l = esp.ArrowLines[i]
+            if l and l.Visible then l.Visible = false end
+        end
+    end
     if esp.ArrowName and esp.ArrowName.Visible then esp.ArrowName.Visible = false end
     if esp.ArrowDist and esp.ArrowDist.Visible then esp.ArrowDist.Visible = false end
     if esp.ArrowHealthBg and esp.ArrowHealthBg.Visible then esp.ArrowHealthBg.Visible = false end
     if esp.ArrowHealth and esp.ArrowHealth.Visible then esp.ArrowHealth.Visible = false end
-    if esp.Arrow1 and esp.Arrow1.Visible then esp.Arrow1.Visible = false end
-    if esp.Arrow2 and esp.Arrow2.Visible then esp.Arrow2.Visible = false end
-    if esp.Arrow3 and esp.Arrow3.Visible then esp.Arrow3.Visible = false end
 end
 
 local function hideAllESP(esp)
@@ -521,30 +521,19 @@ Players.PlayerRemoving:Connect(removeESP)
                                 local pC = base - perp * sideWidth
                                 local arrowCenter = (tip + base) * 0.5
 
-                                -- 1. Mũi tên tam giác trắng đặc
-                                if esp.ArrowTriangle then
-                                    esp.ArrowTriangle.PointA = tip
-                                    esp.ArrowTriangle.PointB = pB
-                                    esp.ArrowTriangle.PointC = pC
-                                    if esp.ArrowTriangle.Color ~= Color3.fromRGB(255, 255, 255) then
-                                        esp.ArrowTriangle.Color = Color3.fromRGB(255, 255, 255)
+                                -- 1. Mũi tên tam giác trắng đặc bằng 7 đường Line xếp lớp (100% tương thích mọi executor)
+                                if esp.ArrowLines then
+                                    for i = 1, 7 do
+                                        local t = (i - 1) / 6
+                                        local currentCenter = base:Lerp(tip, t)
+                                        local currentWidth = sideWidth * (1 - t)
+                                        local l = esp.ArrowLines[i]
+                                        if l then
+                                            l.From = currentCenter + perp * currentWidth
+                                            l.To = currentCenter - perp * currentWidth
+                                            if not l.Visible then l.Visible = true end
+                                        end
                                     end
-                                    if not esp.ArrowTriangle.Filled then
-                                        esp.ArrowTriangle.Filled = true
-                                    end
-                                    if not esp.ArrowTriangle.Visible then
-                                        esp.ArrowTriangle.Visible = true
-                                    end
-                                elseif esp.Arrow1 and esp.Arrow2 and esp.Arrow3 then
-                                    esp.Arrow1.From = tip; esp.Arrow1.To = pB
-                                    esp.Arrow2.From = tip; esp.Arrow2.To = pC
-                                    esp.Arrow3.From = pB; esp.Arrow3.To = pC
-                                    esp.Arrow1.Color = Color3.fromRGB(255, 255, 255)
-                                    esp.Arrow2.Color = Color3.fromRGB(255, 255, 255)
-                                    esp.Arrow3.Color = Color3.fromRGB(255, 255, 255)
-                                    if not esp.Arrow1.Visible then esp.Arrow1.Visible = true end
-                                    if not esp.Arrow2.Visible then esp.Arrow2.Visible = true end
-                                    if not esp.Arrow3.Visible then esp.Arrow3.Visible = true end
                                 end
 
                                 -- 2. Tên kẻ địch (Tương ứng với ESP Name)

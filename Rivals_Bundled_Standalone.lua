@@ -4230,7 +4230,7 @@ CreateToggle(PanelESP, 'Arrows <font color="#ff3333">[BETA]</font>', Theme.DotGr
     end
 end)
 
-local PanelESPSet = CreatePanel(TabESP, "Settings", "⚙", 0.5, 0, 0.5, 1)
+local PanelESPSet = CreatePanel(TabESP, "Settings", "", 0.5, 0, 0.5, 1)
 CreateToggle(PanelESPSet, "Team Check", Theme.DotGreen, "TeamCheck", function(v)
     Settings.TeamCheck = v
     Settings.ESPTeamCheck = v
@@ -4418,7 +4418,7 @@ CreateToggle(PanelPlayer, 'SpinBot <font color="#ff3333">[BETA]</font>', Theme.D
     end
 end)
 
-local PanelPlayerSet = CreatePanel(TabPlayer, "Settings", "⚙", 0.5, 0, 0.5, 1)
+local PanelPlayerSet = CreatePanel(TabPlayer, "Settings", "", 0.5, 0, 0.5, 1)
 CreateSlider(PanelPlayerSet, "Tốc Độ", "WalkSpeed", 16, 300, "", function(v) Settings.WalkSpeed = v end)
 CreateSlider(PanelPlayerSet, "Lực Nhảy", "JumpPower", 50, 500, "", function(v) Settings.JumpPower = v end)
 CreateSlider(PanelPlayerSet, "Tốc Độ Bay", "FlySpeed", 10, 300, "", function(v) Settings.FlySpeed = v end)
@@ -4440,7 +4440,7 @@ CreateToggle(PanelPlayerSet, "Kiểm Tra Khiên An Toàn", Theme.DotGreen, "Safe
 CreateSlider(PanelPlayerSet, "Tốc Độ Speed Tele", "SpeedTeleSpeed", 10, 300, "", function(v) Settings.SpeedTeleSpeed = v end)
 CreateSlider(PanelPlayerSet, "Tốc Độ Xoay", "SpinSpeed", 10, 100, "", function(v) Settings.SpinSpeed = v end)
 
-local PanelOptim = CreatePanel(TabSecurity, "Tối Ưu Hóa Máy Yếu", "🚀", 0, 0, 0.5, 1)
+local PanelOptim = CreatePanel(TabSecurity, "Tối Ưu Hóa Máy Yếu", "", 0, 0, 0.5, 1)
 CreateToggle(PanelOptim, "Tắt Đổ Bóng", Theme.DotGreen, "OptimShadows", function(v)
     Settings.OptimShadows = v
     Lighting.GlobalShadows = not v
@@ -4553,7 +4553,7 @@ do
     BtnLoad.TextColor3 = Color3.fromRGB(10, 25, 18)
     BtnLoad.Font = Theme.FontBold
     BtnLoad.TextSize = 13
-    BtnLoad.Text = "⚡ Tải Cài Đặt (Load)"
+    BtnLoad.Text = "Tải Cài Đặt (Load)"
     BtnLoad.Parent = PanelSettings
     Instance.new("UICorner", BtnLoad).CornerRadius = UDim.new(0, 6)
     BtnLoad.MouseButton1Click:Connect(function() LoadConfig(false) end)

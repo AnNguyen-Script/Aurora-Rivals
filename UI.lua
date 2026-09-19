@@ -328,7 +328,13 @@ local function CreateSidebarIcon(tabName, iconChar, yPos)
 
     local Btn = Instance.new("TextButton")
     Btn.Size = UDim2.new(0, 30, 0, 30)
-    Btn.Position = UDim2.new(0.5, -15, 0, yPos)
+    if typeof(yPos) == "UDim2" then
+        Btn.Position = yPos
+    elseif type(yPos) == "number" and yPos < 0 then
+        Btn.Position = UDim2.new(0.5, -15, 1, yPos)
+    else
+        Btn.Position = UDim2.new(0.5, -15, 0, yPos)
+    end
     Btn.BackgroundTransparency = 1
     Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     Btn.Text = ""
@@ -419,7 +425,7 @@ end
 local TabAimbot = CreateSidebarIcon("Aimbot", "rbxassetid://7733917120", 10)
 local TabESP = CreateSidebarIcon("ESP", "rbxassetid://7733774602", 55)
 local TabPlayer = CreateSidebarIcon("Player", "rbxassetid://7733920644", 100)
-local TabSecurity = CreateSidebarIcon("Security", "rbxassetid://7734053495", 145)
+local TabSecurity = CreateSidebarIcon("Security", "rbxassetid://7734053495", UDim2.new(0.5, -15, 1, -40))
 
 Tabs["Aimbot"].Visible = true
 SidebarButtons["Aimbot"].BackgroundTransparency = 0.9

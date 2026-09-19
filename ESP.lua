@@ -66,9 +66,41 @@ local function createESP(player)
     esp.Chams.Enabled = false
     esp.Chams.Parent = ChamsFolder
 
-    esp.Arrow1 = Drawing.new("Line"); esp.Arrow1.Thickness = 2.5; esp.Arrow1.Color = Color3.fromRGB(255, 35, 35); esp.Arrow1.Visible = false
-    esp.Arrow2 = Drawing.new("Line"); esp.Arrow2.Thickness = 2.5; esp.Arrow2.Color = Color3.fromRGB(255, 35, 35); esp.Arrow2.Visible = false
-    esp.Arrow3 = Drawing.new("Line"); esp.Arrow3.Thickness = 2; esp.Arrow3.Color = Color3.fromRGB(255, 35, 35); esp.Arrow3.Visible = false
+    local okTri, tri = pcall(Drawing.new, "Triangle")
+    if okTri and tri then
+        tri.Filled = true
+        tri.Color = Color3.fromRGB(255, 255, 255)
+        tri.Visible = false
+        esp.ArrowTriangle = tri
+    else
+        esp.Arrow1 = Drawing.new("Line"); esp.Arrow1.Thickness = 2.5; esp.Arrow1.Color = Color3.fromRGB(255, 255, 255); esp.Arrow1.Visible = false
+        esp.Arrow2 = Drawing.new("Line"); esp.Arrow2.Thickness = 2.5; esp.Arrow2.Color = Color3.fromRGB(255, 255, 255); esp.Arrow2.Visible = false
+        esp.Arrow3 = Drawing.new("Line"); esp.Arrow3.Thickness = 2; esp.Arrow3.Color = Color3.fromRGB(255, 255, 255); esp.Arrow3.Visible = false
+    end
+
+    esp.ArrowName = Drawing.new("Text")
+    esp.ArrowName.Size = 13
+    esp.ArrowName.Center = true
+    esp.ArrowName.Outline = true
+    esp.ArrowName.Color = Color3.fromRGB(255, 255, 255)
+    esp.ArrowName.Visible = false
+
+    esp.ArrowDist = Drawing.new("Text")
+    esp.ArrowDist.Size = 12
+    esp.ArrowDist.Center = true
+    esp.ArrowDist.Outline = true
+    esp.ArrowDist.Color = Color3.fromRGB(255, 255, 255)
+    esp.ArrowDist.Visible = false
+
+    esp.ArrowHealthBg = Drawing.new("Line")
+    esp.ArrowHealthBg.Thickness = 3
+    esp.ArrowHealthBg.Color = Color3.fromRGB(0, 0, 0)
+    esp.ArrowHealthBg.Visible = false
+
+    esp.ArrowHealth = Drawing.new("Line")
+    esp.ArrowHealth.Thickness = 2
+    esp.ArrowHealth.Color = Color3.fromRGB(0, 255, 0)
+    esp.ArrowHealth.Visible = false
 
     esp._chamsOn = false
     esp._rendered = false
@@ -92,6 +124,11 @@ local function removeESP(player)
         pcall(function() if esp.Info then esp.Info:Remove() end end)
         pcall(function() if esp.Chams then esp.Chams:Destroy() end end)
         pcall(function()
+            if esp.ArrowTriangle then esp.ArrowTriangle:Remove() end
+            if esp.ArrowName then esp.ArrowName:Remove() end
+            if esp.ArrowDist then esp.ArrowDist:Remove() end
+            if esp.ArrowHealthBg then esp.ArrowHealthBg:Remove() end
+            if esp.ArrowHealth then esp.ArrowHealth:Remove() end
             if esp.Arrow1 then esp.Arrow1:Remove() end
             if esp.Arrow2 then esp.Arrow2:Remove() end
             if esp.Arrow3 then esp.Arrow3:Remove() end
@@ -122,12 +159,22 @@ local function hideOnScreenESP(esp)
     end
 end
 
-local function hideAllESP(esp)
+local function hideArrowESP(esp)
     if not esp then return end
-    hideOnScreenESP(esp)
+    if esp.ArrowTriangle and esp.ArrowTriangle.Visible then esp.ArrowTriangle.Visible = false end
+    if esp.ArrowName and esp.ArrowName.Visible then esp.ArrowName.Visible = false end
+    if esp.ArrowDist and esp.ArrowDist.Visible then esp.ArrowDist.Visible = false end
+    if esp.ArrowHealthBg and esp.ArrowHealthBg.Visible then esp.ArrowHealthBg.Visible = false end
+    if esp.ArrowHealth and esp.ArrowHealth.Visible then esp.ArrowHealth.Visible = false end
     if esp.Arrow1 and esp.Arrow1.Visible then esp.Arrow1.Visible = false end
     if esp.Arrow2 and esp.Arrow2.Visible then esp.Arrow2.Visible = false end
     if esp.Arrow3 and esp.Arrow3.Visible then esp.Arrow3.Visible = false end
+end
+
+local function hideAllESP(esp)
+    if not esp then return end
+    hideOnScreenESP(esp)
+    hideArrowESP(esp)
     if esp.Chams and esp.Chams.Enabled then
         esp.Chams.Enabled = false
         esp._chamsOn = false
@@ -450,7 +497,7 @@ Players.PlayerRemoving:Connect(removeESP)
                                 end
                             end
 
-                            if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
+                            hideArrowESP(esp)
                         else
                             -- Off-Screen: Ẩn các thành phần trên màn hình (Box, Tracer, Skeleton, Name, Health) để không dính hình
                             hideOnScreenESP(esp)
@@ -464,24 +511,93 @@ Players.PlayerRemoving:Connect(removeESP)
                                 local x = relVector:Dot(right)
                                 local z = relVector:Dot(forward)
                                 local angle = math.atan2(x, z)
-                                local radius = 170
-                                local tip = center + Vector2.new(math.sin(angle), -math.cos(angle)) * radius
-                                local base = center + Vector2.new(math.sin(angle), -math.cos(angle)) * (radius - 18)
-                                local perp = Vector2.new(-math.cos(angle), -math.sin(angle)) * 9
-                                esp.Arrow1.From = tip
-                                esp.Arrow1.To = base + perp
-                                if not esp.Arrow1.Visible then esp.Arrow1.Visible = true end
+                                local radius = 200
+                                local dir = Vector2.new(math.sin(angle), -math.cos(angle))
+                                local perp = Vector2.new(-math.cos(angle), -math.sin(angle))
+                                local tip = center + dir * radius
+                                local base = center + dir * (radius - 22)
+                                local sideWidth = 11
+                                local pB = base + perp * sideWidth
+                                local pC = base - perp * sideWidth
+                                local arrowCenter = (tip + base) * 0.5
 
-                                esp.Arrow2.From = tip
-                                esp.Arrow2.To = base - perp
-                                if not esp.Arrow2.Visible then esp.Arrow2.Visible = true end
+                                -- 1. Mũi tên tam giác trắng đặc
+                                if esp.ArrowTriangle then
+                                    esp.ArrowTriangle.PointA = tip
+                                    esp.ArrowTriangle.PointB = pB
+                                    esp.ArrowTriangle.PointC = pC
+                                    if esp.ArrowTriangle.Color ~= Color3.fromRGB(255, 255, 255) then
+                                        esp.ArrowTriangle.Color = Color3.fromRGB(255, 255, 255)
+                                    end
+                                    if not esp.ArrowTriangle.Filled then
+                                        esp.ArrowTriangle.Filled = true
+                                    end
+                                    if not esp.ArrowTriangle.Visible then
+                                        esp.ArrowTriangle.Visible = true
+                                    end
+                                elseif esp.Arrow1 and esp.Arrow2 and esp.Arrow3 then
+                                    esp.Arrow1.From = tip; esp.Arrow1.To = pB
+                                    esp.Arrow2.From = tip; esp.Arrow2.To = pC
+                                    esp.Arrow3.From = pB; esp.Arrow3.To = pC
+                                    esp.Arrow1.Color = Color3.fromRGB(255, 255, 255)
+                                    esp.Arrow2.Color = Color3.fromRGB(255, 255, 255)
+                                    esp.Arrow3.Color = Color3.fromRGB(255, 255, 255)
+                                    if not esp.Arrow1.Visible then esp.Arrow1.Visible = true end
+                                    if not esp.Arrow2.Visible then esp.Arrow2.Visible = true end
+                                    if not esp.Arrow3.Visible then esp.Arrow3.Visible = true end
+                                end
 
-                                esp.Arrow3.From = base + perp
-                                esp.Arrow3.To = base - perp
-                                if not esp.Arrow3.Visible then esp.Arrow3.Visible = true end
+                                -- 2. Tên kẻ địch (Tương ứng với ESP Name)
+                                if Settings.ESPName and esp.ArrowName then
+                                    if esp.ArrowName.Text ~= targetName then
+                                        esp.ArrowName.Text = targetName
+                                    end
+                                    esp.ArrowName.Position = Vector2.new(arrowCenter.X, arrowCenter.Y - 26)
+                                    if not esp.ArrowName.Visible then esp.ArrowName.Visible = true end
+                                else
+                                    if esp.ArrowName and esp.ArrowName.Visible then esp.ArrowName.Visible = false end
+                                end
+
+                                -- 3. Khoảng cách (Tương ứng với ESP Distance)
+                                if Settings.ESPDistance and esp.ArrowDist then
+                                    local distText = math.floor(dist) .. "m"
+                                    if esp.ArrowDist.Text ~= distText then
+                                        esp.ArrowDist.Text = distText
+                                    end
+                                    esp.ArrowDist.Position = Vector2.new(arrowCenter.X, arrowCenter.Y + 14)
+                                    if not esp.ArrowDist.Visible then esp.ArrowDist.Visible = true end
+                                else
+                                    if esp.ArrowDist and esp.ArrowDist.Visible then esp.ArrowDist.Visible = false end
+                                end
+
+                                -- 4. Thanh máu dọc (Tương ứng với ESP Health)
+                                if Settings.ESPHealth and esp.ArrowHealth and esp.ArrowHealthBg then
+                                    local barX = arrowCenter.X + (sideWidth + 8)
+                                    local barTop = arrowCenter.Y - 14
+                                    local barBottom = arrowCenter.Y + 14
+                                    local barHeight = 28
+
+                                    esp.ArrowHealthBg.From = Vector2.new(barX, barTop)
+                                    esp.ArrowHealthBg.To = Vector2.new(barX, barBottom)
+                                    if not esp.ArrowHealthBg.Visible then esp.ArrowHealthBg.Visible = true end
+
+                                    local healthPct = esp._cachedHealthPct or 1
+                                    local fillY = barBottom - (barHeight * healthPct)
+                                    esp.ArrowHealth.From = Vector2.new(barX, fillY)
+                                    esp.ArrowHealth.To = Vector2.new(barX, barBottom)
+                                    local hCol = esp._cachedHealthCol or Color3.fromRGB(0, 255, 0)
+                                    if esp.ArrowHealth.Color ~= hCol then
+                                        esp.ArrowHealth.Color = hCol
+                                    end
+                                    if not esp.ArrowHealth.Visible then esp.ArrowHealth.Visible = true end
+                                else
+                                    if esp.ArrowHealthBg and esp.ArrowHealthBg.Visible then esp.ArrowHealthBg.Visible = false end
+                                    if esp.ArrowHealth and esp.ArrowHealth.Visible then esp.ArrowHealth.Visible = false end
+                                end
+
                                 isVisibleNow = true
                             else
-                                if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
+                                hideArrowESP(esp)
                             end
                         end
                     else
@@ -489,14 +605,14 @@ Players.PlayerRemoving:Connect(removeESP)
                             esp._chamsOn = false
                             esp.Chams.Enabled = false
                         end
-                        if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
+                        hideArrowESP(esp)
                     end
                 else
                     if esp._chamsOn then
                         esp._chamsOn = false
                         esp.Chams.Enabled = false
                     end
-                    if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
+                    hideArrowESP(esp)
                 end
             end
 

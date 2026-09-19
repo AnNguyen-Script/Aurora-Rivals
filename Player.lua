@@ -342,6 +342,14 @@ end
         end
     end
 
+    UserInputService.JumpRequest:Connect(function()
+        if Settings.InfJump
+            and LocalPlayer.Character
+            and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+
     Player.originalHitboxes = originalHitboxes
     Player.appliedHitboxes = appliedHitboxes
     Player.ResetHitboxes = ResetHitboxes

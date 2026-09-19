@@ -20,6 +20,7 @@ return function(Shared, Targeting)
     local isAutoFireVisible = Targeting.isAutoFireVisible
     local forEachEnemy = Targeting.forEachEnemy
     local isSameTeam = Targeting.isSameTeam
+    local getProAimTargetCached = Targeting.getProAimTargetCached
 
 -- ============================================================
 -- DRAWING CORE
@@ -350,6 +351,38 @@ local ESPTable = {}
     end
 
     end
+
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        local bind = Settings.ProAimHoldMouse
+        if bind and (input.KeyCode == bind or input.UserInputType == bind) then
+            isProAimHolding = true
+        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.AimEnabled then
+            if Settings.AimHoldMode then
+                isAiming = true
+            else
+                local target = getClosestPlayer()
+                local targetChar = target and (target:IsA("Player") and target.Character or target)
+                if targetChar then
+                    local tPart = getTargetPart(targetChar)
+                    if tPart then
+                        local targetCFrame = CFrame.new(Camera.CFrame.Position, tPart.Position)
+                        Camera.CFrame = AddJitter(targetCFrame, Settings.AimJitter)
+                    end
+                end
+            end
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input, gpe)
+        local bind = Settings.ProAimHoldMouse
+        if bind and (input.KeyCode == bind or input.UserInputType == bind) then
+            isProAimHolding = false
+            ProAimLockedTarget = nil
+        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then isAiming = false end
+    end)
 
     Aim.FOVring = FOVring
     Aim.AimSnaplineDraw = AimSnaplineDraw

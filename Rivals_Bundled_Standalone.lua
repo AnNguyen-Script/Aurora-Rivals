@@ -406,7 +406,7 @@ end)()
 -- [[ MODULE: Targeting.lua ]]
 __MODULES['Targeting.lua'] = (function()
 -- ============================================================
--- MODULAR RIVALS | MODULE 3: TARGETING, RAYCAST & BOT SCANNER
+-- MODULAR RIVALS | MODULE 3: TARGETING, BOT SCANNER & RAYCAST
 -- ============================================================
 return function(Shared, Shield)
     local Targeting = {}
@@ -417,68 +417,13 @@ return function(Shared, Shield)
     local Camera = Shared.Camera
     local Workspace = Shared.Workspace
     local Const = Shared.Const
+    local UserInputService = Shared.UserInputService
     local WallCheckRayParams = Shared.WallCheckRayParams
 
--- ============================================================
--- LOGIC TÌM MỤC TIÊU & TỐI ƯU HOÁ RENDER/PHYSICS
--- ============================================================
-local aimSafeCounter = 0
-local isAiming = false
-local cachedClosest = nil
-local cachedClosestValid = 0
-local ProAimLockedTarget = nil
-local lastTargetSwitch = 0
-local aimAcquireTime = 0
-local lastShotTime = 0
-local noRecoilTargetPoint = nil
-local cachedProTarget = nil
-local cachedProValid = 0
-local lastWarnScan = 0
+    local cachedProTarget = nil
+    local cachedProValid = 0
 
--- Cache NoClip Parts để không bao giờ gọi GetDescendants() mỗi physics frame
-local noClipParts = {}
-local function RefreshNoClipParts()
-    table.clear(noClipParts)
-    local char = LocalPlayer.Character
-    if char then
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                table.insert(noClipParts, part)
-            end
-        end
-    end
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.2)
-    RefreshNoClipParts()
-    char.DescendantAdded:Connect(function(desc)
-        if desc:IsA("BasePart") then
-            table.insert(noClipParts, desc)
-        end
-    end)
-end)
-if LocalPlayer.Character then
-    RefreshNoClipParts()
-    LocalPlayer.Character.DescendantAdded:Connect(function(desc)
-        if desc:IsA("BasePart") then
-            table.insert(noClipParts, desc)
-        end
-    end)
-end
-
-local function FireShot()
-    if mouse1click_fn then
-        pcall(mouse1click_fn)
-    elseif VirtualInputManager then
-        pcall(VirtualInputManager.SendMouseButtonEvent, VirtualInputManager, 0, 0, 0, true, game, 0)
-        task.delay(0.02, function()
-            pcall(VirtualInputManager.SendMouseButtonEvent, VirtualInputManager, 0, 0, 0, false, game, 0)
-        end)
-    end
-end
-
-local function isSameTeam(target)
+    local function isSameTeam(target)
     if not target then return true end
     if target == LocalPlayer or target == LocalPlayer.Character then return true end
 
@@ -937,58 +882,6 @@ local function getProAimTargetCached()
     return cachedProTarget
 end
 
--- Humanization: jitter nhẹ để giả tay người
-local function AddJitter(baseCFrame, jitterAmount)
-    if jitterAmount <= 0 then return baseCFrame end
-    local r = math.random
-    local jx = (r() - 0.5) * jitterAmount * 2
-    local jy = (r() - 0.5) * jitterAmount * 2
-    local jz = (r() - 0.5) * jitterAmount * 2
-    return baseCFrame * CFrame.Angles(jx, jy, jz)
-end
-
-local isProAimHolding = false
-
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    local bind = Settings.ProAimHoldMouse
-    if bind and (input.KeyCode == bind or input.UserInputType == bind) then
-        isProAimHolding = true
-    end
-    if input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.AimEnabled then
-        if Settings.AimHoldMode then
-            isAiming = true
-        else
-            local target = getClosestPlayer()
-            local targetChar = target and (target:IsA("Player") and target.Character or target)
-            if targetChar then
-                local tPart = getTargetPart(targetChar)
-                if tPart then
-                    local targetCFrame = CFrame.new(Camera.CFrame.Position, tPart.Position)
-                    Camera.CFrame = AddJitter(targetCFrame, Settings.AimJitter)
-                end
-            end
-        end
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input, gpe)
-    local bind = Settings.ProAimHoldMouse
-    if bind and (input.KeyCode == bind or input.UserInputType == bind) then
-        isProAimHolding = false
-        ProAimLockedTarget = nil
-    end
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then isAiming = false end
-end)
-
-UserInputService.JumpRequest:Connect(function()
-    if Settings.InfJump
-        and LocalPlayer.Character
-        and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
-    end
-end)
-
 
 
     Targeting.isSameTeam = isSameTeam
@@ -998,6 +891,8 @@ end)
     Targeting.getTargetPart = getTargetPart
     Targeting.getClosestPlayer = getClosestPlayer
     Targeting.getClosestPlayerToCursor = getClosestPlayerToCursor
+    Targeting.getProAimTarget = getProAimTarget
+    Targeting.getProAimTargetCached = getProAimTargetCached
     Targeting.forEachEnemy = forEachEnemy
     Targeting.botCache = botCache
 
@@ -1352,6 +1247,14 @@ end
         end
     end
 
+    UserInputService.JumpRequest:Connect(function()
+        if Settings.InfJump
+            and LocalPlayer.Character
+            and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+
     Player.originalHitboxes = originalHitboxes
     Player.appliedHitboxes = appliedHitboxes
     Player.ResetHitboxes = ResetHitboxes
@@ -1388,6 +1291,7 @@ return function(Shared, Targeting)
     local isAutoFireVisible = Targeting.isAutoFireVisible
     local forEachEnemy = Targeting.forEachEnemy
     local isSameTeam = Targeting.isSameTeam
+    local getProAimTargetCached = Targeting.getProAimTargetCached
 
 -- ============================================================
 -- DRAWING CORE
@@ -1718,6 +1622,38 @@ local ESPTable = {}
     end
 
     end
+
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        local bind = Settings.ProAimHoldMouse
+        if bind and (input.KeyCode == bind or input.UserInputType == bind) then
+            isProAimHolding = true
+        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.AimEnabled then
+            if Settings.AimHoldMode then
+                isAiming = true
+            else
+                local target = getClosestPlayer()
+                local targetChar = target and (target:IsA("Player") and target.Character or target)
+                if targetChar then
+                    local tPart = getTargetPart(targetChar)
+                    if tPart then
+                        local targetCFrame = CFrame.new(Camera.CFrame.Position, tPart.Position)
+                        Camera.CFrame = AddJitter(targetCFrame, Settings.AimJitter)
+                    end
+                end
+            end
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input, gpe)
+        local bind = Settings.ProAimHoldMouse
+        if bind and (input.KeyCode == bind or input.UserInputType == bind) then
+            isProAimHolding = false
+            ProAimLockedTarget = nil
+        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then isAiming = false end
+    end)
 
     Aim.FOVring = FOVring
     Aim.AimSnaplineDraw = AimSnaplineDraw

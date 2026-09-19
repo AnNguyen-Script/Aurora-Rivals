@@ -23,6 +23,7 @@ return function(Shared, Shield, Targeting, ESP, Aim, Player)
     local ThemePresets = Shared.ThemePresets
     local MainFrame = nil
     local MainStroke = nil
+    local FOVring = (Aim and Aim.FOVring) or Shared.FOVring
     local ThemeObjects = Shared.ThemeObjects
     local SearchIndex = Shared.SearchIndex
     local TabActiveKeys = Shared.TabActiveKeys

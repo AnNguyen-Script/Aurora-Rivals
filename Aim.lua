@@ -29,6 +29,7 @@ local FOVring = Drawing.new("Circle")
 FOVring.Visible = false; FOVring.Thickness = 1.5; FOVring.Color = Theme.AccentOn
 FOVring.Filled = false; FOVring.Transparency = 1
 FOVring.Radius = Settings.FOV; FOVring.Position = Camera.ViewportSize / 2
+Shared.FOVring = FOVring
 
 local AimSnaplineDraw = Drawing.new("Line")
 AimSnaplineDraw.Visible = false; AimSnaplineDraw.Thickness = 1.5

@@ -326,7 +326,7 @@ end
 local function getClosestPlayer()
     local target, shortestDist = nil, Settings.FOV
     local origin = Camera.CFrame.Position
-    local fovPos = FOVring.Position
+    local fovPos = (Shared.FOVring and Shared.FOVring.Position) or UserInputService:GetMouseLocation()
 
     forEachEnemy(function(char, source)
         local hum = char:FindFirstChildOfClass("Humanoid")

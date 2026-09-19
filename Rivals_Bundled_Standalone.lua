@@ -731,7 +731,7 @@ end
 local function getClosestPlayer()
     local target, shortestDist = nil, Settings.FOV
     local origin = Camera.CFrame.Position
-    local fovPos = FOVring.Position
+    local fovPos = (Shared.FOVring and Shared.FOVring.Position) or UserInputService:GetMouseLocation()
 
     forEachEnemy(function(char, source)
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -1188,58 +1188,60 @@ end
                 humanoid.UseJumpPower = true
                 humanoid.JumpPower = Settings.JumpPower
             end
-            if Settings.InfJump and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
-            if Settings.Gravity then
-                Workspace.Gravity = Settings.GravityValue
-            else
-                Workspace.Gravity = 196.2
+            if Settings.GravityHack then
+                Workspace.Gravity = Settings.Gravity
             end
 
-            -- Fly
             if Settings.Fly then
+                humanoid.PlatformStand = true
                 local moveDir = Vector3.zero
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+                local camCFrame = Camera.CFrame
+
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCFrame.RightVector end
                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
                 if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
-                if moveDir.Magnitude > 0 then
-                    hrp.Velocity = moveDir.Unit * Settings.FlySpeed
-                else
-                    hrp.Velocity = Vector3.zero
-                end
-            end
 
-            -- Underground (Chui đất & di chuyển WASD)
-            if Settings.UndergroundNoclip then
-                if not undergroundSurfaceY then
-                    undergroundSurfaceY = hrp.Position.Y
+                if moveDir.Magnitude > 0 then
+                    moveDir = moveDir.Unit * Settings.FlySpeed
                 end
-                local targetY = undergroundSurfaceY - Settings.UndergroundDepth
+                hrp.Velocity = moveDir
+                hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + camCFrame.LookVector)
+            elseif Settings.UndergroundNoclip and undergroundSurfaceY then
+                humanoid.PlatformStand = true
                 local moveDir = Vector3.zero
-                local camLook = Camera.CFrame.LookVector
-                local camRight = Camera.CFrame.RightVector
-                local flatLook = Vector3.new(camLook.X, 0, camLook.Z).Unit
-                local flatRight = Vector3.new(camRight.X, 0, camRight.Z).Unit
+                local camCFrame = Camera.CFrame
 
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + flatLook end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - flatLook end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - flatRight end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + flatRight end
-
-                local currentPos = hrp.Position
-                local nextPos = Vector3.new(currentPos.X, targetY, currentPos.Z)
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCFrame.RightVector end
+                
+                moveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
                 if moveDir.Magnitude > 0 then
-                    nextPos = nextPos + (moveDir.Unit * (Settings.UndergroundSpeed * step))
+                    moveDir = moveDir.Unit * Settings.WalkSpeed
                 end
-                hrp.CFrame = CFrame.new(nextPos, nextPos + flatLook)
-                hrp.Velocity = Vector3.zero
+                
+                local targetY = undergroundSurfaceY - Settings.UndergroundDistance
+                hrp.Velocity = moveDir
+                
+                local camLx, camLz = camCFrame.LookVector.X, camCFrame.LookVector.Z
+                if math.abs(camLx) < 0.001 and math.abs(camLz) < 0.001 then
+                    camLx, camLz = hrp.CFrame.LookVector.X, hrp.CFrame.LookVector.Z
+                end
+                
+                local lookAtPos = Vector3.new(hrp.Position.X + camLx, targetY, hrp.Position.Z + camLz)
+                hrp.CFrame = CFrame.new(Vector3.new(hrp.Position.X, targetY, hrp.Position.Z), lookAtPos)
             else
-                if undergroundSurfaceY then
-                    undergroundSurfaceY = nil
+                humanoid.PlatformStand = false
+                if Settings.SlowFall then
+                    local currentVel = hrp.Velocity
+                    local maxDown = -(Settings.SlowFallSpeed or 5)
+                    if currentVel.Y < maxDown then
+                        hrp.Velocity = Vector3.new(currentVel.X, maxDown, currentVel.Z)
+                    end
                 end
             end
         end
@@ -1298,6 +1300,7 @@ local FOVring = Drawing.new("Circle")
 FOVring.Visible = false; FOVring.Thickness = 1.5; FOVring.Color = Theme.AccentOn
 FOVring.Filled = false; FOVring.Transparency = 1
 FOVring.Radius = Settings.FOV; FOVring.Position = Camera.ViewportSize / 2
+Shared.FOVring = FOVring
 
 local AimSnaplineDraw = Drawing.new("Line")
 AimSnaplineDraw.Visible = false; AimSnaplineDraw.Thickness = 1.5
@@ -2166,6 +2169,7 @@ return function(Shared, Shield, Targeting, ESP, Aim, Player)
     local ThemePresets = Shared.ThemePresets
     local MainFrame = nil
     local MainStroke = nil
+    local FOVring = (Aim and Aim.FOVring) or Shared.FOVring
     local ThemeObjects = Shared.ThemeObjects
     local SearchIndex = Shared.SearchIndex
     local TabActiveKeys = Shared.TabActiveKeys

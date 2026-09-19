@@ -4699,75 +4699,10 @@ end)()
 -- Tạo Bởi An Nguyễn Đẹp Trai - Im Goned
 -- ============================================================
 
-local GITHUB_CONFIG = {
-    Enabled = true,                    -- Tải trực tiếp từ GitHub
-    Username = "AnNguyen-Script",       -- GitHub Username
-    Repository = "Aurora-Rivals",      -- GitHub Repository
-    Branch = "main",                   -- Nhánh chính
-    Folder = ""                        -- Thư mục gốc repo
-}
-
--- Hàm Import Module Tự Động
 local function Import(name)
-    local content = nil
-    local resolvedSource = nil
-
-    if GITHUB_CONFIG.Enabled and GITHUB_CONFIG.Username ~= "YOUR_GITHUB_USERNAME" then
-        local folderPart = (GITHUB_CONFIG.Folder ~= "" and (GITHUB_CONFIG.Folder .. "/")) or ""
-        local rawUrl = string.format("https://raw.githubusercontent.com/%s/%s/%s/%s%s?v=%d",
-            GITHUB_CONFIG.Username,
-            GITHUB_CONFIG.Repository,
-            GITHUB_CONFIG.Branch,
-            folderPart,
-            name,
-            math.floor(tick())
-        )
-        local ok, res = pcall(game.HttpGet, game, rawUrl)
-        if ok and res and #res > 0 and not string.find(res, "404: Not Found") then
-            content = res
-            resolvedSource = rawUrl
-        end
-    end
-
-    if not content then
-        local BASE_PATHS = {
-            "Modular_Rivals/",
-            "",
-            "workspace/Modular_Rivals/",
-        }
-
-        if isfile then
-            for _, prefix in ipairs(BASE_PATHS) do
-                local testPath = prefix .. name
-                if isfile(testPath) then
-                    content = readfile(testPath)
-                    resolvedSource = testPath
-                    break
-                end
-            end
-        end
-
-        if not content and loadfile then
-            for _, prefix in ipairs(BASE_PATHS) do
-                local testPath = prefix .. name
-                local ok, fn = pcall(loadfile, testPath)
-                if ok and fn then
-                    return fn()
-                end
-            end
-        end
-    end
-
-    if not content then
-        error("[RIVALS LOADER] Không thể tìm thấy module '" .. name .. "' trên GitHub lẫn Local!")
-    end
-
-    local fn, compileErr = loadstring(content, resolvedSource or name)
-    if not fn then
-        error("[RIVALS LOADER] Lỗi biên dịch module '" .. name .. "': " .. tostring(compileErr))
-    end
-
-    return fn()
+    local mod = __MODULES[name]
+    if not mod then error('[RIVALS BUNDLE] Module not found: ' .. tostring(name)) end
+    return mod
 end
 
 -- 1. Khởi tạo Modules theo thứ tự phụ thuộc

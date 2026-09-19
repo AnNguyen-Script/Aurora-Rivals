@@ -1820,7 +1820,7 @@ local function removeESP(player)
     end
 end
 
-local function hideAllESP(esp)
+local function hideOnScreenESP(esp)
     if not esp then return end
     if esp.Box and esp.Box.Visible then esp.Box.Visible = false end
     if esp.Name and esp.Name.Visible then esp.Name.Visible = false end
@@ -1828,15 +1828,21 @@ local function hideAllESP(esp)
     if esp.HealthBg and esp.HealthBg.Visible then esp.HealthBg.Visible = false end
     if esp.Health and esp.Health.Visible then esp.Health.Visible = false end
     if esp.Tracer and esp.Tracer.Visible then esp.Tracer.Visible = false end
-    if esp.Arrow1 and esp.Arrow1.Visible then esp.Arrow1.Visible = false end
-    if esp.Arrow2 and esp.Arrow2.Visible then esp.Arrow2.Visible = false end
-    if esp.Arrow3 and esp.Arrow3.Visible then esp.Arrow3.Visible = false end
-    if esp.Skeleton then
+    if esp._skeletonVisible or esp.Skeleton then
+        esp._skeletonVisible = false
         for i = 1, 14 do
             local b = esp.Skeleton[i]
             if b and b.Visible then b.Visible = false end
         end
     end
+end
+
+local function hideAllESP(esp)
+    if not esp then return end
+    hideOnScreenESP(esp)
+    if esp.Arrow1 and esp.Arrow1.Visible then esp.Arrow1.Visible = false end
+    if esp.Arrow2 and esp.Arrow2.Visible then esp.Arrow2.Visible = false end
+    if esp.Arrow3 and esp.Arrow3.Visible then esp.Arrow3.Visible = false end
     if esp.Chams and esp.Chams.Enabled then
         esp.Chams.Enabled = false
         esp._chamsOn = false
@@ -1859,6 +1865,7 @@ Players.PlayerRemoving:Connect(removeESP)
     local espTotalOnScreen = 0
 
     local function UpdateESP(camPos, center, ESPCounterBox, ESPCounterLabel)
+        table.clear(boneScreenCache)
         espTotalInRange = 0
         espTotalOnScreen = 0
 
@@ -2159,6 +2166,9 @@ Players.PlayerRemoving:Connect(removeESP)
 
                             if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                         else
+                            -- Off-Screen: Ẩn các thành phần trên màn hình (Box, Tracer, Skeleton, Name, Health) để không dính hình
+                            hideOnScreenESP(esp)
+
                             -- Off-Screen Arrows (Khi địch ngoài màn hình)
                             if Settings.OffscreenArrows then
                                 local camCFrame = Camera.CFrame

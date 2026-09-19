@@ -2418,6 +2418,12 @@ return function(Shared, Shield, Targeting, ESP, Aim, Player)
 
 -- UI CHÍNH
 -- ============================================================
+pcall(function()
+    if parentGui:FindFirstChild(IDS.UI) then
+        parentGui[IDS.UI]:Destroy()
+    end
+end)
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = IDS.UI
 ScreenGui.ResetOnSpawn = false

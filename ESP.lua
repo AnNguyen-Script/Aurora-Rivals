@@ -1,316 +1,343 @@
 -- ============================================================
--- MODULAR RIVALS | MODULE: ESP, CHAMS, SKELETON & OFFSCREEN
+-- MODULAR RIVALS | MODULE 6: ESP, CHAMS, SKELETON & COUNTER HUD
 -- ============================================================
 return function(Shared, Targeting)
     local ESP = {}
 
     local Settings = Shared.Settings
-    local Const = Shared.Const
     local LocalPlayer = Shared.LocalPlayer
-    local Camera = Shared.Camera
     local Players = Shared.Players
+    local Camera = Shared.Camera
     local Workspace = Shared.Workspace
     local ColorList = Shared.ColorList
-
-    local ChamsFolder = Instance.new("Folder")
-    ChamsFolder.Name = Shared.IDS.ChamsFolder
-    pcall(function() ChamsFolder.Parent = Shared.parentGui end)
-    if not ChamsFolder.Parent then pcall(function() ChamsFolder.Parent = Camera end) end
-    ESP.ChamsFolder = ChamsFolder
+    local Const = Shared.Const
+    local RandomString = Shared.RandomString
+    local IDS = Shared.IDS
+    local parentGui = Shared.parentGui
+    local isSameTeam = Targeting.isSameTeam
 
     local ESPTable = {}
     ESP.ESPTable = ESPTable
 
     local boneScreenCache = {}
 
-    local function createESP(player)
-        if ESPTable[player] then return end
-        local draw = {
-            BoxOutline = Drawing.new("Square"),
-            Box = Drawing.new("Square"),
-            Name = Drawing.new("Text"),
-            Distance = Drawing.new("Text"),
-            HealthBarBg = Drawing.new("Square"),
-            HealthBar = Drawing.new("Square"),
-            Tracer = Drawing.new("Line"),
-            Arrow1 = Drawing.new("Line"),
-            Arrow2 = Drawing.new("Line"),
-            Arrow3 = Drawing.new("Line"),
-            Skeleton = {},
-            Cham = nil
-        }
-        draw.BoxOutline.Thickness = 3
-        draw.BoxOutline.Filled = false
-        draw.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+local ChamsFolder = Instance.new("Folder")
+ChamsFolder.Name = IDS.ChamsFolder
+pcall(function() ChamsFolder.Parent = parentGui end)
+if not ChamsFolder.Parent then pcall(function() ChamsFolder.Parent = Camera end) end
 
-        draw.Box.Thickness = 1
-        draw.Box.Filled = false
+local function createESP(player)
+    if ESPTable[player] then return end
+    local esp = {}
+    esp.Box = Drawing.new("Square"); esp.Box.Thickness = 1.5
+    esp.Box.Color = Color3.fromRGB(255, 255, 255); esp.Box.Filled = false
+    esp.Name = Drawing.new("Text"); esp.Name.Size = 14; esp.Name.Center = true
+    esp.Name.Outline = true; esp.Name.Color = Color3.fromRGB(255, 255, 255)
+    esp.HealthBg = Drawing.new("Line"); esp.HealthBg.Thickness = 3
+    esp.HealthBg.Color = Color3.fromRGB(0, 0, 0)
+    esp.Health = Drawing.new("Line"); esp.Health.Thickness = 1.5
+    esp.Health.Color = Color3.fromRGB(0, 255, 0)
+    esp.Tracer = Drawing.new("Line"); esp.Tracer.Thickness = 1.5
+    esp.Tracer.Color = Color3.fromRGB(255, 255, 255)
 
-        draw.Name.Size = 13
-        draw.Name.Center = true
-        draw.Name.Outline = true
-        draw.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
-        draw.Name.Font = 2
+    esp.Info = Drawing.new("Text")
+    esp.Info.Size = 12
+    esp.Info.Center = true
+    esp.Info.Outline = true
+    esp.Info.Color = Color3.fromRGB(255, 255, 255)
 
-        draw.Distance.Size = 11
-        draw.Distance.Center = true
-        draw.Distance.Outline = true
-        draw.Distance.OutlineColor = Color3.fromRGB(0, 0, 0)
-        draw.Distance.Font = 2
-
-        draw.HealthBarBg.Thickness = 1
-        draw.HealthBarBg.Filled = true
-        draw.HealthBarBg.Color = Color3.fromRGB(20, 20, 20)
-
-        draw.HealthBar.Thickness = 1
-        draw.HealthBar.Filled = true
-
-        draw.Tracer.Thickness = 1
-        draw.Tracer.Transparency = 0.8
-
-        draw.Arrow1.Thickness = 2.5
-        draw.Arrow1.Color = Color3.fromRGB(255, 60, 60)
-        draw.Arrow1.Visible = false
-
-        draw.Arrow2.Thickness = 2.5
-        draw.Arrow2.Color = Color3.fromRGB(255, 60, 60)
-        draw.Arrow2.Visible = false
-
-        draw.Arrow3.Thickness = 2
-        draw.Arrow3.Color = Color3.fromRGB(255, 60, 60)
-        draw.Arrow3.Visible = false
-
-        for _ = 1, 15 do
-            local bone = Drawing.new("Line")
-            bone.Thickness = 1.5
-            bone.Transparency = 0.8
-            bone.Color = Color3.fromRGB(255, 255, 255)
-            bone.Visible = false
-            table.insert(draw.Skeleton, bone)
-        end
-
-        local h = Instance.new("Highlight")
-        h.Name = "Cham_" .. tostring(player)
-        h.FillTransparency = 0.5
-        h.OutlineTransparency = 0
-        h.Enabled = false
-        pcall(function() h.Parent = ChamsFolder end)
-        draw.Cham = h
-
-        ESPTable[player] = draw
+    esp.Skeleton = {}
+    for i = 1, 14 do
+        local bone = Drawing.new("Line")
+        bone.Thickness = 1.5
+        bone.Color = Color3.fromRGB(255, 255, 255)
+        bone.Visible = false
+        esp.Skeleton[i] = bone
     end
-    ESP.createESP = createESP
 
-    local function removeESP(player)
-        local draw = ESPTable[player]
-        if draw then
-            pcall(function() draw.BoxOutline:Remove() end)
-            pcall(function() draw.Box:Remove() end)
-            pcall(function() draw.Name:Remove() end)
-            pcall(function() draw.Distance:Remove() end)
-            pcall(function() draw.HealthBarBg:Remove() end)
-            pcall(function() draw.HealthBar:Remove() end)
-            pcall(function() draw.Tracer:Remove() end)
-            pcall(function() if draw.Arrow1 then draw.Arrow1:Remove() end end)
-            pcall(function() if draw.Arrow2 then draw.Arrow2:Remove() end end)
-            pcall(function() if draw.Arrow3 then draw.Arrow3:Remove() end end)
-            for _, bone in pairs(draw.Skeleton) do
-                pcall(function() bone:Remove() end)
+    esp.Chams = Instance.new("Highlight")
+    esp.Chams.Name = RandomString(8)
+    esp.Chams.FillTransparency = 0.5
+    esp.Chams.OutlineTransparency = 0.1
+    esp.Chams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    esp.Chams.Enabled = false
+    esp.Chams.Parent = ChamsFolder
+
+    esp.Arrow1 = Drawing.new("Line"); esp.Arrow1.Thickness = 2.5; esp.Arrow1.Color = Color3.fromRGB(255, 35, 35); esp.Arrow1.Visible = false
+    esp.Arrow2 = Drawing.new("Line"); esp.Arrow2.Thickness = 2.5; esp.Arrow2.Color = Color3.fromRGB(255, 35, 35); esp.Arrow2.Visible = false
+    esp.Arrow3 = Drawing.new("Line"); esp.Arrow3.Thickness = 2; esp.Arrow3.Color = Color3.fromRGB(255, 35, 35); esp.Arrow3.Visible = false
+
+    esp._chamsOn = false
+    esp._rendered = false
+    esp._skeletonVisible = false
+    ESPTable[player] = esp
+end
+
+local function removeESP(player)
+    local esp = ESPTable[player]
+    if esp then
+        pcall(function() if esp.Box then esp.Box:Remove() end end)
+        pcall(function() if esp.Name then esp.Name:Remove() end end)
+        pcall(function() if esp.HealthBg then esp.HealthBg:Remove() end end)
+        pcall(function() if esp.Health then esp.Health:Remove() end end)
+        pcall(function() if esp.Tracer then esp.Tracer:Remove() end end)
+        pcall(function() if esp.Info then esp.Info:Remove() end end)
+        pcall(function() if esp.Chams then esp.Chams:Destroy() end end)
+        pcall(function()
+            if esp.Arrow1 then esp.Arrow1:Remove() end
+            if esp.Arrow2 then esp.Arrow2:Remove() end
+            if esp.Arrow3 then esp.Arrow3:Remove() end
+        end)
+        if esp.Skeleton then
+            for i = 1, #esp.Skeleton do
+                pcall(function() if esp.Skeleton[i] then esp.Skeleton[i]:Remove() end end)
             end
-            if draw.Cham then pcall(function() draw.Cham:Destroy() end) end
-            ESPTable[player] = nil
         end
+        ESPTable[player] = nil
     end
-    ESP.removeESP = removeESP
+end
 
-    Players.PlayerAdded:Connect(createESP)
-    Players.PlayerRemoving:Connect(removeESP)
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then createESP(p) end
-    end
+Players.PlayerAdded:Connect(createESP)
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then createESP(player) end
+end
+Players.PlayerRemoving:Connect(removeESP)
 
-    -- Update ESP logic (chạy trong RenderStepped)
-    local function UpdateESP(camPos, center)
-        table.clear(boneScreenCache)
-        local espTotalInRange = 0
-        local espTotalOnScreen = 0
+
+
+    local espTotalInRange = 0
+    local espTotalOnScreen = 0
+
+    local function UpdateESP(camPos, center, ESPCounterBox, ESPCounterLabel)
+        espTotalInRange = 0
+        espTotalOnScreen = 0
+
+        ESPCounterBox = ESPCounterBox or (Shared.UI_Elements and Shared.UI_Elements.ESPCounterBox)
+        ESPCounterLabel = ESPCounterLabel or (Shared.UI_Elements and Shared.UI_Elements.ESPCounterLabel)
 
         for target, esp in pairs(ESPTable) do
             local isVisibleNow = false
-            local isValid = false
-            local char = nil
-            local targetName = ""
-            local isNPC = false
+        local isValid = false
+        local char = nil
+        local targetName = ""
+        local isNPC = false
 
-            if typeof(target) == "Instance" and target:IsA("Player") then
-                if target.Parent and target ~= LocalPlayer then
+        if typeof(target) == "Instance" then
+            if target:IsA("Player") then
+                if target.Parent == Players then
                     isValid = true
                     char = target.Character
                     targetName = target.DisplayName or target.Name
                 end
-            elseif typeof(target) == "Instance" and target:IsA("Model") then
-                if target.Parent and target:IsDescendantOf(Workspace) then
+            elseif target:IsA("Model") or target:IsA("Actor") then
+                if target.Parent ~= nil then
                     isValid = true
                     char = target
                     local dName = target:GetAttribute("DisplayName")
                     if dName and dName ~= "" then
-                        targetName = "[BOT] " .. dName
+                        targetName = dName .. " [BOT]"
                     else
-                        targetName = "[BOT] " .. target.Name
+                        targetName = target.Name .. " [BOT]"
                     end
                     isNPC = true
                 end
             end
+        end
 
+        if not isValid or (isNPC and not Settings.TargetNPC) then
             if not isValid then
                 removeESP(target)
             else
-                local isAlive = false
-                local hrp = nil
-                local head = nil
-                local hum = nil
-                local maxH = 100
-
-                if char then
-                    hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
-                    head = char:FindFirstChild("Head")
-                    hum = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("EnemyHumanoid")
-                    local healthVal = char:FindFirstChild("Health") or char:FindFirstChild("health")
-                    local maxHealthVal = char:FindFirstChild("MaxHealth") or char:FindFirstChild("maxhealth")
-
-                    if hum then
-                        isAlive = hum.Health > 0
-                        maxH = hum.MaxHealth > 0 and hum.MaxHealth or 100
-                    elseif healthVal and healthVal:IsA("NumberValue") then
-                        isAlive = healthVal.Value > 0
-                        local attrMaxH = char:GetAttribute("MaxHealth")
-                        maxH = (maxHealthVal and maxHealthVal:IsA("NumberValue") and maxHealthVal.Value) or attrMaxH or 100
-                    else
-                        isAlive = hrp ~= nil and head ~= nil
+                esp.Box.Visible = false
+                esp.Name.Visible = false
+                esp.HealthBg.Visible = false
+                esp.Health.Visible = false
+                esp.Tracer.Visible = false
+                esp.Info.Visible = false
+                if esp.Chams then esp.Chams.Enabled = false end
+                if esp.Arrow1 then esp.Arrow1.Visible = false end
+                if esp.Arrow2 then esp.Arrow2.Visible = false end
+                if esp.Arrow3 then esp.Arrow3.Visible = false end
+                if esp.Skeleton then
+                    for i = 1, #esp.Skeleton do
+                        if esp.Skeleton[i] then esp.Skeleton[i].Visible = false end
                     end
                 end
+            end
+            continue
+        end
 
-                local passTeamCheck = not Targeting.isSameTeam(target)
-                local isTargetActive = Settings.ESPEnabled and (not isNPC or Settings.TargetNPC)
+        local isAlive = false
+        local hrp = nil
+        local head = nil
+        local hum = nil
+        local maxH = 100
 
-                if isTargetActive and isAlive and hrp and passTeamCheck then
+        if char then
+            hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char.PrimaryPart
+            head = char:FindFirstChild("Head") or hrp
+            hum = char:FindFirstChildOfClass("Humanoid")
+
+            if hum then
+                isAlive = hum.Health > 0
+                maxH = math.max(hum.MaxHealth, 1)
+            else
+                local healthVal = char:FindFirstChild("Health") or char:FindFirstChild("health")
+                if healthVal and (healthVal:IsA("NumberValue") or healthVal:IsA("IntValue")) then
+                    isAlive = healthVal.Value > 0
+                    local maxHealthVal = char:FindFirstChild("MaxHealth") or char:FindFirstChild("maxHealth")
+                    if maxHealthVal and (maxHealthVal:IsA("NumberValue") or maxHealthVal:IsA("IntValue")) then
+                        maxH = math.max(maxHealthVal.Value, 1)
+                    end
+                elseif char:GetAttribute("Health") then
+                    isAlive = ((tonumber(char:GetAttribute("Health")) or 0) > 0)
+                    local attrMaxH = char:GetAttribute("MaxHealth")
+                    if attrMaxH then maxH = math.max(tonumber(attrMaxH) or 100, 1) end
+                elseif isNPC then
+                    isAlive = true
+                end
+            end
+        end
+
+        if Settings.ESPEnabled and hrp and head and isAlive then
+                local passTeamCheck = not isSameTeam(target)
+
+                if passTeamCheck then
                     local dist = (hrp.Position - camPos).Magnitude
-                    local maxDist = Settings.ESPDist or 1000
 
-                    if dist <= maxDist then
+                    if dist <= Settings.ESPDist then
                         espTotalInRange = espTotalInRange + 1
+
                         local rootPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
 
-                        -- Chams
-                        if Settings.ESPChams and esp.Cham then
+                        if Settings.ESPChams then
+                            if not esp._chamsOn then
+                                esp._chamsOn = true
+                                esp.Chams.Enabled = true
+                            end
+                            if esp.Chams.Adornee ~= char then esp.Chams.Adornee = char end
                             local col = ColorList[Settings.ChamsColor] or Color3.fromRGB(255, 0, 0)
-                            esp.Cham.Adornee = char
-                            esp.Cham.FillColor = col
-                            esp.Cham.OutlineColor = col
-                            esp.Cham.Enabled = true
-                        elseif esp.Cham then
-                            esp.Cham.Enabled = false
+                            if esp.Chams.FillColor ~= col then
+                                esp.Chams.FillColor = col
+                                esp.Chams.OutlineColor = col
+                            end
+                        else
+                            if esp._chamsOn then
+                                esp._chamsOn = false
+                                esp.Chams.Enabled = false
+                            end
                         end
 
                         if onScreen and rootPos.Z > 0 then
                             espTotalOnScreen = espTotalOnScreen + 1
                             isVisibleNow = true
 
-                            local headPos = Camera:WorldToViewportPoint(head and (head.Position + Vector3.new(0, 0.5, 0)) or (hrp.Position + Vector3.new(0, 2.5, 0)))
+                            local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
                             local legPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
                             local height = math.abs(headPos.Y - legPos.Y)
                             local width = height / 2
-                            local xPos = rootPos.X - (width / 2)
-                            local yPos = headPos.Y
 
-                            -- 2D Box
                             if Settings.ESPBox then
-                                esp.BoxOutline.Size = Vector2.new(width, height)
-                                esp.BoxOutline.Position = Vector2.new(xPos, yPos)
-                                esp.BoxOutline.Visible = true
-
                                 esp.Box.Size = Vector2.new(width, height)
-                                esp.Box.Position = Vector2.new(xPos, yPos)
-                                esp.Box.Color = ColorList[Settings.ChamsColor] or Color3.fromRGB(255, 255, 255)
+                                esp.Box.Position = Vector2.new(rootPos.X - width / 2, headPos.Y)
                                 esp.Box.Visible = true
+                            else
+                                esp.Box.Visible = false
                             end
 
-                            -- Tên & Khoảng cách
-                            local textString = ""
-                            if Settings.ESPName then textString = targetName end
-                            if Settings.ESPDistance then
-                                textString = textString .. (textString ~= "" and " [" or "[") .. math.floor(dist) .. "m]"
-                            end
-                            if textString ~= "" then
+                            if Settings.ESPName or Settings.ESPDistance then
+                                local textString = ""
+                                if Settings.ESPName then textString = targetName end
+                                if Settings.ESPDistance then
+                                    textString = textString
+                                        .. (Settings.ESPName and " " or "")
+                                        .. "[" .. math.floor(dist) .. "m]"
+                                end
                                 esp.Name.Text = textString
-                                esp.Name.Position = Vector2.new(rootPos.X, yPos - 16)
-                                esp.Name.Color = Color3.fromRGB(255, 255, 255)
+                                esp.Name.Position = Vector2.new(rootPos.X, headPos.Y - 18)
                                 esp.Name.Visible = true
+                            else
+                                esp.Name.Visible = false
                             end
 
-                            -- Vũ khí & Level
-                            local infoText = ""
-                            if Settings.ESPLevel and not isNPC then
-                                local stats = target:FindFirstChild("leaderstats")
-                                local lvl = stats and (stats:FindFirstChild("Level") or stats:FindFirstChild("Rank"))
-                                if lvl then
-                                    infoText = "Lv." .. tostring(lvl.Value)
-                                else
-                                    local attrLvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
-                                    if attrLvl then infoText = "Lv." .. tostring(attrLvl) end
+                            if Settings.ESPWeapon or Settings.ESPLevel then
+                                local infoText = ""
+                                if Settings.ESPLevel then
+                                    if not isNPC then
+                                        local stats = target:FindFirstChild("leaderstats")
+                                        local lvl = stats and (stats:FindFirstChild("Level")
+                                            or stats:FindFirstChild("XP")
+                                            or stats:FindFirstChild("Exp")
+                                            or stats:FindFirstChild("Win")
+                                            or stats:FindFirstChild("Wins")) or target:FindFirstChild("Level")
+                                        if lvl and lvl:IsA("ValueBase") then
+                                            infoText = infoText .. "[Lv " .. tostring(lvl.Value) .. "] "
+                                        end
+                                    else
+                                        local lvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
+                                        if lvl then
+                                            infoText = infoText .. "[Lv " .. tostring(lvl) .. "] "
+                                        end
+                                    end
                                 end
-                            elseif Settings.ESPLevel and isNPC then
-                                local lvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
-                                if lvl then infoText = "Lv." .. tostring(lvl) end
-                            end
-
-                            if Settings.ESPWeapon then
-                                local tool = char:FindFirstChildOfClass("Tool")
-                                if tool then
-                                    infoText = infoText .. (infoText ~= "" and " | " or "") .. tool.Name
+                                if Settings.ESPWeapon then
+                                    local tool = char:FindFirstChildOfClass("Tool")
+                                    if tool then
+                                        infoText = infoText .. tool.Name
+                                    else
+                                        infoText = infoText .. "Unarmed"
+                                    end
                                 end
+                                esp.Info.Text = infoText
+                                esp.Info.Position = Vector2.new(rootPos.X, headPos.Y - 32)
+                                esp.Info.Visible = infoText ~= ""
+                            else
+                                esp.Info.Visible = false
                             end
 
-                            if infoText ~= "" then
-                                esp.Distance.Text = infoText
-                                esp.Distance.Position = Vector2.new(rootPos.X, yPos + height + 2)
-                                esp.Distance.Color = Color3.fromRGB(200, 200, 210)
-                                esp.Distance.Visible = true
-                            end
-
-                            -- Tracers
-                            if Settings.ESPLine then
-                                esp.Tracer.From = Vector2.new(center.X, Camera.ViewportSize.Y)
-                                esp.Tracer.To = Vector2.new(rootPos.X, yPos + height)
-                                esp.Tracer.Color = ColorList[Settings.ChamsColor] or Color3.fromRGB(255, 255, 255)
-                                esp.Tracer.Thickness = math.clamp(150 / math.max(dist, 1), 1, 4)
-                                esp.Tracer.Visible = true
-                            end
-
-                            -- Health Bar
                             if Settings.ESPHealth then
-                                local currentH = hum and hum.Health or (char:FindFirstChild("Health") and char:FindFirstChild("Health").Value) or maxH
+                                local dynamicThickness = math.clamp(150 / math.max(dist, 1), 1, 4)
+                                esp.HealthBg.Thickness = dynamicThickness
+                                esp.HealthBg.From = Vector2.new(
+                                    rootPos.X - width / 2 - (dynamicThickness + 2), headPos.Y)
+                                esp.HealthBg.To = Vector2.new(
+                                    rootPos.X - width / 2 - (dynamicThickness + 2), legPos.Y)
+                                esp.HealthBg.Visible = true
+
+                                local currentH = hum and hum.Health or (char:FindFirstChild("Health") and char:FindFirstChild("Health"):IsA("NumberValue") and char.Health.Value or (char:GetAttribute("Health") or maxH))
                                 local healthPct = math.clamp((tonumber(currentH) or maxH) / maxH, 0, 1)
                                 local yOffset = height * healthPct
 
-                                esp.HealthBarBg.Size = Vector2.new(4, height + 2)
-                                esp.HealthBarBg.Position = Vector2.new(xPos - 7, yPos - 1)
-                                esp.HealthBarBg.Visible = true
-
-                                esp.HealthBar.Size = Vector2.new(2, yOffset)
-                                esp.HealthBar.Position = Vector2.new(xPos - 6, yPos + (height - yOffset))
-                                esp.HealthBar.Color = Color3.fromRGB(math.floor(255 * (1 - healthPct)), math.floor(255 * healthPct), 0)
-                                esp.HealthBar.Visible = true
+                                esp.Health.Thickness = dynamicThickness
+                                esp.Health.From = Vector2.new(
+                                    rootPos.X - width / 2 - (dynamicThickness + 2), legPos.Y - yOffset)
+                                esp.Health.To = Vector2.new(
+                                    rootPos.X - width / 2 - (dynamicThickness + 2), legPos.Y)
+                                esp.Health.Color = Color3.fromRGB(
+                                    255 - (healthPct * 255), healthPct * 255, 0)
+                                esp.Health.Visible = true
+                            else
+                                esp.HealthBg.Visible = false
+                                esp.Health.Visible = false
                             end
 
-                            -- Skeleton
+                            if Settings.ESPLine then
+                                esp.Tracer.From = Vector2.new(center.X, 0)
+                                esp.Tracer.To = Vector2.new(rootPos.X, headPos.Y)
+                                esp.Tracer.Visible = true
+                            else
+                                esp.Tracer.Visible = false
+                            end
+
                             if Settings.ESPSkeleton then
+                                esp._skeletonVisible = true
+                                table.clear(boneScreenCache)
                                 local isR15 = char:FindFirstChild("UpperTorso") ~= nil
                                 local connections = isR15 and Const.R15_BONES or Const.R6_BONES
-                                for i = 1, #connections do
+                                for i = 1, 14 do
                                     local boneDraw = esp.Skeleton[i]
                                     local conn = connections[i]
-                                    if boneDraw and conn then
+                                    if conn then
                                         local partA = char:FindFirstChild(conn[1])
                                         local partB = char:FindFirstChild(conn[2])
                                         if partA and partB then
@@ -332,7 +359,7 @@ return function(Shared, Targeting)
                                                 boneScreenCache[partB] = {posB, visB}
                                             end
 
-                                            if visA and visB and posA.Z > 0 and posB.Z > 0 then
+                                            if visA or visB then
                                                 boneDraw.From = Vector2.new(posA.X, posA.Y)
                                                 boneDraw.To = Vector2.new(posB.X, posB.Y)
                                                 boneDraw.Visible = true
@@ -342,12 +369,21 @@ return function(Shared, Targeting)
                                         else
                                             boneDraw.Visible = false
                                         end
+                                    else
+                                        boneDraw.Visible = false
                                     end
                                 end
+                            else
+                                if esp._skeletonVisible then
+                                    esp._skeletonVisible = false
+                                    for i = 1, 14 do esp.Skeleton[i].Visible = false end
+                                end
                             end
+
+                            if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                         else
-                            -- Offscreen Arrows
-                            if Settings.OffscreenArrows and (rootPos.Z <= 0 or not onScreen) then
+                            -- Off-Screen Arrows (Khi địch ngoài màn hình)
+                            if Settings.OffscreenArrows then
                                 local camCFrame = Camera.CFrame
                                 local relVector = hrp.Position - camCFrame.Position
                                 local forward = camCFrame.LookVector
@@ -357,63 +393,77 @@ return function(Shared, Targeting)
                                 local angle = math.atan2(x, z)
                                 local radius = 170
                                 local tip = center + Vector2.new(math.sin(angle), -math.cos(angle)) * radius
-                                local base = center + Vector2.new(math.sin(angle), -math.cos(angle)) * (radius - 16)
+                                local base = center + Vector2.new(math.sin(angle), -math.cos(angle)) * (radius - 18)
                                 local perp = Vector2.new(-math.cos(angle), -math.sin(angle)) * 9
-                                local arrCol = ColorList[Settings.ChamsColor] or Color3.fromRGB(255, 60, 60)
+                                esp.Arrow1.From = tip
+                                esp.Arrow1.To = base + perp
+                                esp.Arrow1.Visible = true
 
-                                if esp.Arrow1 then
-                                    esp.Arrow1.From = tip
-                                    esp.Arrow1.To = base + perp
-                                    esp.Arrow1.Color = arrCol
-                                    esp.Arrow1.Visible = true
-                                end
-                                if esp.Arrow2 then
-                                    esp.Arrow2.From = tip
-                                    esp.Arrow2.To = base - perp
-                                    esp.Arrow2.Color = arrCol
-                                    esp.Arrow2.Visible = true
-                                end
-                                if esp.Arrow3 then
-                                    esp.Arrow3.From = base + perp
-                                    esp.Arrow3.To = base - perp
-                                    esp.Arrow3.Color = arrCol
-                                    esp.Arrow3.Visible = true
-                                end
+                                esp.Arrow2.From = tip
+                                esp.Arrow2.To = base - perp
+                                esp.Arrow2.Visible = true
+
+                                esp.Arrow3.From = base + perp
+                                esp.Arrow3.To = base - perp
+                                esp.Arrow3.Visible = true
                             else
-                                if esp.Arrow1 then esp.Arrow1.Visible = false end
-                                if esp.Arrow2 then esp.Arrow2.Visible = false end
-                                if esp.Arrow3 then esp.Arrow3.Visible = false end
+                                if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                             end
                         end
+                    else
+                        if esp._chamsOn then
+                            esp._chamsOn = false
+                            esp.Chams.Enabled = false
+                        end
+                        if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                     end
+                else
+                    if esp._chamsOn then
+                        esp._chamsOn = false
+                        esp.Chams.Enabled = false
+                    end
+                    if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                 end
             end
 
-            if not isVisibleNow then
-                esp.BoxOutline.Visible = false
-                esp.Box.Visible = false
-                esp.Name.Visible = false
-                esp.Distance.Visible = false
-                esp.HealthBarBg.Visible = false
-                esp.HealthBar.Visible = false
-                esp.Tracer.Visible = false
-                if esp.Arrow1 then esp.Arrow1.Visible = false end
-                if esp.Arrow2 then esp.Arrow2.Visible = false end
-                if esp.Arrow3 then esp.Arrow3.Visible = false end
-                for _, bone in pairs(esp.Skeleton) do bone.Visible = false end
+        if isVisibleNow then
+            esp._rendered = true
+        elseif esp._rendered then
+            esp._rendered = false
+            esp.Box.Visible = false
+            esp.Name.Visible = false
+            esp.Info.Visible = false
+            esp.HealthBg.Visible = false
+            esp.Health.Visible = false
+            esp.Tracer.Visible = false
+            local skel = esp.Skeleton
+            for i = 1, 14 do skel[i].Visible = false end
+            if esp._chamsOn then
+                esp._chamsOn = false
+                esp.Chams.Enabled = false
             end
-        end
-
-        -- Cập nhật bộ đếm ESP trên đỉnh màn hình (Top-Center HUD)
-        if Shared.UI_Elements.ESPCounterBox then
-            if Settings.ESPCount and Settings.ESPEnabled then
-                Shared.UI_Elements.ESPCounterBox.Visible = true
-                Shared.UI_Elements.ESPCounterLabel.Text = tostring(espTotalInRange)
-            else
-                Shared.UI_Elements.ESPCounterBox.Visible = false
-            end
+            if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
         end
     end
+
+    -- 7. CẬP NHẬT TOP-CENTER ESP COUNTER (KHUNG ĐEN VUÔNG - CHỈ HIỆN SỐ TRONG TẦM)
+    if Settings.ESPEnabled and Settings.ESPCount then
+        ESPCounterBox.Visible = true
+        ESPCounterLabel.Text = tostring(espTotalInRange)
+        if espTotalInRange > 0 then
+            ESPCounterLabel.TextColor3 = Color3.fromRGB(0, 255, 136)
+        else
+            ESPCounterLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        end
+    else
+        ESPCounterBox.Visible = false
+    end
+
+    end
+
+    ESP.ChamsFolder = ChamsFolder
+    ESP.createESP = createESP
+    ESP.removeESP = removeESP
     ESP.UpdateESP = UpdateESP
 
     return ESP

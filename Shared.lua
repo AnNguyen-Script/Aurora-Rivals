@@ -1,9 +1,10 @@
 -- ============================================================
--- MODULAR RIVALS | MODULE: SHARED ENVIRONMENT
+-- MODULAR RIVALS | MODULE 1: SHARED CORE, SERVICES & SETTINGS
+-- Tạo Bởi An Nguyễn Đẹp Trai - Im Goned
 -- ============================================================
+
 local Shared = {}
 
--- Fastcall shims (Không tốn local registers)
 if not table.clear then table.clear = function(t) for k in pairs(t) do t[k] = nil end end end
 if not Vector3.zero then Vector3.zero = Vector3.new(0, 0, 0) end
 
@@ -12,11 +13,13 @@ Shared.mouse1click_fn = (type(mouse1click) == "function" and mouse1click) or nil
 Shared.VirtualInputManager = nil
 pcall(function() Shared.VirtualInputManager = game:GetService("VirtualInputManager") end)
 
-Shared.mousemoverel = mousemoverel or (Input and Input.MouseMoveRel) or function(x, y)
+-- Mouse Movement Compatibility Helper (Cho Aimlock / Mouse Aimbot)
+local mousemoverel_fn = mousemoverel or (Input and Input.MouseMoveRel) or function(x, y)
     if typeof(mouse_moverel) == "function" then
         mouse_moverel(x, y)
     end
 end
+Shared.mousemoverel = mousemoverel_fn
 
 -- Core Services
 Shared.CoreGui = game:GetService("CoreGui")
@@ -35,90 +38,87 @@ Shared.CollectionService = game:GetService("CollectionService")
 
 Shared.LocalPlayer = Shared.Players.LocalPlayer
 Shared.Camera = Shared.Workspace.CurrentCamera
-
 Shared.Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-    local newCam = Shared.Workspace.CurrentCamera
-    if newCam then Shared.Camera = newCam end
+    Shared.Camera = Shared.Workspace.CurrentCamera
 end)
 
--- Tracking Tables
 Shared.UI_Elements = {}
 Shared.isMenuConnected = false
-Shared.SendNotification = function(title, text) end -- Sẽ được UI ghi đè khi khởi tạo
+Shared.SendNotification = nil
+
+-- Registry cho theme + search + active-dot
 Shared.ThemeObjects = { Panels = {}, Toggles = {}, SliderFills = {}, Dropbox = {} }
 Shared.SearchIndex = {}
 Shared.TabActiveKeys = {}
 
--- Theme Presets
+-- 3 bộ theme chuẩn gốc
 Shared.ThemePresets = {
-    ["Midnight Purple"] = {
-        Accent = Color3.fromRGB(155, 89, 235), AccentHover = Color3.fromRGB(175, 110, 255),
-        AccentOn = Color3.fromRGB(165, 95, 245), AccentOff = Color3.fromRGB(45, 30, 60)
+    Dark = {
+        MainBg = Color3.fromRGB(18, 18, 20), PanelBg = Color3.fromRGB(30, 30, 34),
+        Panel = Color3.fromRGB(22, 22, 25), Stroke = Color3.fromRGB(45, 45, 50),
+        AccentOn = Color3.fromRGB(255, 255, 255), AccentOff = Color3.fromRGB(45, 45, 50)
     },
-    ["Emerald Forest"] = {
-        Accent = Color3.fromRGB(46, 204, 113), AccentHover = Color3.fromRGB(66, 224, 133),
-        AccentOn = Color3.fromRGB(46, 204, 113), AccentOff = Color3.fromRGB(20, 50, 35)
+    Midnight = {
+        MainBg = Color3.fromRGB(9, 14, 26), PanelBg = Color3.fromRGB(20, 30, 52),
+        Panel = Color3.fromRGB(14, 20, 36), Stroke = Color3.fromRGB(45, 75, 140),
+        AccentOn = Color3.fromRGB(90, 170, 255), AccentOff = Color3.fromRGB(28, 40, 66)
     },
-    ["Sunset Blaze"] = {
-        Accent = Color3.fromRGB(230, 80, 40), AccentHover = Color3.fromRGB(250, 100, 60),
-        AccentOn = Color3.fromRGB(240, 90, 50), AccentOff = Color3.fromRGB(60, 30, 25)
-    },
-    ["Crimson Blood"] = {
-        Accent = Color3.fromRGB(220, 45, 65), AccentHover = Color3.fromRGB(245, 65, 85),
-        AccentOn = Color3.fromRGB(230, 55, 75), AccentOff = Color3.fromRGB(55, 22, 28)
-    },
-    ["Dark"] = {
-        Accent = Color3.fromRGB(130, 90, 230), AccentHover = Color3.fromRGB(150, 110, 250),
-        AccentOn = Color3.fromRGB(140, 100, 240), AccentOff = Color3.fromRGB(38, 30, 55)
-    },
-    ["Cyberpunk"] = {
-        Accent = Color3.fromRGB(0, 255, 200), AccentHover = Color3.fromRGB(50, 255, 220),
-        AccentOn = Color3.fromRGB(0, 255, 200), AccentOff = Color3.fromRGB(15, 50, 45)
-    },
-    ["Lavender Dream"] = {
-        Accent = Color3.fromRGB(195, 115, 245), AccentHover = Color3.fromRGB(215, 135, 255),
+    Violet = {
+        MainBg = Color3.fromRGB(18, 12, 28), PanelBg = Color3.fromRGB(38, 26, 56),
+        Panel = Color3.fromRGB(27, 18, 42), Stroke = Color3.fromRGB(95, 55, 145),
         AccentOn = Color3.fromRGB(205, 125, 255), AccentOff = Color3.fromRGB(48, 34, 70)
     }
 }
 
+Shared.Theme = {
+    MainBg = Color3.fromRGB(18, 18, 20),
+    PanelBg = Color3.fromRGB(25, 25, 28),
+    Panel = Color3.fromRGB(22, 22, 25),
+    Stroke = Color3.fromRGB(45, 45, 50),
+    Accent = Color3.fromRGB(255, 255, 255),
+    AccentOn = Color3.fromRGB(255, 255, 255),
+    AccentOff = Color3.fromRGB(45, 45, 50),
+    KnobOn = Color3.fromRGB(25, 25, 28),
+    KnobOff = Color3.fromRGB(18, 18, 20),
+    DotRed = Color3.fromRGB(255, 50, 50),
+    DotGreen = Color3.fromRGB(50, 255, 120),
+    TextWhite = Color3.fromRGB(240, 240, 245),
+    TextDark = Color3.fromRGB(130, 130, 140),
+    Font = Enum.Font.Gotham,
+    FontBold = Enum.Font.GothamBold,
+}
+
 -- Static Constant Tables
 Shared.Const = {
-    R15_BONES = {
-        {"Head", "UpperTorso"},
-        {"UpperTorso", "LowerTorso"},
-        {"UpperTorso", "LeftUpperArm"},
-        {"LeftUpperArm", "LeftLowerArm"},
-        {"LeftLowerArm", "LeftHand"},
-        {"UpperTorso", "RightUpperArm"},
-        {"RightUpperArm", "RightLowerArm"},
-        {"RightLowerArm", "RightHand"},
-        {"LowerTorso", "LeftUpperLeg"},
-        {"LeftUpperLeg", "LeftLowerLeg"},
-        {"LeftLowerLeg", "LeftFoot"},
-        {"LowerTorso", "RightUpperLeg"},
-        {"RightUpperLeg", "RightLowerLeg"},
-        {"RightLowerLeg", "RightFoot"}
+    SkeletonPairsR15 = {
+        {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+        {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
+        {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+        {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
+        {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
     },
-    R6_BONES = {
+    SkeletonPairsR6 = {
         {"Head", "Torso"},
         {"Torso", "Left Arm"},
         {"Torso", "Right Arm"},
         {"Torso", "Left Leg"},
         {"Torso", "Right Leg"}
     },
-    TEAM_ATTR_NAMES = {"Team", "team", "TeamName", "teamName"},
-    SHIELD_ATTRIBUTES = {
-        "SpawnShield", "Shield", "Invulnerable", "Safe", "Immune",
-        "SpawnProtection", "Protected", "IsShielded", "SpawnImmunity",
-        "Invincible", "SafeShield", "SpawnInvulnerable"
+    HitboxCandidateNames = {
+        "Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso",
+        "LeftArm", "RightArm", "LeftLeg", "RightLeg",
+        "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
+        "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
+        "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot"
     },
-    SAFE_PARTS = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"},
-    TELE_TYPES = {"Sau Lưng", "Trên Đầu", "Trái", "Phải"},
-    BOT_TAGS = {"Entity", "NPCCharacter", "Dummy", "BotLookAt", "NPCAnimationPVPBot", "NPCPathfindingPVPBot", "NPCWeaponPVPBot"},
-    STATIC_RAY_FILTER = {nil, nil}
+    BotContainerNames = {
+        "Dummies", "Bots", "NPCs", "Enemies", "Zombies", "Monsters",
+        "AI", "Targets", "Spawns", "Units", "Minions", "Mobs", "Creatures",
+        "BadGuys", "Guards", "Soldiers", "ShootingRange"
+    }
 }
 
--- Stealth Functions
+-- LỚP ẨN DANH TÍNH (STEALTH LAYER)
 Shared.RandomString = function(length)
     local chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     local str = ""
@@ -137,6 +137,7 @@ Shared.IDS = {
     Watermark   = "SYS v" .. math.random(2, 9) .. "." .. math.random(0, 9) .. "." .. math.random(0, 9)
 }
 
+-- Lấy GUI cha an toàn nhất
 Shared.GetSafeParent = function()
     local p = nil
     pcall(function()
@@ -149,7 +150,6 @@ Shared.GetSafeParent = function()
     end
     return p or Shared.CoreGui
 end
-
 Shared.parentGui = Shared.GetSafeParent()
 
 Shared.ProtectInstance = function(inst)
@@ -161,9 +161,15 @@ Shared.ProtectInstance = function(inst)
             inst.Parent = gethui()
         end
     end)
+    if syn and type(syn) == "table" and syn.secure_ui then
+        pcall(function() syn.secure_ui(inst) end)
+    end
+    if protectui and type(protectui) == "function" then
+        pcall(protectui, inst)
+    end
 end
 
--- Cấu hình toàn hệ thống (Settings)
+-- CẤU HÌNH GỐC (SETTINGS)
 Shared.Settings = {
     AimEnabled = false, AimHoldMode = false, AimSafe = false, AimDist = 1000,
     TargetPart = "Head", WallCheck = false, TeamCheck = true, TargetNPC = false, SafeShieldCheck = false,
@@ -218,104 +224,19 @@ Shared.Settings = {
 }
 
 Shared.GetActivePreset = function()
-    return Shared.ThemePresets[Shared.Settings.ThemeName] or Shared.ThemePresets["Dark"]
+    return Shared.ThemePresets[Shared.Settings.ThemeName] or Shared.ThemePresets.Dark
 end
 
 Shared.ColorList = {
-    White = Color3.fromRGB(255, 255, 255),
-    Red = Color3.fromRGB(255, 60, 60),
-    Green = Color3.fromRGB(60, 255, 60),
-    Blue = Color3.fromRGB(60, 150, 255),
-    Yellow = Color3.fromRGB(255, 230, 60),
-    Purple = Color3.fromRGB(180, 80, 255),
-    Cyan = Color3.fromRGB(60, 240, 255)
+    ["White"] = Color3.fromRGB(255, 255, 255), ["Red"] = Color3.fromRGB(255, 50, 50),
+    ["Green"] = Color3.fromRGB(0, 255, 0), ["Blue"] = Color3.fromRGB(50, 150, 255),
+    ["Yellow"] = Color3.fromRGB(255, 255, 0), ["Pink"] = Color3.fromRGB(255, 105, 180),
+    ["Black"] = Color3.fromRGB(0, 0, 0)
 }
 
-local activePreset = Shared.GetActivePreset()
-Shared.Theme = {
-    MainBg = Color3.fromRGB(18, 18, 20),
-    PanelBg = Color3.fromRGB(30, 30, 34),
-    PanelHeader = Color3.fromRGB(34, 34, 42),
-    Border = Color3.fromRGB(48, 48, 58),
-    BorderFocus = activePreset.Accent,
-    TextWhite = Color3.fromRGB(240, 240, 240),
-    TextGray = Color3.fromRGB(130, 130, 148),
-    TextDark = Color3.fromRGB(120, 120, 120),
-    TopBarText = Color3.fromRGB(180, 180, 180),
-    Accent = activePreset.Accent,
-    AccentHover = activePreset.AccentHover,
-    ToggleOn = activePreset.AccentOn,
-    ToggleOff = Color3.fromRGB(45, 45, 50),
-    AccentOn = activePreset.AccentOn or Color3.fromRGB(255, 255, 255),
-    AccentOff = Color3.fromRGB(45, 45, 50),
-    KnobOn = Color3.fromRGB(18, 18, 20),
-    KnobOff = Color3.fromRGB(180, 180, 180),
-    DotGreen = Color3.fromRGB(0, 255, 0),
-    DotRed = Color3.fromRGB(255, 50, 50),
-    SliderBg = Color3.fromRGB(36, 36, 46),
-    SliderFill = activePreset.Accent,
-    Font = Enum.Font.GothamMedium,
-    FontBold = Enum.Font.GothamBold,
-    FontMedium = Enum.Font.GothamMedium
-}
-
-setmetatable(Shared.Theme, {
-    __index = function(t, k)
-        if k == "DotGreen" then return Color3.fromRGB(0, 255, 0)
-        elseif k == "DotRed" then return Color3.fromRGB(255, 50, 50)
-        elseif k == "KnobOn" then return Color3.fromRGB(18, 18, 20)
-        elseif k == "KnobOff" then return Color3.fromRGB(180, 180, 180)
-        elseif k == "AccentOn" then return Color3.fromRGB(255, 255, 255)
-        elseif k == "AccentOff" then return Color3.fromRGB(45, 45, 50)
-        elseif k == "ToggleOn" then return Color3.fromRGB(255, 255, 255)
-        elseif k == "ToggleOff" then return Color3.fromRGB(45, 45, 50)
-        elseif k == "TextDark" then return Color3.fromRGB(120, 120, 120)
-        elseif k == "TextWhite" then return Color3.fromRGB(240, 240, 240)
-        elseif k == "PanelBg" then return Color3.fromRGB(30, 30, 34)
-        elseif k == "MainBg" then return Color3.fromRGB(18, 18, 20)
-        elseif k == "TopBarText" then return Color3.fromRGB(180, 180, 180)
-        elseif k == "Font" then return Enum.Font.GothamMedium
-        elseif k == "FontBold" then return Enum.Font.GothamBold
-        end
-        return Color3.fromRGB(255, 255, 255)
-    end
-})
-
-Shared.MainFrame = nil
-Shared.MainStroke = nil
-
-Shared.ApplyTheme = function()
-    local p = Shared.GetActivePreset()
-    Shared.Theme.Accent = p.Accent
-    Shared.Theme.AccentHover = p.AccentHover
-    Shared.Theme.ToggleOn = p.AccentOn
-    Shared.Theme.AccentOn = p.AccentOn
-    Shared.Theme.BorderFocus = p.Accent
-    Shared.Theme.SliderFill = p.Accent
-
-    if Shared.MainStroke then
-        Shared.MainStroke.Color = p.Accent
-    end
-
-    for _, obj in pairs(Shared.ThemeObjects.Panels) do
-        if obj and obj.Parent then obj.BorderColor3 = Shared.Theme.Border end
-    end
-    for _, item in pairs(Shared.ThemeObjects.Toggles) do
-        if item and item.Box and item.Box.Parent then
-            local isKeyActive = Shared.Settings[item.Key]
-            item.Box.BackgroundColor3 = isKeyActive and p.AccentOn or Shared.Theme.ToggleOff
-            if item.Dot then
-                item.Dot.Position = isKeyActive and UDim2.new(1, -15, 0.5, -5) or UDim2.new(0, 3, 0.5, -5)
-                item.Dot.BackgroundColor3 = isKeyActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(100, 100, 115)
-            end
-        end
-    end
-    for _, fill in pairs(Shared.ThemeObjects.SliderFills) do
-        if fill and fill.Parent then fill.BackgroundColor3 = p.Accent end
-    end
-    for _, db in pairs(Shared.ThemeObjects.Dropbox) do
-        if db and db.Parent then db.BorderColor3 = p.Accent end
-    end
-end
+-- Raycast Params dùng lại cho Wall Check
+Shared.WallCheckRayParams = RaycastParams.new()
+Shared.WallCheckRayParams.FilterType = Enum.RaycastFilterType.Exclude
+Shared.WallCheckRayParams.IgnoreWater = true
 
 return Shared

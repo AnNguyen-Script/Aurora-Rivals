@@ -3,23 +3,19 @@
 -- Tạo Bởi An Nguyễn Đẹp Trai - Im Goned
 -- ============================================================
 
--- ============================================================
--- 1. CẤU HÌNH GITHUB (ĐỂ CHIA SẺ CHO BẠN BÈ CHỈ CẦN 1 DÒNG LỆNH)
--- ============================================================
 local GITHUB_CONFIG = {
-    Enabled = true,                    -- Bật true để tải trực tiếp từ link GitHub
-    Username = "AnNguyen-Script", -- Thay bằng Tên tài khoản GitHub của bạn
-    Repository = "Aurora-Rivals",      -- Thay bằng Tên Repository GitHub
-    Branch = "main",                   -- Nhánh chính (mặc định: main)
-    Folder = ""                        -- Nếu để trong thư mục con trên GitHub thì điền (ví dụ: "Modular_Rivals"), để trống nếu ở gốc
+    Enabled = true,                    -- Tải trực tiếp từ GitHub
+    Username = "AnNguyen-Script",       -- GitHub Username
+    Repository = "Aurora-Rivals",      -- GitHub Repository
+    Branch = "main",                   -- Nhánh chính
+    Folder = ""                        -- Thư mục gốc repo
 }
 
--- 2. Hàm Import Module Tự Động (Hỗ trợ cả GitHub HTTP lẫn Local File)
+-- Hàm Import Module Tự Động
 local function Import(name)
     local content = nil
     local resolvedSource = nil
 
-    -- Ưu tiên 1: Tải từ GitHub nếu đã cấu hình Username
     if GITHUB_CONFIG.Enabled and GITHUB_CONFIG.Username ~= "YOUR_GITHUB_USERNAME" then
         local folderPart = (GITHUB_CONFIG.Folder ~= "" and (GITHUB_CONFIG.Folder .. "/")) or ""
         local rawUrl = string.format("https://raw.githubusercontent.com/%s/%s/%s/%s%s?v=%d",
@@ -37,7 +33,6 @@ local function Import(name)
         end
     end
 
-    -- Ưu tiên 2: Nếu chưa cấu hình GitHub hoặc không có mạng -> Tự động nạp file Local trên máy tính
     if not content then
         local BASE_PATHS = {
             "Modular_Rivals/",
@@ -68,7 +63,7 @@ local function Import(name)
     end
 
     if not content then
-        error("[RIVALS LOADER] Không thể tìm thấy module '" .. name .. "' trên GitHub lẫn thư mục Local workspace!")
+        error("[RIVALS LOADER] Không thể tìm thấy module '" .. name .. "' trên GitHub lẫn Local!")
     end
 
     local fn, compileErr = loadstring(content, resolvedSource or name)
@@ -79,7 +74,7 @@ local function Import(name)
     return fn()
 end
 
--- 3. Khởi tạo các Module tuần tự
+-- 1. Khởi tạo Modules theo thứ tự phụ thuộc
 local Shared    = Import("Shared.lua")
 local Shield    = Import("Shield.lua")(Shared)
 local Targeting = Import("Targeting.lua")(Shared, Shield)
@@ -88,17 +83,17 @@ local Aim       = Import("Aim.lua")(Shared, Targeting)
 local ESP       = Import("ESP.lua")(Shared, Targeting)
 local UI        = Import("UI.lua")(Shared, Shield, Targeting, ESP, Aim, Player)
 
--- 4. Kích hoạt Anti-Cheat Shield
+-- 2. Kích hoạt Anti-Cheat Shield
 pcall(function()
     Shield.InitShield()
 end)
 
--- 5. Vòng lặp Physics (Stepped)
+-- 3. Vòng lặp Physics (Stepped)
 local steppedConn = Shared.RunService.Stepped:Connect(function(step)
     Player.UpdatePhysics(step)
 end)
 
--- 6. Vòng lặp Render (RenderStepped)
+-- 4. Vòng lặp Render (RenderStepped)
 local frames = 0
 local currentFPS = 60
 local lastFPSUpdate = tick()
@@ -123,14 +118,35 @@ local renderConn = Shared.RunService.RenderStepped:Connect(function(step)
         if Shared.UI_Elements.Watermark then
             Shared.UI_Elements.Watermark.Text = string.format("RIVALS ● %d FPS ● Expire in: %02dd %02dh %02dm %02ds", currentFPS, days, hours, mins, secs)
         end
+        if UI.GetMenuConnected and UI.GetMenuConnected() then
+            if UI.StatusText then
+                UI.StatusText.Text = string.format(
+                    "<font color=\"#00ff00\">● CONNECTED</font>   -   EXP %dd %dh %dm %ds   -   FPS %d"
+                        .. "   -   BLOCKED %d",
+                    days, hours, mins, secs, currentFPS, (Shield and Shield.Blocks) or 0)
+            end
+            if UI.UpdateWatermarkColor then
+                UI.UpdateWatermarkColor(Color3.fromRGB(0, 255, 0))
+            end
+        else
+            if UI.StatusText then
+                UI.StatusText.Text = "<font color=\"#ffffff\">● Rivals Menu</font>   <font color=\"#666677\">/</font>   <font color=\"#aaaaaa\">Login</font>"
+            end
+            if UI.UpdateWatermarkColor then
+                UI.UpdateWatermarkColor(Color3.fromRGB(255, 215, 0))
+            end
+        end
     end
+
+    -- Cập nhật Player Mods (Speed, Jump, Fly, SpinBot, Underground)
+    Player.UpdatePlayer(step)
 
     -- Cập nhật Aim & ESP
     Aim.UpdateAim(step, center)
     ESP.UpdateESP(camPos, center)
 end)
 
--- 7. Anti-AFK tích hợp sẵn
+-- 5. Anti-AFK
 local afkConn = Shared.LocalPlayer.Idled:Connect(function()
     if Shared.VirtualUser then
         pcall(function()
@@ -140,7 +156,7 @@ local afkConn = Shared.LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- 8. Dọn dẹp tài nguyên khi Menu bị đóng / destroy
+-- 6. Dọn dẹp tài nguyên
 UI.ScreenGui.Destroying:Connect(function()
     pcall(function() renderConn:Disconnect() end)
     pcall(function() steppedConn:Disconnect() end)
@@ -161,9 +177,9 @@ UI.ScreenGui.Destroying:Connect(function()
     Player.ResetHitboxes()
 end)
 
--- 9. Hoàn tất khởi tạo
+-- 7. Hoàn tất khởi tạo
 UI.UpdateTabDots()
-Shared.ApplyTheme()
+UI.ApplyTheme()
 task.wait(0.1)
 pcall(function() UI.ScreenGui.Parent = Shared.parentGui end)
-Shared.SendNotification("System", "Rivals Modular Menu v2.14.0 đã sẵn sàng!")
+Shared.SendNotification("System", "Rivals Pro Menu v2.14.0 đã sẵn sàng!")

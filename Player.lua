@@ -1,225 +1,353 @@
 -- ============================================================
--- MODULAR RIVALS | MODULE: PLAYER EXPLOITS & PHYSICS
+-- MODULAR RIVALS | MODULE 4: PLAYER MODS, HITBOX & PHYSICS
 -- ============================================================
 return function(Shared, Targeting)
     local Player = {}
 
     local Settings = Shared.Settings
     local LocalPlayer = Shared.LocalPlayer
+    local Players = Shared.Players
+    local Workspace = Shared.Workspace
     local Camera = Shared.Camera
     local Const = Shared.Const
     local UserInputService = Shared.UserInputService
+    local RunService = Shared.RunService
+    local forEachEnemy = Targeting.forEachEnemy
+    local undergroundSurfaceY = nil
 
-    local originalHitboxes = {}
+-- Hitbox Expander Cache & Reset Logic
+local originalHitboxes = {}
+local function ResetHitboxes()
+    for part, orig in pairs(originalHitboxes) do
+        if part and part.Parent then
+            pcall(function()
+                part.Size = orig.Size
+                part.Transparency = orig.Transparency
+                part.CanCollide = orig.CanCollide
+            end)
+        end
+    end
+    table.clear(originalHitboxes)
+end
+
+
+
+local noClipParts = {}
+local function RefreshNoClipParts()
+    table.clear(noClipParts)
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                table.insert(noClipParts, part)
+            end
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.2)
+    RefreshNoClipParts()
+    char.DescendantAdded:Connect(function(desc)
+        if desc:IsA("BasePart") then
+            table.insert(noClipParts, desc)
+        end
+    end)
+end)
+if LocalPlayer.Character then
+    RefreshNoClipParts()
+    LocalPlayer.Character.DescendantAdded:Connect(function(desc)
+        if desc:IsA("BasePart") then
+            table.insert(noClipParts, desc)
+        end
+    end)
+end
+
+
     local cachedHitboxVal = nil
     local cachedHitboxSizeVec = nil
 
-    local undergroundSurfaceY = nil
-    local originalTeleportCFrame = nil
-    local originalSpeedTeleCFrame = nil
-    local noClipParts = {}
-
-    local function ResetHitboxes()
-        for part, orig in pairs(originalHitboxes) do
-            pcall(function()
-                if part and part.Parent then
-                    part.Size = orig.Size
-                    part.Transparency = orig.Transparency
-                    part.CanCollide = orig.CanCollide
-                end
-            end)
-        end
-        table.clear(originalHitboxes)
-    end
-    Player.ResetHitboxes = ResetHitboxes
-
-    local function RefreshNoClipParts()
-        table.clear(noClipParts)
-        local char = LocalPlayer.Character
-        if char then
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    table.insert(noClipParts, part)
-                end
-            end
-        end
-    end
-    Player.RefreshNoClipParts = RefreshNoClipParts
-
-    LocalPlayer.CharacterAdded:Connect(function(char)
-        task.wait(0.2)
-        RefreshNoClipParts()
-        char.DescendantAdded:Connect(function(desc)
-            if desc:IsA("BasePart") then
-                table.insert(noClipParts, desc)
-            end
-        end)
-    end)
-    if LocalPlayer.Character then
-        RefreshNoClipParts()
-        LocalPlayer.Character.DescendantAdded:Connect(function(desc)
-            if desc:IsA("BasePart") then
-                table.insert(noClipParts, desc)
-            end
-        end)
-    end
-
-    UserInputService.JumpRequest:Connect(function()
-        if Settings.InfJump
-            and LocalPlayer.Character
-            and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
-        end
-    end)
-
-    -- Physics / Stepped Update (chạy trong RunService.Stepped)
     local function UpdatePhysics(step)
-        local myChar = LocalPlayer.Character
-        local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-
-        -- 1. Hitbox Expander
-        if Settings.HitboxExpander then
-            local hVal = Settings.HitboxSize or 10
-            if cachedHitboxVal ~= hVal then
-                cachedHitboxVal = hVal
-                cachedHitboxSizeVec = Vector3.new(hVal, hVal, hVal)
+        -- Xuyên tường, Chui đất & Speed Tele không cấp phát bộ nhớ
+    if Settings.Noclip or (Settings.UndergroundNoclip and undergroundSurfaceY) or Settings.SpeedTele then
+        for i = 1, #noClipParts do
+            local part = noClipParts[i]
+            if part and part.Parent and part.CanCollide then
+                part.CanCollide = false
             end
-            local targetPartName = Settings.HitboxPart or "Head"
+        end
+    end
 
-            Targeting.forEachEnemy(function(target, char, isNPC)
-                local isSafe = Targeting.isSameTeam(target) or Targeting.isSafeShield(target, char)
-                if not isSafe then
-                    local part = char:FindFirstChild(targetPartName)
-                    if part and part:IsA("BasePart") then
-                        if not originalHitboxes[part] then
-                            originalHitboxes[part] = {
-                                Size = part.Size,
-                                Transparency = part.Transparency,
-                                CanCollide = part.CanCollide
-                            }
-                        end
-                        part.Size = cachedHitboxSizeVec
-                        part.Transparency = Settings.HitboxInvisible and 1 or 0.5
+    -- Slow Fall (Hãm tốc độ rơi chậm mượt mà)
+    if Settings.SlowFall and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and not Settings.Fly and not (Settings.UndergroundNoclip and undergroundSurfaceY) then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        local currentVel = hrp.Velocity
+        local maxDown = -(Settings.SlowFallSpeed or 5)
+        if currentVel.Y < maxDown then
+            hrp.Velocity = Vector3.new(currentVel.X, maxDown, currentVel.Z)
+        end
+    end
+
+    -- Hitbox Expander (Mở rộng Hitbox Đầu hoặc Thân - Hỗ trợ cả Người chơi & NPC/Bot)
+    if Settings.HitboxExpander then
+        local isHead = (Settings.HitboxPart == "Head" or Settings.HitboxPart == "Đầu")
+        local targetName = isHead and "Head" or "HumanoidRootPart"
+        if cachedHitboxVal ~= Settings.HitboxSize then
+            cachedHitboxVal = Settings.HitboxSize
+            cachedHitboxSizeVec = Vector3.new(cachedHitboxVal, cachedHitboxVal, cachedHitboxVal)
+        end
+        local sizeVal = cachedHitboxSizeVec
+        local targetTransparency = Settings.HitboxInvisible and 1 or 0.55
+
+        forEachEnemy(function(char, source)
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local part = char:FindFirstChild(targetName)
+                if not part and not isHead then
+                    part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char.PrimaryPart
+                end
+                if part and part:IsA("BasePart") then
+                    if not originalHitboxes[part] then
+                        originalHitboxes[part] = {
+                            Size = part.Size,
+                            Transparency = part.Transparency,
+                            CanCollide = part.CanCollide
+                        }
+                    end
+                    if part.Size ~= sizeVal or part.Transparency ~= targetTransparency then
+                        part.Size = sizeVal
+                        part.Transparency = targetTransparency
                         part.CanCollide = false
                     end
                 end
-            end)
-        else
-            if next(originalHitboxes) ~= nil then
-                ResetHitboxes()
             end
+        end)
+    end
+    
+    -- Auto Teleport bám địch (Hỗ trợ cả Người chơi & NPC/Bot - Tối ưu hóa Squared Distance)
+    if Settings.AutoTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myHrp = LocalPlayer.Character.HumanoidRootPart
+        if not originalTeleportCFrame then
+            originalTeleportCFrame = myHrp.CFrame
         end
-
-        -- 2. Fly & Speed Hack
-        if myHrp and myHum then
-            if Settings.Fly then
-                local cam = Camera.CFrame
-                local moveDir = Vector3.zero
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
-
-                if moveDir.Magnitude > 0 then
-                    myHrp.AssemblyLinearVelocity = moveDir.Unit * (Settings.FlySpeed or 50)
-                else
-                    myHrp.AssemblyLinearVelocity = Vector3.zero
-                end
-            elseif Settings.SpeedHack then
-                local moveDir = Vector3.zero
-                local camCFrame = Camera.CFrame
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCFrame.RightVector end
-                moveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
-                if moveDir.Magnitude > 0 then
-                    myHrp.AssemblyLinearVelocity = moveDir.Unit * (Settings.WalkSpeed or 30) + Vector3.new(0, myHrp.AssemblyLinearVelocity.Y, 0)
+        local closestEnemy = nil
+        local shortestDistSq = math.huge
+        local myPos = myHrp.Position
+        local maxRange = Settings.TeleportRange or 1000
+        local maxRangeSq = maxRange * maxRange
+        
+        forEachEnemy(function(char, source)
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local targetHrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char.PrimaryPart
+            if char and targetHrp and hum and hum.Health > 0 and not isSafeShield(source, char) then
+                local diff = targetHrp.Position - myPos
+                local distSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                if distSq <= maxRangeSq and distSq < shortestDistSq then
+                    shortestDistSq = distSq
+                    closestEnemy = targetHrp
                 end
             end
-        end
+        end)
 
-        -- 3. NoClip
-        if Settings.Noclip or Settings.UndergroundNoclip then
-            for i = 1, #noClipParts do
-                local p = noClipParts[i]
-                if p and p.Parent then p.CanCollide = false end
+        if closestEnemy then
+            local offsetPos
+            local posType = Settings.AutoTeleportPosition
+            
+            if posType == "Random" then
+                posType = Const.TELE_TYPES[math.random(1, #Const.TELE_TYPES)]
             end
-        end
-
-        -- 4. Underground Noclip
-        if Settings.UndergroundNoclip and myHrp then
-            if not undergroundSurfaceY then
-                undergroundSurfaceY = myHrp.Position.Y
+            
+            if posType == "Trên Đầu" then
+                offsetPos = closestEnemy.Position + Vector3.new(0, Settings.AutoTeleportDistance + 3, 0)
+            elseif posType == "Trái" then
+                offsetPos = closestEnemy.Position + (closestEnemy.CFrame.RightVector * -Settings.AutoTeleportDistance) + Vector3.new(0, 1.5, 0)
+            elseif posType == "Phải" then
+                offsetPos = closestEnemy.Position + (closestEnemy.CFrame.RightVector * Settings.AutoTeleportDistance) + Vector3.new(0, 1.5, 0)
+            else -- Mặc định là Sau Lưng
+                local behindOffset = closestEnemy.CFrame.LookVector * -Settings.AutoTeleportDistance
+                offsetPos = closestEnemy.Position + behindOffset + Vector3.new(0, 1.5, 0)
             end
-            local moveDir = Vector3.zero
-            local camCFrame = Camera.CFrame
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCFrame.RightVector end
-            moveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
-
-            local targetY = undergroundSurfaceY - Settings.UndergroundDistance
-            if moveDir.Magnitude > 0 then
-                myHrp.AssemblyLinearVelocity = moveDir.Unit * (Settings.WalkSpeed or 30) + Vector3.new(0, (targetY - myHrp.Position.Y) * 10, 0)
-            else
-                myHrp.AssemblyLinearVelocity = Vector3.new(0, (targetY - myHrp.Position.Y) * 10, 0)
+            
+            myHrp.CFrame = CFrame.new(offsetPos, closestEnemy.Position)
+            myHrp.Velocity = Vector3.zero
+            
+            if Settings.AutoTeleportCameraLock then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestEnemy.Position)
             end
-            local camLx, camLz = camCFrame.LookVector.X, camCFrame.LookVector.Z
-            if camLx ~= 0 or camLz ~= 0 then
-                local lookAtPos = Vector3.new(myHrp.Position.X + camLx, targetY, myHrp.Position.Z + camLz)
-                myHrp.CFrame = CFrame.new(Vector3.new(myHrp.Position.X, targetY, myHrp.Position.Z), lookAtPos)
-            end
-        else
-            undergroundSurfaceY = nil
-        end
-
-        -- 5. Teleport Loop
-        if Settings.AutoTeleport and myHrp then
-            if not originalTeleportCFrame then
-                originalTeleportCFrame = myHrp.CFrame
-            end
-            local closest = Targeting.getClosestPlayer()
-            local targetChar = closest and (closest:IsA("Player") and closest.Character or closest)
-            local targetHrp = targetChar and (targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("Torso"))
-
-            if targetHrp then
-                local range = Settings.TeleportRange or 1000
-                if (targetHrp.Position - originalTeleportCFrame.Position).Magnitude <= range then
-                    local posType = Settings.AutoTeleportPosition or "Sau Lưng"
-                    local targetCFrame = targetHrp.CFrame
-                    local desiredPos = targetCFrame.Position
-                    if posType == "Sau Lưng" then
-                        desiredPos = targetCFrame.Position - (targetCFrame.LookVector * (Settings.AutoTeleportDistance or 3))
-                    elseif posType == "Trên Đầu" then
-                        desiredPos = targetCFrame.Position + Vector3.new(0, Settings.AutoTeleportDistance or 3, 0)
-                    elseif posType == "Trái" then
-                        desiredPos = targetCFrame.Position - (targetCFrame.RightVector * (Settings.AutoTeleportDistance or 3))
-                    elseif posType == "Phải" then
-                        desiredPos = targetCFrame.Position + (targetCFrame.RightVector * (Settings.AutoTeleportDistance or 3))
-                    end
-                    myHrp.CFrame = CFrame.new(desiredPos, targetHrp.Position)
-                    myHrp.AssemblyLinearVelocity = Vector3.zero
-                    if Settings.AutoTeleportCameraLock then
-                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetHrp.Position)
-                    end
-                elseif Settings.AutoTeleportReturn and originalTeleportCFrame then
-                    myHrp.CFrame = originalTeleportCFrame
-                    myHrp.AssemblyLinearVelocity = Vector3.zero
-                end
-            elseif Settings.AutoTeleportReturn and originalTeleportCFrame then
-                myHrp.CFrame = originalTeleportCFrame
-                myHrp.AssemblyLinearVelocity = Vector3.zero
-            end
-        else
-            originalTeleportCFrame = nil
+        elseif Settings.AutoTeleportReturn and originalTeleportCFrame then
+            -- Không còn kẻ địch nào (hoặc toàn bộ đang có khiên an toàn) -> Tự tele về vị trí ban đầu
+            myHrp.CFrame = originalTeleportCFrame
+            myHrp.Velocity = Vector3.zero
         end
     end
+
+    -- Speed Tele bám địch (Tốc độ Speed + Noclip di chuyển đến kẻ địch - Tối ưu hóa Squared Distance)
+    if Settings.SpeedTele and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myHrp = LocalPlayer.Character.HumanoidRootPart
+        if not originalSpeedTeleCFrame then
+            originalSpeedTeleCFrame = myHrp.CFrame
+        end
+        local closestEnemy = nil
+        local shortestDistSq = math.huge
+        local myPos = myHrp.Position
+        local maxRange = Settings.TeleportRange or 1000
+        local maxRangeSq = maxRange * maxRange
+        
+        forEachEnemy(function(char, source)
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local targetHrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char.PrimaryPart
+            if char and targetHrp and hum and hum.Health > 0 and not isSafeShield(source, char) then
+                local diff = targetHrp.Position - myPos
+                local distSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                if distSq <= maxRangeSq and distSq < shortestDistSq then
+                    shortestDistSq = distSq
+                    closestEnemy = targetHrp
+                end
+            end
+        end)
+
+        if closestEnemy then
+            local offsetPos
+            local posType = Settings.AutoTeleportPosition
+            
+            if posType == "Random" then
+                posType = Const.TELE_TYPES[math.random(1, #Const.TELE_TYPES)]
+            end
+            
+            if posType == "Trên Đầu" then
+                offsetPos = closestEnemy.Position + Vector3.new(0, Settings.AutoTeleportDistance + 3, 0)
+            elseif posType == "Trái" then
+                offsetPos = closestEnemy.Position + (closestEnemy.CFrame.RightVector * -Settings.AutoTeleportDistance) + Vector3.new(0, 1.5, 0)
+            elseif posType == "Phải" then
+                offsetPos = closestEnemy.Position + (closestEnemy.CFrame.RightVector * Settings.AutoTeleportDistance) + Vector3.new(0, 1.5, 0)
+            else -- Mặc định là Sau Lưng
+                local behindOffset = closestEnemy.CFrame.LookVector * -Settings.AutoTeleportDistance
+                offsetPos = closestEnemy.Position + behindOffset + Vector3.new(0, 1.5, 0)
+            end
+            
+            local diff = offsetPos - myHrp.Position
+            local dist = diff.Magnitude
+            local moveSpeed = Settings.SpeedTeleSpeed or 50
+            local stepDist = moveSpeed * 0.016
+            
+            if dist <= stepDist or dist <= 0.5 then
+                myHrp.CFrame = CFrame.new(offsetPos, closestEnemy.Position)
+            else
+                local moveDir = diff.Unit
+                myHrp.CFrame = CFrame.new(myHrp.Position + (moveDir * stepDist), closestEnemy.Position)
+            end
+            myHrp.Velocity = Vector3.zero
+            
+            if Settings.AutoTeleportCameraLock then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestEnemy.Position)
+            end
+        elseif Settings.AutoTeleportReturn and originalSpeedTeleCFrame then
+            local diff = originalSpeedTeleCFrame.Position - myHrp.Position
+            local dist = diff.Magnitude
+            local moveSpeed = Settings.SpeedTeleSpeed or 50
+            local stepDist = moveSpeed * 0.016
+            
+            if dist <= stepDist or dist <= 0.5 then
+                myHrp.CFrame = originalSpeedTeleCFrame
+            else
+                local moveDir = diff.Unit
+                local lookAtTarget = originalSpeedTeleCFrame.Position + originalSpeedTeleCFrame.LookVector * 10
+                myHrp.CFrame = CFrame.new(myHrp.Position + (moveDir * stepDist), lookAtTarget)
+            end
+            myHrp.Velocity = Vector3.zero
+        end
+    end
+    end
+
+    local function UpdatePlayer(step)
+        local now = tick()
+
+        -- SPINBOT / ANTI-AIM
+        if Settings.SpinBot and LocalPlayer.Character then
+            local myHrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myHum = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if myHrp and myHum and myHum.Health > 0 then
+                myHum.AutoRotate = false
+                local spinSpeed = (Settings.SpinSpeed or 50) * 0.4
+                local spinAngle = (now * spinSpeed * math.pi * 2) % (math.pi * 2)
+                myHrp.CFrame = CFrame.new(myHrp.Position) * CFrame.Angles(0, spinAngle, 0)
+            end
+        end
+
+        -- 3. PLAYER MODS
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = LocalPlayer.Character.Humanoid
+            local hrp = LocalPlayer.Character.HumanoidRootPart
+
+            if Settings.SpeedHack then humanoid.WalkSpeed = Settings.WalkSpeed end
+            if Settings.JumpHack then
+                humanoid.UseJumpPower = true
+                humanoid.JumpPower = Settings.JumpPower
+            end
+            if Settings.InfJump and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+            if Settings.Gravity then
+                Workspace.Gravity = Settings.GravityValue
+            else
+                Workspace.Gravity = 196.2
+            end
+
+            -- Fly
+            if Settings.Fly then
+                local moveDir = Vector3.zero
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+                if moveDir.Magnitude > 0 then
+                    hrp.Velocity = moveDir.Unit * Settings.FlySpeed
+                else
+                    hrp.Velocity = Vector3.zero
+                end
+            end
+
+            -- Underground (Chui đất & di chuyển WASD)
+            if Settings.UndergroundNoclip then
+                if not undergroundSurfaceY then
+                    undergroundSurfaceY = hrp.Position.Y
+                end
+                local targetY = undergroundSurfaceY - Settings.UndergroundDepth
+                local moveDir = Vector3.zero
+                local camLook = Camera.CFrame.LookVector
+                local camRight = Camera.CFrame.RightVector
+                local flatLook = Vector3.new(camLook.X, 0, camLook.Z).Unit
+                local flatRight = Vector3.new(camRight.X, 0, camRight.Z).Unit
+
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + flatLook end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - flatLook end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - flatRight end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + flatRight end
+
+                local currentPos = hrp.Position
+                local nextPos = Vector3.new(currentPos.X, targetY, currentPos.Z)
+                if moveDir.Magnitude > 0 then
+                    nextPos = nextPos + (moveDir.Unit * (Settings.UndergroundSpeed * step))
+                end
+                hrp.CFrame = CFrame.new(nextPos, nextPos + flatLook)
+                hrp.Velocity = Vector3.zero
+            else
+                if undergroundSurfaceY then
+                    undergroundSurfaceY = nil
+                end
+            end
+        end
+    end
+
+    Player.originalHitboxes = originalHitboxes
+    Player.appliedHitboxes = appliedHitboxes
+    Player.ResetHitboxes = ResetHitboxes
+    Player.RefreshNoClipParts = RefreshNoClipParts
     Player.UpdatePhysics = UpdatePhysics
+    Player.UpdatePlayer = UpdatePlayer
 
     return Player
 end

@@ -1,40 +1,30 @@
 -- ============================================================
--- MODULAR RIVALS | MODULE: USER INTERFACE (UI & CONTROLS)
+-- MODULAR RIVALS | MODULE 7: USER INTERFACE, TABS & CONTROLS
 -- ============================================================
 return function(Shared, Shield, Targeting, ESP, Aim, Player)
     local UI = {}
 
     local Settings = Shared.Settings
-    local Theme = Shared.Theme
-    local ThemePresets = Shared.ThemePresets
-    local ThemeObjects = Shared.ThemeObjects
-    local ColorList = Shared.ColorList
-    local IDS = Shared.IDS
-    local parentGui = Shared.parentGui
-    local ProtectInstance = Shared.ProtectInstance
-    local RandomString = Shared.RandomString
-    local ApplyTheme = Shared.ApplyTheme
-    local UI_Elements = Shared.UI_Elements
-    local SearchIndex = Shared.SearchIndex
-    local TabActiveKeys = Shared.TabActiveKeys
-    local Const = Shared.Const
-
+    local LocalPlayer = Shared.LocalPlayer
+    local Players = Shared.Players
+    local Camera = Shared.Camera
     local TweenService = Shared.TweenService
     local UserInputService = Shared.UserInputService
     local HttpService = Shared.HttpService
-    local TeleportService = Shared.TeleportService
-    local Lighting = Shared.Lighting
-    local Workspace = Shared.Workspace
-    local Players = Shared.Players
-    local LocalPlayer = Shared.LocalPlayer
-    local Camera = Shared.Camera
-
-    local undergroundSurfaceY = nil
-    local originalTeleportCFrame = nil
-    local originalSpeedTeleCFrame = nil
-
+    local CoreGui = Shared.CoreGui
+    local Theme = Shared.Theme
+    local ThemePresets = Shared.ThemePresets
+    local ThemeObjects = Shared.ThemeObjects
+    local SearchIndex = Shared.SearchIndex
+    local TabActiveKeys = Shared.TabActiveKeys
+    local UI_Elements = Shared.UI_Elements
+    local IDS = Shared.IDS
+    local parentGui = Shared.parentGui
+    local ProtectInstance = Shared.ProtectInstance
+    local CheckAndBypassCharacterAC = Shield.CheckAndBypassCharacterAC
+    local originalHitboxes = Player.originalHitboxes
     local ResetHitboxes = Player.ResetHitboxes
--- ============================================================
+
 -- UI CHÍNH
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
@@ -104,7 +94,7 @@ local Watermark = Instance.new("TextLabel")
 Watermark.Size = UDim2.new(1, 0, 1, 0)
 Watermark.BackgroundTransparency = 1
 Watermark.RichText = true
-Watermark.Text = "✨ ĐẶC QUYỀN ✨ " .. tostring(IDS.Watermark or ("SYS v" .. math.random(2, 9) .. "." .. math.random(0, 9) .. "." .. math.random(0, 9))) .. " | <font color=\"#FFD700\">An Nguyễn Studio</font>"
+Watermark.Text = "✨ ĐẶC QUYỀN ✨ " .. IDS.Watermark .. " | <font color=\"#FFD700\">An Nguyễn Studio</font>"
 Watermark.TextColor3 = Color3.fromRGB(255, 215, 0)
 Watermark.Font = Theme.FontBold
 Watermark.TextSize = 14
@@ -127,7 +117,7 @@ do local l = Instance.new("UIListLayout", NotifyFrame); l.SortOrder = Enum.SortO
 
 -- Tooltip theo chuột
 local Tooltip = Instance.new("TextLabel")
-    Tooltip.Text = ""
+Tooltip.Text = ""
 Tooltip.Size = UDim2.new(0, 190, 0, 26)
 Tooltip.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
 Tooltip.BackgroundTransparency = 0.1
@@ -142,14 +132,8 @@ Tooltip.Parent = ScreenGui
 Instance.new("UICorner", Tooltip).CornerRadius = UDim.new(0, 6)
 
 local function ShowTooltip(text)
-    if text and text ~= "" then
-        Tooltip.Text = text
-        Tooltip.Visible = true
-        local pos = UserInputService:GetMouseLocation()
-        Tooltip.Position = UDim2.new(0, pos.X + 14, 0, pos.Y + 14)
-    else
-        Tooltip.Visible = false
-    end
+    -- Disabled hover tooltip to prevent stray text artifacts on screen
+    if Tooltip then Tooltip.Visible = false end
 end
 
 UserInputService.InputChanged:Connect(function(input)
@@ -711,13 +695,6 @@ do
 
     -- Phím tắt ẩn bỏ qua toàn bộ check key & kết nối: Shift + Enter
     UserInputService.InputBegan:Connect(function(input, gpe)
-        if input.KeyCode == Settings.NoRecoilHotkey and Settings.NoRecoilHotkey ~= Enum.KeyCode.None then
-            Settings.NoRecoil = not Settings.NoRecoil
-            if UI_Elements.NoRecoil then UI_Elements.NoRecoil.SetValue(Settings.NoRecoil) end
-            UpdateTabDots()
-            SendNotification("Hotkey", "No Recoil: " .. (Settings.NoRecoil and "BẬT" or "TẮT"))
-            return
-        end
         if gpe then return end
         if input.KeyCode == Enum.KeyCode.Return
             and (UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
@@ -795,7 +772,7 @@ local function CreateSidebarIcon(tabName, iconChar, yPos)
     Indicator.Name = "Indicator"
     Indicator.Size = UDim2.new(0, 3, 0, 16)
     Indicator.Position = UDim2.new(0, -10, 0.5, -8)
-    Indicator.BackgroundColor3 = Theme.DotGreen or Color3.fromRGB(0, 255, 0)
+    Indicator.BackgroundColor3 = Theme.DotGreen
     Indicator.BorderSizePixel = 0
     Indicator.Visible = false
     Indicator.Parent = Btn
@@ -892,7 +869,7 @@ local function SaveConfig(isSilent)
         end)
 
         if encodeOk and encoded and encoded ~= "" then
-            writefile(IDS.ConfigName or "Rivals_Pro_Config.json", encoded)
+            writefile(IDS.ConfigName, encoded)
             hasLoadedConfig = true
             if not isExplicitSilent then
                 SendNotification("Cấu Hình", "Đã lưu cài đặt thành công! ✓")
@@ -913,9 +890,8 @@ local function LoadConfig(isSilent)
         end
 
         local targetFile = nil
-        local cfgName = IDS.ConfigName or "Rivals_Pro_Config.json"
-        if isfile(cfgName) then
-            targetFile = cfgName
+        if isfile(IDS.ConfigName) then
+            targetFile = IDS.ConfigName
         elseif isfile("FF_Pro_Config.json") then
             targetFile = "FF_Pro_Config.json"
         end
@@ -2617,6 +2593,13 @@ end)
 
 -- Phím tắt nhanh bật/tắt
 UserInputService.InputBegan:Connect(function(input, gpe)
+    if input.KeyCode == Settings.NoRecoilHotkey and Settings.NoRecoilHotkey ~= Enum.KeyCode.None then
+        Settings.NoRecoil = not Settings.NoRecoil
+        if UI_Elements.NoRecoil then UI_Elements.NoRecoil.SetValue(Settings.NoRecoil) end
+        UpdateTabDots()
+        SendNotification("Hotkey", "No Recoil: " .. (Settings.NoRecoil and "BẬT" or "TẮT"))
+        return
+    end
     if gpe then return end
     if input.KeyCode == Settings.AimHotkey and Settings.AimHotkey ~= Enum.KeyCode.None then
         Settings.AimEnabled = not Settings.AimEnabled
@@ -2681,19 +2664,22 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 
+
     UI.ScreenGui = ScreenGui
     UI.MainFrame = MainFrame
-    UI.LoginFrame = LoginFrame
+    UI.StatusText = StatusText
     UI.UpdateWatermarkColor = UpdateWatermarkColor
-    UI.SendNotification = SendNotification
+    UI.GetMenuConnected = function() return isMenuConnected end
+    UI.ESPCounterBox = ESPCounterBox
+    UI.WatermarkFrame = WatermarkFrame
+    UI.NotifyFrame = NotifyFrame
     UI.UpdateTabDots = UpdateTabDots
-    UI.SaveConfig = SaveConfig
-    UI.LoadConfig = LoadConfig
+    UI.ApplyTheme = ApplyTheme
 
     Shared.SendNotification = SendNotification
-    Shared.UI_Elements = UI_Elements
-    Shared.MainFrame = MainFrame
-    Shared.MainStroke = MainStroke
+    Shared.ApplyTheme = ApplyTheme
+    Shared.UI_Elements.ESPCounterBox = ESPCounterBox
+    Shared.UI_Elements.ESPCounterLabel = ESPCounterLabel
 
     return UI
 end

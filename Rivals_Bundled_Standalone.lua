@@ -6,11 +6,12 @@ local __MODULES = {}
 -- [[ MODULE: Shared.lua ]]
 __MODULES['Shared.lua'] = (function()
 -- ============================================================
--- MODULAR RIVALS | MODULE: SHARED ENVIRONMENT
+-- MODULAR RIVALS | MODULE 1: SHARED CORE, SERVICES & SETTINGS
+-- Tạo Bởi An Nguyễn Đẹp Trai - Im Goned
 -- ============================================================
+
 local Shared = {}
 
--- Fastcall shims (Không tốn local registers)
 if not table.clear then table.clear = function(t) for k in pairs(t) do t[k] = nil end end end
 if not Vector3.zero then Vector3.zero = Vector3.new(0, 0, 0) end
 
@@ -19,11 +20,13 @@ Shared.mouse1click_fn = (type(mouse1click) == "function" and mouse1click) or nil
 Shared.VirtualInputManager = nil
 pcall(function() Shared.VirtualInputManager = game:GetService("VirtualInputManager") end)
 
-Shared.mousemoverel = mousemoverel or (Input and Input.MouseMoveRel) or function(x, y)
+-- Mouse Movement Compatibility Helper (Cho Aimlock / Mouse Aimbot)
+local mousemoverel_fn = mousemoverel or (Input and Input.MouseMoveRel) or function(x, y)
     if typeof(mouse_moverel) == "function" then
         mouse_moverel(x, y)
     end
 end
+Shared.mousemoverel = mousemoverel_fn
 
 -- Core Services
 Shared.CoreGui = game:GetService("CoreGui")
@@ -42,90 +45,87 @@ Shared.CollectionService = game:GetService("CollectionService")
 
 Shared.LocalPlayer = Shared.Players.LocalPlayer
 Shared.Camera = Shared.Workspace.CurrentCamera
-
 Shared.Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-    local newCam = Shared.Workspace.CurrentCamera
-    if newCam then Shared.Camera = newCam end
+    Shared.Camera = Shared.Workspace.CurrentCamera
 end)
 
--- Tracking Tables
 Shared.UI_Elements = {}
 Shared.isMenuConnected = false
-Shared.SendNotification = function(title, text) end -- Sẽ được UI ghi đè khi khởi tạo
+Shared.SendNotification = nil
+
+-- Registry cho theme + search + active-dot
 Shared.ThemeObjects = { Panels = {}, Toggles = {}, SliderFills = {}, Dropbox = {} }
 Shared.SearchIndex = {}
 Shared.TabActiveKeys = {}
 
--- Theme Presets
+-- 3 bộ theme chuẩn gốc
 Shared.ThemePresets = {
-    ["Midnight Purple"] = {
-        Accent = Color3.fromRGB(155, 89, 235), AccentHover = Color3.fromRGB(175, 110, 255),
-        AccentOn = Color3.fromRGB(165, 95, 245), AccentOff = Color3.fromRGB(45, 30, 60)
+    Dark = {
+        MainBg = Color3.fromRGB(18, 18, 20), PanelBg = Color3.fromRGB(30, 30, 34),
+        Panel = Color3.fromRGB(22, 22, 25), Stroke = Color3.fromRGB(45, 45, 50),
+        AccentOn = Color3.fromRGB(255, 255, 255), AccentOff = Color3.fromRGB(45, 45, 50)
     },
-    ["Emerald Forest"] = {
-        Accent = Color3.fromRGB(46, 204, 113), AccentHover = Color3.fromRGB(66, 224, 133),
-        AccentOn = Color3.fromRGB(46, 204, 113), AccentOff = Color3.fromRGB(20, 50, 35)
+    Midnight = {
+        MainBg = Color3.fromRGB(9, 14, 26), PanelBg = Color3.fromRGB(20, 30, 52),
+        Panel = Color3.fromRGB(14, 20, 36), Stroke = Color3.fromRGB(45, 75, 140),
+        AccentOn = Color3.fromRGB(90, 170, 255), AccentOff = Color3.fromRGB(28, 40, 66)
     },
-    ["Sunset Blaze"] = {
-        Accent = Color3.fromRGB(230, 80, 40), AccentHover = Color3.fromRGB(250, 100, 60),
-        AccentOn = Color3.fromRGB(240, 90, 50), AccentOff = Color3.fromRGB(60, 30, 25)
-    },
-    ["Crimson Blood"] = {
-        Accent = Color3.fromRGB(220, 45, 65), AccentHover = Color3.fromRGB(245, 65, 85),
-        AccentOn = Color3.fromRGB(230, 55, 75), AccentOff = Color3.fromRGB(55, 22, 28)
-    },
-    ["Dark"] = {
-        Accent = Color3.fromRGB(130, 90, 230), AccentHover = Color3.fromRGB(150, 110, 250),
-        AccentOn = Color3.fromRGB(140, 100, 240), AccentOff = Color3.fromRGB(38, 30, 55)
-    },
-    ["Cyberpunk"] = {
-        Accent = Color3.fromRGB(0, 255, 200), AccentHover = Color3.fromRGB(50, 255, 220),
-        AccentOn = Color3.fromRGB(0, 255, 200), AccentOff = Color3.fromRGB(15, 50, 45)
-    },
-    ["Lavender Dream"] = {
-        Accent = Color3.fromRGB(195, 115, 245), AccentHover = Color3.fromRGB(215, 135, 255),
+    Violet = {
+        MainBg = Color3.fromRGB(18, 12, 28), PanelBg = Color3.fromRGB(38, 26, 56),
+        Panel = Color3.fromRGB(27, 18, 42), Stroke = Color3.fromRGB(95, 55, 145),
         AccentOn = Color3.fromRGB(205, 125, 255), AccentOff = Color3.fromRGB(48, 34, 70)
     }
 }
 
+Shared.Theme = {
+    MainBg = Color3.fromRGB(18, 18, 20),
+    PanelBg = Color3.fromRGB(25, 25, 28),
+    Panel = Color3.fromRGB(22, 22, 25),
+    Stroke = Color3.fromRGB(45, 45, 50),
+    Accent = Color3.fromRGB(255, 255, 255),
+    AccentOn = Color3.fromRGB(255, 255, 255),
+    AccentOff = Color3.fromRGB(45, 45, 50),
+    KnobOn = Color3.fromRGB(25, 25, 28),
+    KnobOff = Color3.fromRGB(18, 18, 20),
+    DotRed = Color3.fromRGB(255, 50, 50),
+    DotGreen = Color3.fromRGB(50, 255, 120),
+    TextWhite = Color3.fromRGB(240, 240, 245),
+    TextDark = Color3.fromRGB(130, 130, 140),
+    Font = Enum.Font.Gotham,
+    FontBold = Enum.Font.GothamBold,
+}
+
 -- Static Constant Tables
 Shared.Const = {
-    R15_BONES = {
-        {"Head", "UpperTorso"},
-        {"UpperTorso", "LowerTorso"},
-        {"UpperTorso", "LeftUpperArm"},
-        {"LeftUpperArm", "LeftLowerArm"},
-        {"LeftLowerArm", "LeftHand"},
-        {"UpperTorso", "RightUpperArm"},
-        {"RightUpperArm", "RightLowerArm"},
-        {"RightLowerArm", "RightHand"},
-        {"LowerTorso", "LeftUpperLeg"},
-        {"LeftUpperLeg", "LeftLowerLeg"},
-        {"LeftLowerLeg", "LeftFoot"},
-        {"LowerTorso", "RightUpperLeg"},
-        {"RightUpperLeg", "RightLowerLeg"},
-        {"RightLowerLeg", "RightFoot"}
+    SkeletonPairsR15 = {
+        {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+        {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
+        {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+        {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
+        {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
     },
-    R6_BONES = {
+    SkeletonPairsR6 = {
         {"Head", "Torso"},
         {"Torso", "Left Arm"},
         {"Torso", "Right Arm"},
         {"Torso", "Left Leg"},
         {"Torso", "Right Leg"}
     },
-    TEAM_ATTR_NAMES = {"Team", "team", "TeamName", "teamName"},
-    SHIELD_ATTRIBUTES = {
-        "SpawnShield", "Shield", "Invulnerable", "Safe", "Immune",
-        "SpawnProtection", "Protected", "IsShielded", "SpawnImmunity",
-        "Invincible", "SafeShield", "SpawnInvulnerable"
+    HitboxCandidateNames = {
+        "Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso",
+        "LeftArm", "RightArm", "LeftLeg", "RightLeg",
+        "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
+        "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
+        "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot"
     },
-    SAFE_PARTS = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"},
-    TELE_TYPES = {"Sau Lưng", "Trên Đầu", "Trái", "Phải"},
-    BOT_TAGS = {"Entity", "NPCCharacter", "Dummy", "BotLookAt", "NPCAnimationPVPBot", "NPCPathfindingPVPBot", "NPCWeaponPVPBot"},
-    STATIC_RAY_FILTER = {nil, nil}
+    BotContainerNames = {
+        "Dummies", "Bots", "NPCs", "Enemies", "Zombies", "Monsters",
+        "AI", "Targets", "Spawns", "Units", "Minions", "Mobs", "Creatures",
+        "BadGuys", "Guards", "Soldiers", "ShootingRange"
+    }
 }
 
--- Stealth Functions
+-- LỚP ẨN DANH TÍNH (STEALTH LAYER)
 Shared.RandomString = function(length)
     local chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     local str = ""
@@ -144,6 +144,7 @@ Shared.IDS = {
     Watermark   = "SYS v" .. math.random(2, 9) .. "." .. math.random(0, 9) .. "." .. math.random(0, 9)
 }
 
+-- Lấy GUI cha an toàn nhất
 Shared.GetSafeParent = function()
     local p = nil
     pcall(function()
@@ -156,7 +157,6 @@ Shared.GetSafeParent = function()
     end
     return p or Shared.CoreGui
 end
-
 Shared.parentGui = Shared.GetSafeParent()
 
 Shared.ProtectInstance = function(inst)
@@ -168,9 +168,15 @@ Shared.ProtectInstance = function(inst)
             inst.Parent = gethui()
         end
     end)
+    if syn and type(syn) == "table" and syn.secure_ui then
+        pcall(function() syn.secure_ui(inst) end)
+    end
+    if protectui and type(protectui) == "function" then
+        pcall(protectui, inst)
+    end
 end
 
--- Cấu hình toàn hệ thống (Settings)
+-- CẤU HÌNH GỐC (SETTINGS)
 Shared.Settings = {
     AimEnabled = false, AimHoldMode = false, AimSafe = false, AimDist = 1000,
     TargetPart = "Head", WallCheck = false, TeamCheck = true, TargetNPC = false, SafeShieldCheck = false,
@@ -225,105 +231,20 @@ Shared.Settings = {
 }
 
 Shared.GetActivePreset = function()
-    return Shared.ThemePresets[Shared.Settings.ThemeName] or Shared.ThemePresets["Dark"]
+    return Shared.ThemePresets[Shared.Settings.ThemeName] or Shared.ThemePresets.Dark
 end
 
 Shared.ColorList = {
-    White = Color3.fromRGB(255, 255, 255),
-    Red = Color3.fromRGB(255, 60, 60),
-    Green = Color3.fromRGB(60, 255, 60),
-    Blue = Color3.fromRGB(60, 150, 255),
-    Yellow = Color3.fromRGB(255, 230, 60),
-    Purple = Color3.fromRGB(180, 80, 255),
-    Cyan = Color3.fromRGB(60, 240, 255)
+    ["White"] = Color3.fromRGB(255, 255, 255), ["Red"] = Color3.fromRGB(255, 50, 50),
+    ["Green"] = Color3.fromRGB(0, 255, 0), ["Blue"] = Color3.fromRGB(50, 150, 255),
+    ["Yellow"] = Color3.fromRGB(255, 255, 0), ["Pink"] = Color3.fromRGB(255, 105, 180),
+    ["Black"] = Color3.fromRGB(0, 0, 0)
 }
 
-local activePreset = Shared.GetActivePreset()
-Shared.Theme = {
-    MainBg = Color3.fromRGB(18, 18, 20),
-    PanelBg = Color3.fromRGB(30, 30, 34),
-    PanelHeader = Color3.fromRGB(34, 34, 42),
-    Border = Color3.fromRGB(48, 48, 58),
-    BorderFocus = activePreset.Accent,
-    TextWhite = Color3.fromRGB(240, 240, 240),
-    TextGray = Color3.fromRGB(130, 130, 148),
-    TextDark = Color3.fromRGB(120, 120, 120),
-    TopBarText = Color3.fromRGB(180, 180, 180),
-    Accent = activePreset.Accent,
-    AccentHover = activePreset.AccentHover,
-    ToggleOn = activePreset.AccentOn,
-    ToggleOff = Color3.fromRGB(45, 45, 50),
-    AccentOn = activePreset.AccentOn or Color3.fromRGB(255, 255, 255),
-    AccentOff = Color3.fromRGB(45, 45, 50),
-    KnobOn = Color3.fromRGB(18, 18, 20),
-    KnobOff = Color3.fromRGB(180, 180, 180),
-    DotGreen = Color3.fromRGB(0, 255, 0),
-    DotRed = Color3.fromRGB(255, 50, 50),
-    SliderBg = Color3.fromRGB(36, 36, 46),
-    SliderFill = activePreset.Accent,
-    Font = Enum.Font.GothamMedium,
-    FontBold = Enum.Font.GothamBold,
-    FontMedium = Enum.Font.GothamMedium
-}
-
-setmetatable(Shared.Theme, {
-    __index = function(t, k)
-        if k == "DotGreen" then return Color3.fromRGB(0, 255, 0)
-        elseif k == "DotRed" then return Color3.fromRGB(255, 50, 50)
-        elseif k == "KnobOn" then return Color3.fromRGB(18, 18, 20)
-        elseif k == "KnobOff" then return Color3.fromRGB(180, 180, 180)
-        elseif k == "AccentOn" then return Color3.fromRGB(255, 255, 255)
-        elseif k == "AccentOff" then return Color3.fromRGB(45, 45, 50)
-        elseif k == "ToggleOn" then return Color3.fromRGB(255, 255, 255)
-        elseif k == "ToggleOff" then return Color3.fromRGB(45, 45, 50)
-        elseif k == "TextDark" then return Color3.fromRGB(120, 120, 120)
-        elseif k == "TextWhite" then return Color3.fromRGB(240, 240, 240)
-        elseif k == "PanelBg" then return Color3.fromRGB(30, 30, 34)
-        elseif k == "MainBg" then return Color3.fromRGB(18, 18, 20)
-        elseif k == "TopBarText" then return Color3.fromRGB(180, 180, 180)
-        elseif k == "Font" then return Enum.Font.GothamMedium
-        elseif k == "FontBold" then return Enum.Font.GothamBold
-        end
-        return Color3.fromRGB(255, 255, 255)
-    end
-})
-
-Shared.MainFrame = nil
-Shared.MainStroke = nil
-
-Shared.ApplyTheme = function()
-    local p = Shared.GetActivePreset()
-    Shared.Theme.Accent = p.Accent
-    Shared.Theme.AccentHover = p.AccentHover
-    Shared.Theme.ToggleOn = p.AccentOn
-    Shared.Theme.AccentOn = p.AccentOn
-    Shared.Theme.BorderFocus = p.Accent
-    Shared.Theme.SliderFill = p.Accent
-
-    if Shared.MainStroke then
-        Shared.MainStroke.Color = p.Accent
-    end
-
-    for _, obj in pairs(Shared.ThemeObjects.Panels) do
-        if obj and obj.Parent then obj.BorderColor3 = Shared.Theme.Border end
-    end
-    for _, item in pairs(Shared.ThemeObjects.Toggles) do
-        if item and item.Box and item.Box.Parent then
-            local isKeyActive = Shared.Settings[item.Key]
-            item.Box.BackgroundColor3 = isKeyActive and p.AccentOn or Shared.Theme.ToggleOff
-            if item.Dot then
-                item.Dot.Position = isKeyActive and UDim2.new(1, -15, 0.5, -5) or UDim2.new(0, 3, 0.5, -5)
-                item.Dot.BackgroundColor3 = isKeyActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(100, 100, 115)
-            end
-        end
-    end
-    for _, fill in pairs(Shared.ThemeObjects.SliderFills) do
-        if fill and fill.Parent then fill.BackgroundColor3 = p.Accent end
-    end
-    for _, db in pairs(Shared.ThemeObjects.Dropbox) do
-        if db and db.Parent then db.BorderColor3 = p.Accent end
-    end
-end
+-- Raycast Params dùng lại cho Wall Check
+Shared.WallCheckRayParams = RaycastParams.new()
+Shared.WallCheckRayParams.FilterType = Enum.RaycastFilterType.Exclude
+Shared.WallCheckRayParams.IgnoreWater = true
 
 return Shared
 
@@ -332,138 +253,150 @@ end)()
 -- [[ MODULE: Shield.lua ]]
 __MODULES['Shield.lua'] = (function()
 -- ============================================================
--- MODULAR RIVALS | MODULE: ANTI-CHEAT SHIELD & BYPASS
+-- MODULAR RIVALS | MODULE 2: SHIELD & ANTI-CHEAT BYPASS
 -- ============================================================
 return function(Shared)
-    local Shield = {
-        Blocks = 0,
-        ShieldActive = false
-    }
+    local Shield = {}
 
-    local BLOCK_REMOTES = {
-        "report", "ban", "kick", "punish", "crash", "log",
-        "anticheat", "adonis", "hdadmin", "moderator", "admin",
-        "detect", "spectate", "teleport", "tase", "exploit", "cheat"
-    }
+    local Settings = Shared.Settings
+    local LocalPlayer = Shared.LocalPlayer
+    local Players = Shared.Players
+    local Workspace = Shared.Workspace
+    local RunService = Shared.RunService
+    local ReplicatedStorage = Shared.ReplicatedStorage
 
-    local HEARTBEAT_REMOTES = {
-        "heartbeat", "ping", "accheck", "verif", "security",
-        "authenticate", "validation", "checkclient", "response"
-    }
+-- KHIÊN CHỐNG BAN (SHIELD CORE)
+-- ============================================================
+local Shield = {
+    Blocks = 0,
+    ShieldActive = false
+}
 
-    local function ClassifyRemote(name)
-        if not name then return nil end
-        local n = string.lower(tostring(name))
-        for i = 1, #BLOCK_REMOTES do
-            if string.find(n, BLOCK_REMOTES[i], 1, true) then return "block" end
-        end
-        for i = 1, #HEARTBEAT_REMOTES do
-            if string.find(n, HEARTBEAT_REMOTES[i], 1, true) then return "heartbeat" end
-        end
-        return nil
+local BLOCK_REMOTES = {
+    "report", "ban", "kick", "punish", "crash", "log",
+    "anticheat", "adonis", "hdadmin", "moderator", "admin",
+    "detect", "spectate", "teleport", "tase", "exploit", "cheat"
+}
+
+local HEARTBEAT_REMOTES = {
+    "heartbeat", "ping", "accheck", "verif", "security",
+    "authenticate", "validation", "checkclient", "response"
+}
+
+local function ClassifyRemote(name)
+    if not name then return nil end
+    local n = string.lower(tostring(name))
+    for i = 1, #BLOCK_REMOTES do
+        if string.find(n, BLOCK_REMOTES[i], 1, true) then return "block" end
     end
-
-    local hasCheckcaller = checkcaller ~= nil
-    local function IsExternal()
-        if not hasCheckcaller then return true end
-        local ok, val = pcall(checkcaller)
-        if ok then return not val end
-        return true
+    for i = 1, #HEARTBEAT_REMOTES do
+        if string.find(n, HEARTBEAT_REMOTES[i], 1, true) then return "heartbeat" end
     end
+    return nil
+end
 
-    -- Hook Metatable: chặn gói tin độc, trả lời heartbeat, spoof thuộc tính
-    local function InitShield()
-        local ok, mt = pcall(getrawmetatable, game)
-        if not ok or not mt then return end
+local hasCheckcaller = checkcaller ~= nil
+local function IsExternal()
+    if not hasCheckcaller then return true end
+    local ok, val = pcall(checkcaller)
+    if ok then return not val end
+    return true
+end
 
-        local hasNamecall = pcall(function() return mt.__namecall end)
-        local hasIndex = pcall(function() return mt.__index end)
-        if not hasNamecall and not hasIndex then return end
+-- Hook Metatable: chặn gói tin độc, trả lời heartbeat, spoof thuộc tính (Tối ưu hóa cực độ, 0 closure rác)
+local function InitShield()
+    local ok, mt = pcall(getrawmetatable, game)
+    if not ok or not mt then return end
 
-        local oldNamecall = mt.__namecall
-        local oldIndex = mt.__index
+    local hasNamecall = pcall(function() return mt.__namecall end)
+    local hasIndex = pcall(function() return mt.__index end)
+    if not hasNamecall and not hasIndex then return end
 
-        if setreadonly then pcall(setreadonly, mt, false) end
+    local oldNamecall = mt.__namecall
+    local oldIndex = mt.__index
 
-        local useCClosure = newcclosure ~= nil
+    if setreadonly then pcall(setreadonly, mt, false) end
 
-        if hasNamecall then
-            mt.__namecall = useCClosure and newcclosure(function(self, ...)
-                if not IsExternal() then
-                    if oldNamecall then return oldNamecall(self, ...) end
-                    return self
-                end
+    local useCClosure = newcclosure ~= nil
 
-                local method = nil
-                if getnamecallmethod then
-                    local ok2, m = pcall(getnamecallmethod)
-                    if ok2 then method = m end
-                end
-
-                if Shared.Settings.AntiCheatBypass and (method == "FireServer" or method == "InvokeServer") then
-                    if typeof(self) == "Instance" then
-                        local rname = self.Name
-                        if rname then
-                            local class = ClassifyRemote(rname)
-                            if class == "block" then
-                                Shield.Blocks = Shield.Blocks + 1
-                                if method == "InvokeServer" then return 0 else return end
-                            elseif class == "heartbeat" then
-                                if method == "InvokeServer" then return true else return end
-                            end
-                        end
-                    end
-                end
-
+    if hasNamecall then
+        mt.__namecall = useCClosure and newcclosure(function(self, ...)
+            if not IsExternal() then
                 if oldNamecall then return oldNamecall(self, ...) end
                 return self
-            end) or function(self, ...)
-                if not IsExternal() or not Shared.Settings.AntiCheatBypass then
-                    if oldNamecall then return oldNamecall(self, ...) end
-                    return self
-                end
+            end
+
+            local method = nil
+            if getnamecallmethod then
+                local ok2, m = pcall(getnamecallmethod)
+                if ok2 then method = m end
+            end
+
+            if Settings.AntiCheatBypass and (method == "FireServer" or method == "InvokeServer") then
                 if typeof(self) == "Instance" then
                     local rname = self.Name
                     if rname then
                         local class = ClassifyRemote(rname)
                         if class == "block" then
                             Shield.Blocks = Shield.Blocks + 1
-                            return
+                            if method == "InvokeServer" then return 0 else return end
+                        elseif class == "heartbeat" then
+                            if method == "InvokeServer" then return true else return end
                         end
                     end
                 end
+            end
+
+            if oldNamecall then return oldNamecall(self, ...) end
+            return self
+        end) or function(self, ...)
+            if not IsExternal() or not Settings.AntiCheatBypass then
                 if oldNamecall then return oldNamecall(self, ...) end
                 return self
             end
-        end
-
-        if hasIndex then
-            mt.__index = useCClosure and newcclosure(function(self, idx)
-                if IsExternal() and Shared.Settings.AntiCheatBypass and typeof(self) == "Instance" then
-                    if self:IsA("Humanoid") then
-                        if idx == "WalkSpeed" then return 16 end
-                        if idx == "JumpPower" then return 50 end
-                    elseif self:IsA("BasePart") and self.Name == "HumanoidRootPart" then
-                        if idx == "Velocity" or idx == "AssemblyLinearVelocity" then
-                            return Vector3.zero
-                        end
+            if typeof(self) == "Instance" then
+                local rname = self.Name
+                if rname then
+                    local class = ClassifyRemote(rname)
+                    if class == "block" then
+                        Shield.Blocks = Shield.Blocks + 1
+                        return
                     end
                 end
-                if oldIndex then return oldIndex(self, idx) end
-                return nil
-            end) or function(self, idx)
-                if oldIndex then return oldIndex(self, idx) end
-                return nil
             end
+            if oldNamecall then return oldNamecall(self, ...) end
+            return self
         end
-
-        if setreadonly then pcall(setreadonly, mt, true) end
-        Shield.ShieldActive = true
     end
 
-    Shield.ClassifyRemote = ClassifyRemote
-    Shield.IsExternal = IsExternal
+    if hasIndex then
+        mt.__index = useCClosure and newcclosure(function(self, idx)
+            if IsExternal() and Settings.AntiCheatBypass and typeof(self) == "Instance" then
+                if self:IsA("Humanoid") then
+                    if idx == "WalkSpeed" then return 16 end
+                    if idx == "JumpPower" then return 50 end
+                elseif self:IsA("BasePart") and self.Name == "HumanoidRootPart" then
+                    if idx == "Velocity" or idx == "AssemblyLinearVelocity" then
+                        return Vector3.zero
+                    end
+                end
+            end
+            if oldIndex then return oldIndex(self, idx) end
+            return nil
+        end) or function(self, idx)
+            if oldIndex then return oldIndex(self, idx) end
+            return nil
+        end
+    end
+
+    if setreadonly then pcall(setreadonly, mt, true) end
+    Shield.ShieldActive = true
+end
+
+
+
     Shield.InitShield = InitShield
+    Shield.CheckAndBypassCharacterAC = CheckAndBypassCharacterAC
 
     return Shield
 end
@@ -473,391 +406,600 @@ end)()
 -- [[ MODULE: Targeting.lua ]]
 __MODULES['Targeting.lua'] = (function()
 -- ============================================================
--- MODULAR RIVALS | MODULE: TARGETING & NPC SCANNER
+-- MODULAR RIVALS | MODULE 3: TARGETING, RAYCAST & BOT SCANNER
 -- ============================================================
 return function(Shared, Shield)
     local Targeting = {}
 
     local Settings = Shared.Settings
-    local Const = Shared.Const
     local LocalPlayer = Shared.LocalPlayer
-    local Camera = Shared.Camera
     local Players = Shared.Players
+    local Camera = Shared.Camera
     local Workspace = Shared.Workspace
-    local VirtualInputManager = Shared.VirtualInputManager
-    local mouse1click_fn = Shared.mouse1click_fn
+    local Const = Shared.Const
+    local WallCheckRayParams = Shared.WallCheckRayParams
 
-    -- Raycast Params kiểm tra tường
-    local WallCheckRayParams = RaycastParams.new()
-    WallCheckRayParams.FilterType = Enum.RaycastFilterType.Exclude
-    WallCheckRayParams.IgnoreWater = true
-    Targeting.WallCheckRayParams = WallCheckRayParams
+-- ============================================================
+-- LOGIC TÌM MỤC TIÊU & TỐI ƯU HOÁ RENDER/PHYSICS
+-- ============================================================
+local aimSafeCounter = 0
+local isAiming = false
+local cachedClosest = nil
+local cachedClosestValid = 0
+local ProAimLockedTarget = nil
+local lastTargetSwitch = 0
+local aimAcquireTime = 0
+local lastShotTime = 0
+local noRecoilTargetPoint = nil
+local cachedProTarget = nil
+local cachedProValid = 0
+local lastWarnScan = 0
 
-    -- Cache NPC / Bot để không duyệt Workspace mỗi frame
-    local NPCCache = {}
-    local lastNPCRefresh = 0
-    local playerCharsCache = {}
-    local npcAddedSet = {}
-    Targeting.NPCCache = NPCCache
-
-    local function FireShot()
-        if mouse1click_fn then
-            pcall(mouse1click_fn)
-        elseif VirtualInputManager then
-            pcall(VirtualInputManager.SendMouseButtonEvent, VirtualInputManager, 0, 0, 0, true, game, 0)
-            task.delay(0.02, function()
-                pcall(VirtualInputManager.SendMouseButtonEvent, VirtualInputManager, 0, 0, 0, false, game, 0)
-            end)
-        end
-    end
-    Targeting.FireShot = FireShot
-
-    local function isSameTeam(target)
-        if not target then return true end
-        if target == LocalPlayer or target == LocalPlayer.Character then return true end
-
-        if Settings.TeamCheck == false then
-            return false
-        end
-
-        if target:IsA("Player") then
-            if LocalPlayer.Team and target.Team and LocalPlayer.Team == target.Team then
-                return true
-            end
-            local myTeamID = LocalPlayer:GetAttribute("TeamID")
-            local pTeamID = target:GetAttribute("TeamID")
-            if myTeamID ~= nil and pTeamID ~= nil and myTeamID ~= "" and myTeamID == pTeamID then
-                return true
-            end
-
-            local myTeamColor = LocalPlayer.TeamColor
-            local pTeamColor = target.TeamColor
-            if myTeamColor and pTeamColor and myTeamColor == pTeamColor and myTeamColor.Name ~= "White" then
-                return true
-            end
-
-            local myChar = LocalPlayer.Character
-            local tChar = target.Character
-            if myChar and tChar then
-                for i = 1, #Const.TEAM_ATTR_NAMES do
-                    local aName = Const.TEAM_ATTR_NAMES[i]
-                    local mVal = myChar:GetAttribute(aName)
-                    local tVal = tChar:GetAttribute(aName)
-                    if mVal ~= nil and tVal ~= nil and mVal == tVal then
-                        return true
-                    end
-                end
-            end
-            return false
-        end
-
-        -- Dành cho NPC / Dummy
-        if target:IsA("Model") then
-            local myTeamID = LocalPlayer:GetAttribute("TeamID")
-            local npcTeamID = target:GetAttribute("TeamID")
-            if myTeamID ~= nil and npcTeamID ~= nil and myTeamID ~= "" and myTeamID == npcTeamID then
-                return true
-            end
-
-            local myChar = LocalPlayer.Character
-            if myChar then
-                for i = 1, #Const.TEAM_ATTR_NAMES do
-                    local aName = Const.TEAM_ATTR_NAMES[i]
-                    local mVal = myChar:GetAttribute(aName)
-                    local tVal = target:GetAttribute(aName)
-                    if mVal ~= nil and tVal ~= nil and mVal == tVal then
-                        return true
-                    end
-                end
-            end
-            return false
-        end
-
-        return false
-    end
-    Targeting.isSameTeam = isSameTeam
-
-    local function isSafeShield(target, char)
-        if not Settings.SafeShieldCheck then return false end
-        if not char then
-            char = target:IsA("Player") and target.Character or target
-        end
-        if not char then return false end
-
-        for i = 1, #Const.SHIELD_ATTRIBUTES do
-            local attrName = Const.SHIELD_ATTRIBUTES[i]
-            if target:GetAttribute(attrName) == true or char:GetAttribute(attrName) == true then
-                return true
-            end
-        end
-
-        if char:FindFirstChildOfClass("ForceField") ~= nil then
-            return true
-        end
-
-        local isFF = char:FindFirstChild("ForceField") or char:FindFirstChild("Shield") or char:FindFirstChild("SpawnShield")
-        if isFF and (isFF:IsA("ForceField") or isFF:IsA("BillboardGui") or isFF:IsA("Highlight") or isFF:IsA("SelectionBox")) then
-            return true
-        end
-
-        for i = 1, #Const.SAFE_PARTS do
-            local pName = Const.SAFE_PARTS[i]
-            local part = char:FindFirstChild(pName)
-            if part then
-                if part.Transparency > 0.65 or not part.CanCollide then
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 and part.Transparency > 0.75 then
-                        return true
-                    end
-                end
-            end
-        end
-
-        return false
-    end
-    Targeting.isSafeShield = isSafeShield
-
-    local function RefreshNPCCache()
-        local now = tick()
-        if now - lastNPCRefresh < 0.5 then return end
-        lastNPCRefresh = now
-
-        table.clear(NPCCache)
-        table.clear(playerCharsCache)
-        table.clear(npcAddedSet)
-
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character then playerCharsCache[p.Character] = true end
-        end
-
-        local myChar = LocalPlayer.Character
-        local myPos = (myChar and myChar:FindFirstChild("HumanoidRootPart") and myChar.HumanoidRootPart.Position)
-                      or Camera.CFrame.Position
-
-        local maxScanDist = math.max(Settings.ESPDist or 1000, Settings.AimDist or 1000)
-        local maxScanDistSq = maxScanDist * maxScanDist
-
-        local function checkModel(model)
-            if not model or not model:IsA("Model") or model == myChar or playerCharsCache[model] or npcAddedSet[model] then return end
-
-            local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
-            if not hrp or not hrp:IsA("BasePart") then return end
-
-            local distSq = (hrp.Position - myPos).Magnitude ^ 2
-            if distSq > maxScanDistSq then return end
-
-            local isBot = false
-            for i = 1, #Const.BOT_TAGS do
-                local tag = Const.BOT_TAGS[i]
-                if model:HasTag(tag) or model:GetAttribute(tag) ~= nil then
-                    isBot = true
-                    break
-                end
-            end
-
-            if not isBot then
-                local envId = model:GetAttribute("EnvironmentID")
-                if envId ~= nil then isBot = true end
-            end
-
-            if not isBot then
-                local parentName = model.Parent and model.Parent.Name or ""
-                if string.find(parentName, "Entity") or string.find(parentName, "Bot") or string.find(parentName, "NPC") or string.find(parentName, "Dummy") or string.find(parentName, "ShootingRange") then
-                    isBot = true
-                end
-            end
-
-            if not isBot then
-                local mName = string.lower(model.Name)
-                if string.find(mName, "dummy") or string.find(mName, "bot") or string.find(mName, "npc") or string.find(mName, "target") or string.find(mName, "dps") then
-                    isBot = true
-                end
-            end
-
-            if not isBot then
-                if model:FindFirstChild("EnemyHumanoid") or model:FindFirstChild("HitboxBody") or model:FindFirstChild("HitboxHead") then
-                    isBot = true
-                end
-            end
-
-            if not isBot then
-                local hum = model:FindFirstChildOfClass("Humanoid")
-                if hum and model:FindFirstChild("Head") then isBot = true end
-            end
-
-            if isBot then
-                table.insert(NPCCache, model)
-                npcAddedSet[model] = true
-            end
-        end
-
-        local entitiesFolder = Workspace:FindFirstChild("Entities") or Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Bots") or Workspace:FindFirstChild("ShootingRangeEntities")
-        if entitiesFolder then
-            for _, child in pairs(entitiesFolder:GetChildren()) do checkModel(child) end
-        end
-
-        local mapFolder = Workspace:FindFirstChild("Map") or Workspace:FindFirstChild("Game")
-        if mapFolder then
-            for _, sub in pairs(mapFolder:GetChildren()) do
-                if sub:IsA("Model") then checkModel(sub) end
-            end
-        end
-
-        for _, child in pairs(Workspace:GetChildren()) do
-            if child:IsA("Model") then checkModel(child) end
-        end
-    end
-    Targeting.RefreshNPCCache = RefreshNPCCache
-
-    local function forEachEnemy(callback)
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                callback(p, p.Character, false)
-            end
-        end
-        if Settings.TargetNPC then
-            RefreshNPCCache()
-            for i = 1, #NPCCache do
-                local npc = NPCCache[i]
-                if npc and npc.Parent then
-                    callback(npc, npc, true)
-                end
+-- Cache NoClip Parts để không bao giờ gọi GetDescendants() mỗi physics frame
+local noClipParts = {}
+local function RefreshNoClipParts()
+    table.clear(noClipParts)
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                table.insert(noClipParts, part)
             end
         end
     end
-    Targeting.forEachEnemy = forEachEnemy
+end
 
-    local function isVisible(targetPart)
-        if not Settings.WallCheck then return true end
-        if not targetPart then return false end
-        local origin = Camera.CFrame.Position
-        local dir = targetPart.Position - origin
-        Const.STATIC_RAY_FILTER[1] = LocalPlayer.Character
-        Const.STATIC_RAY_FILTER[2] = targetPart.Parent
-        WallCheckRayParams.FilterDescendantsInstances = Const.STATIC_RAY_FILTER
-        local res = Workspace:Raycast(origin, dir, WallCheckRayParams)
-        return res == nil
-    end
-    Targeting.isVisible = isVisible
-
-    local function isAutoFireVisible(targetPart)
-        if not Settings.AutoFireWallCheck then return true end
-        if not targetPart then return false end
-        local origin = Camera.CFrame.Position
-        local dir = targetPart.Position - origin
-        Const.STATIC_RAY_FILTER[1] = LocalPlayer.Character
-        Const.STATIC_RAY_FILTER[2] = targetPart.Parent
-        WallCheckRayParams.FilterDescendantsInstances = Const.STATIC_RAY_FILTER
-        local res = Workspace:Raycast(origin, dir, WallCheckRayParams)
-        return res == nil
-    end
-    Targeting.isAutoFireVisible = isAutoFireVisible
-
-    local function getTargetPart(character)
-        if not character then return nil end
-        local partName = Settings.TargetPart or "Head"
-        if partName == "Random" then
-            local p = {"Head", "HumanoidRootPart", "UpperTorso"}
-            partName = p[math.random(1, #p)]
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.2)
+    RefreshNoClipParts()
+    char.DescendantAdded:Connect(function(desc)
+        if desc:IsA("BasePart") then
+            table.insert(noClipParts, desc)
         end
-        local part = character:FindFirstChild(partName)
-        if not part and partName == "UpperTorso" then
-            part = character:FindFirstChild("Torso")
+    end)
+end)
+if LocalPlayer.Character then
+    RefreshNoClipParts()
+    LocalPlayer.Character.DescendantAdded:Connect(function(desc)
+        if desc:IsA("BasePart") then
+            table.insert(noClipParts, desc)
         end
-        if not part then
-            part = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
-        end
-        return part
-    end
-    Targeting.getTargetPart = getTargetPart
+    end)
+end
 
-    local function getClosestPlayer()
-        local myChar = LocalPlayer.Character
-        if not myChar then return nil end
-        local myHrp = myChar:FindFirstChild("HumanoidRootPart")
-        if not myHrp then return nil end
-
-        local closest = nil
-        local minDist = Settings.AimDist or 1000
-
-        forEachEnemy(function(target, char, isNPC)
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
-            local isAlive = (hum and hum.Health > 0) or (not hum and hrp)
-
-            if isAlive and hrp then
-                if isSameTeam(target) then return end
-                if isSafeShield(target, char) then return end
-
-                local dist = (hrp.Position - myHrp.Position).Magnitude
-                if dist < minDist then
-                    local tPart = getTargetPart(char)
-                    if tPart and isVisible(tPart) then
-                        minDist = dist
-                        closest = target
-                    end
-                end
-            end
+local function FireShot()
+    if mouse1click_fn then
+        pcall(mouse1click_fn)
+    elseif VirtualInputManager then
+        pcall(VirtualInputManager.SendMouseButtonEvent, VirtualInputManager, 0, 0, 0, true, game, 0)
+        task.delay(0.02, function()
+            pcall(VirtualInputManager.SendMouseButtonEvent, VirtualInputManager, 0, 0, 0, false, game, 0)
         end)
-
-        return closest
     end
-    Targeting.getClosestPlayer = getClosestPlayer
+end
 
-    local function getClosestPlayerToCursor(mousePos)
-        local myChar = LocalPlayer.Character
-        local closestTarget = nil
-        local closestPart = nil
-        local closestScreenPos = nil
-        local minDistance = Settings.ProAimFOV or 120
-        local camPos = Camera.CFrame.Position
-        local maxDist = Settings.ProAimDist or 1000
+local function isSameTeam(target)
+    if not target then return true end
+    if target == LocalPlayer or target == LocalPlayer.Character then return true end
 
-        forEachEnemy(function(target, char, isNPC)
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
-            local isAlive = (hum and hum.Health > 0) or (not hum and hrp)
+    -- Nếu tắt Team Check thủ công -> Coi tất cả mọi người là mục tiêu hợp lệ
+    if Settings.TeamCheck == false then
+        return false
+    end
 
-            if isAlive and hrp then
-                if isSameTeam(target) then return end
-                if isSafeShield(target, char) then return end
+    if target:IsA("Player") then
+        if LocalPlayer.Team and target.Team and LocalPlayer.Team == target.Team then 
+            return true 
+        end
+        local myTeamID = LocalPlayer:GetAttribute("TeamID")
+        local pTeamID = target:GetAttribute("TeamID")
+        if myTeamID ~= nil and pTeamID ~= nil and myTeamID ~= "" and myTeamID == pTeamID then
+            return true
+        end
+        for i = 1, #Const.TEAM_ATTR_NAMES do
+            local name = Const.TEAM_ATTR_NAMES[i]
+            local myAttr = LocalPlayer:GetAttribute(name)
+            local pAttr = target:GetAttribute(name)
+            if myAttr ~= nil and pAttr ~= nil and myAttr ~= "" and myAttr ~= 0 and myAttr == pAttr then 
+                return true 
+            end
+            if LocalPlayer.Character and target.Character then
+                local myCAttr = LocalPlayer.Character:GetAttribute(name)
+                local pCAttr = target.Character:GetAttribute(name)
+                if myCAttr ~= nil and pCAttr ~= nil and myCAttr ~= "" and myCAttr ~= 0 and myCAttr == pCAttr then 
+                    return true 
+                end
+            end
+        end
+        return false
+    elseif target:IsA("Model") then
+        local myTeamName = LocalPlayer.Team and LocalPlayer.Team.Name
+        local nTeamName = target:GetAttribute("Team") or target:GetAttribute("team")
+        if myTeamName and nTeamName and myTeamName ~= "" and myTeamName == nTeamName then
+            return true
+        end
+        local myTeamID = LocalPlayer:GetAttribute("TeamID")
+        local nTeamID = target:GetAttribute("TeamID")
+        if myTeamID ~= nil and nTeamID ~= nil and myTeamID ~= "" and myTeamID == nTeamID then
+            return true
+        end
+        for i = 1, #Const.TEAM_ATTR_NAMES do
+            local name = Const.TEAM_ATTR_NAMES[i]
+            local myAttr = LocalPlayer:GetAttribute(name)
+            local nAttr = target:GetAttribute(name)
+            if myAttr ~= nil and nAttr ~= nil and myAttr ~= "" and myAttr ~= 0 and myAttr == nAttr then
+                return true
+            end
+            if LocalPlayer.Character then
+                local myCAttr = LocalPlayer.Character:GetAttribute(name)
+                if myCAttr ~= nil and nAttr ~= nil and myCAttr ~= "" and myCAttr ~= 0 and myCAttr == nAttr then
+                    return true
+                end
+            end
+        end
+        if target:GetAttribute("Friendly") == true or target:GetAttribute("Neutral") == true then
+            return true
+        end
+        return false
+    end
+    return false
+end
 
-                local distWorld = (hrp.Position - camPos).Magnitude
-                if distWorld <= maxDist then
-                    local tPartName = Settings.ProAimTargetPart or "Head"
-                    local tPart = char:FindFirstChild(tPartName) or char:FindFirstChild("Head") or hrp
-                    if tPart then
-                        local screenPos, onScreen = Camera:WorldToViewportPoint(tPart.Position)
-                        if onScreen and screenPos.Z > 0 then
-                            local screenV2 = Vector2.new(screenPos.X, screenPos.Y)
-                            local distCursor = (screenV2 - mousePos).Magnitude
-                            if distCursor < minDistance then
-                                if not Settings.ProAimWallCheck or isVisible(tPart) then
-                                    minDistance = distCursor
-                                    closestTarget = target
-                                    closestPart = tPart
-                                    closestScreenPos = screenV2
-                                end
+local function isSafeShield(target, char)
+    if not Settings.SafeShieldCheck then return false end
+    if not target then return false end
+    char = char or (target:IsA("Player") and target.Character or target)
+    if not char then return false end
+
+    if char:FindFirstChildOfClass("ForceField") or char:FindFirstChild("ForceField") then
+        return true
+    end
+
+    if char:FindFirstChild("SpawnShield")
+        or char:FindFirstChild("Shield")
+        or char:FindFirstChild("SpawnProtection")
+        or char:FindFirstChild("Invulnerability")
+        or char:FindFirstChild("Immunity")
+        or char:FindFirstChild("SafeZone")
+        or char:FindFirstChild("SpawnBarrier")
+        or char:FindFirstChild("SpawnBubble")
+        or char:FindFirstChild("Safe") then
+        return true
+    end
+
+    for i = 1, #Const.SHIELD_ATTRIBUTES do
+        local key = Const.SHIELD_ATTRIBUTES[i]
+        local cVal = char:GetAttribute(key)
+        if cVal == true or (type(cVal) == "number" and cVal > 0) then
+            return true
+        end
+        if target:IsA("Player") then
+            local pVal = target:GetAttribute(key)
+            if pVal == true or (type(pVal) == "number" and pVal > 0) then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+-- Bộ đệm & Bộ quét Bot (Tối ưu hóa: Squared Distance, 0 GC Churn)
+local NPCCache = {}
+local lastNPCRefresh = 0
+local playerCharsCache = {}
+local npcAddedSet = {}
+
+local function RefreshNPCCache()
+    local now = tick()
+    if now - lastNPCRefresh < 0.3 then return end
+    lastNPCRefresh = now
+    
+    table.clear(NPCCache)
+    table.clear(playerCharsCache)
+    table.clear(npcAddedSet)
+    
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character then playerCharsCache[p.Character] = true end
+    end
+    
+    -- Lấy vị trí người chơi và giới hạn khoảng cách quét tối đa theo thanh trượt Aim Dist & ESP Dist
+    local myPos = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position) or Camera.CFrame.Position
+    local maxScanDist = math.max(Settings.AimDist or 1000, Settings.ESPDist or 1000, Settings.ProAimDist or 1000)
+    local maxDistSq = maxScanDist * maxScanDist
+
+    local function checkAndAddBot(model)
+        if not model or not model:IsA("Model") then return end
+        if model == LocalPlayer.Character or playerCharsCache[model] then return end
+        if Players:GetPlayerFromCharacter(model) then return end
+        if npcAddedSet[model] then return end
+        if model:GetAttribute("Dead") == true then return end
+        
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        local hrp = model:FindFirstChild("HumanoidRootPart") 
+            or model:FindFirstChild("PhysicalHitbox")
+            or model:FindFirstChild("HitboxBody") 
+            or model:FindFirstChild("BodyHitbox") 
+            or model:FindFirstChild("UpperTorso") 
+            or model:FindFirstChild("Torso") 
+            or model:FindFirstChild("Head") 
+            or model:FindFirstChild("HeadHitbox")
+            or model:FindFirstChild("HitboxHead")
+            or model:FindFirstChild("PhysicalHitboxHead")
+            or model.PrimaryPart
+        
+        local isAlive = false
+        if hum then
+            isAlive = (hum.Health > 0 or hum.Health == math.huge or hum.MaxHealth <= 0)
+        elseif model:GetAttribute("Health") then
+            isAlive = ((tonumber(model:GetAttribute("Health")) or 0) > 0)
+        elseif model:GetAttribute("IsNPC") == true or model:GetAttribute("NPCCharacter") == true then
+            isAlive = (model:GetAttribute("Dead") ~= true)
+        else
+            local mName = string.lower(model.Name)
+            if string.find(mName, "dummy", 1, true) or string.find(mName, "bot", 1, true) then
+                isAlive = true
+            end
+        end
+        
+        if hrp and isAlive then
+            -- Tối ưu hóa: Squared Distance không qua phép tính math.sqrt
+            local diff = hrp.Position - myPos
+            local distSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+            if distSq <= maxDistSq then
+                npcAddedSet[model] = true
+                table.insert(NPCCache, model)
+                if not ESPTable[model] then
+                    createESP(model)
+                end
+                return
+            end
+        end
+
+        -- Hỗ trợ cấu trúc bọc 2 lớp (như trong PseudoPlayers hoặc ShootingRangeEntities)
+        for _, sub in ipairs(model:GetChildren()) do
+            if sub:IsA("Model") and not npcAddedSet[sub] and sub:GetAttribute("Dead") ~= true then
+                local sHum = sub:FindFirstChildOfClass("Humanoid")
+                local sHrp = sub:FindFirstChild("HumanoidRootPart") 
+                    or sub:FindFirstChild("PhysicalHitbox")
+                    or sub:FindFirstChild("HitboxBody") 
+                    or sub:FindFirstChild("BodyHitbox") 
+                    or sub:FindFirstChild("UpperTorso") 
+                    or sub:FindFirstChild("Torso") 
+                    or sub:FindFirstChild("Head") 
+                    or sub:FindFirstChild("HeadHitbox")
+                    or sub:FindFirstChild("HitboxHead")
+                    or sub:FindFirstChild("PhysicalHitboxHead")
+                    or sub.PrimaryPart
+                local sAlive = false
+                if sHum then
+                    sAlive = (sHum.Health > 0 or sHum.Health == math.huge or sHum.MaxHealth <= 0)
+                elseif sub:GetAttribute("Health") then
+                    sAlive = ((tonumber(sub:GetAttribute("Health")) or 0) > 0)
+                elseif sub:GetAttribute("IsNPC") == true or sub:GetAttribute("NPCCharacter") == true then
+                    sAlive = (sub:GetAttribute("Dead") ~= true)
+                else
+                    local sName = string.lower(sub.Name)
+                    if string.find(sName, "dummy", 1, true) or string.find(sName, "bot", 1, true) then
+                        sAlive = true
+                    end
+                end
+                if sHrp and sAlive then
+                    local sDiff = sHrp.Position - myPos
+                    local sDistSq = sDiff.X * sDiff.X + sDiff.Y * sDiff.Y + sDiff.Z * sDiff.Z
+                    if sDistSq <= maxDistSq then
+                        npcAddedSet[sub] = true
+                        table.insert(NPCCache, sub)
+                        if not ESPTable[sub] then
+                            createESP(sub)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 1. Quét thư mục Workspace.ShootingRangeEntities (DPS Dummy phòng tập)
+    local shootingFolder = Workspace:FindFirstChild("ShootingRangeEntities") or Workspace:FindFirstChild("shootingrangeentities")
+    if shootingFolder then
+        for _, child in ipairs(shootingFolder:GetChildren()) do
+            checkAndAddBot(child)
+        end
+    end
+
+    -- 2. Quét thư mục Workspace.PseudoPlayers (Rivals PVP Bots)
+    local pseudoFolder = Workspace:FindFirstChild("PseudoPlayers") or Workspace:FindFirstChild("pseudoplayers")
+    if pseudoFolder then
+        for _, child in ipairs(pseudoFolder:GetChildren()) do
+            checkAndAddBot(child)
+        end
+    end
+
+    -- 3. Quét thư mục Workspace.bots (hoặc Workspace.Bots)
+    local botsFolder = Workspace:FindFirstChild("bots") or Workspace:FindFirstChild("Bots")
+    if botsFolder then
+        for _, child in ipairs(botsFolder:GetChildren()) do
+            checkAndAddBot(child)
+        end
+    end
+
+    -- 4. Quét CollectionService Tags đặc thù (Entity, NPCCharacter, Dummy...)
+    for i = 1, #Const.BOT_TAGS do
+        local tName = Const.BOT_TAGS[i]
+        local ok, tagList = pcall(function() return CollectionService:GetTagged(tName) end)
+        if ok and tagList then
+            for _, item in ipairs(tagList) do
+                if item:IsA("Model") then
+                    checkAndAddBot(item)
+                end
+            end
+        end
+    end
+end
+
+-- Hàm quét toàn bộ kẻ địch (Người chơi thật + NPC/Bot)
+local function forEachEnemy(callback)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and not isSameTeam(player) then
+            local char = player.Character
+            if char then
+                callback(char, player)
+            end
+        end
+    end
+
+    if Settings.TargetNPC then
+        if tick() - lastNPCRefresh >= 0.3 then
+            RefreshNPCCache()
+        end
+        for i = 1, #NPCCache do
+            local npc = NPCCache[i]
+            if npc and npc.Parent and not isSameTeam(npc) then
+                callback(npc, npc)
+            end
+        end
+    end
+end
+
+local function isVisible(targetPart)
+    if not Settings.WallCheck then return true end
+    if not targetPart or not targetPart.Parent then return false end
+    local origin = Camera.CFrame.Position
+    local direction = targetPart.Position - origin
+    Const.STATIC_RAY_FILTER[1] = LocalPlayer.Character
+    Const.STATIC_RAY_FILTER[2] = targetPart.Parent
+    WallCheckRayParams.FilterDescendantsInstances = Const.STATIC_RAY_FILTER
+    local result = Workspace:Raycast(origin, direction, WallCheckRayParams)
+    return not result
+end
+
+local function isAutoFireVisible(targetPart)
+    if not Settings.AutoFireWallCheck then return true end
+    if not targetPart or not targetPart.Parent then return false end
+    local origin = Camera.CFrame.Position
+    local direction = targetPart.Position - origin
+    Const.STATIC_RAY_FILTER[1] = LocalPlayer.Character
+    Const.STATIC_RAY_FILTER[2] = targetPart.Parent
+    WallCheckRayParams.FilterDescendantsInstances = Const.STATIC_RAY_FILTER
+    local result = Workspace:Raycast(origin, direction, WallCheckRayParams)
+    return not result
+end
+
+local function getClosestPlayer()
+    local target, shortestDist = nil, Settings.FOV
+    local origin = Camera.CFrame.Position
+    local fovPos = FOVring.Position
+
+    forEachEnemy(function(char, source)
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local head = char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("PhysicalHitboxHead") or char:FindFirstChild("HeadHitbox")
+        local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("Torso") or char.PrimaryPart
+        head = head or hrp
+
+        local isAlive = false
+        if hum then
+            isAlive = (hum.Health > 0 or hum.Health == math.huge or hum.MaxHealth <= 0)
+        elseif char:GetAttribute("Health") then
+            isAlive = ((tonumber(char:GetAttribute("Health")) or 0) > 0)
+        else
+            local cName = string.lower(char.Name)
+            if char:GetAttribute("Dead") == false or string.find(cName, "dummy", 1, true) or string.find(cName, "bot", 1, true) then
+                isAlive = true
+            end
+        end
+
+        if isAlive and head and hrp then
+            local diff = head.Position - origin
+            local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+            local maxDist = Settings.AimDist or 1000
+
+            if physicalDistSq <= (maxDist * maxDist) then
+                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local dx = pos.X - fovPos.X
+                    local dy = pos.Y - fovPos.Y
+                    local distFromCenter = math.sqrt(dx * dx + dy * dy)
+                    if distFromCenter < shortestDist then
+                        if isVisible(head) or isVisible(hrp) then
+                            target = source
+                            shortestDist = distFromCenter
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    return target
+end
+
+local function getTargetPart(character)
+    if not character then return nil end
+    local partName = Settings.TargetPart
+    if partName == "Safe" then
+        partName = Const.SAFE_PARTS[math.random(1, #Const.SAFE_PARTS)]
+    end
+    if Settings.AimSafe then
+        aimSafeCounter = aimSafeCounter + 1
+        if aimSafeCounter >= 4 then
+            partName = "HumanoidRootPart"
+            aimSafeCounter = 0
+        end
+    end
+    return character:FindFirstChild(partName) 
+        or character:FindFirstChild("Head") 
+        or character:FindFirstChild("HitboxHead")
+        or character:FindFirstChild("PhysicalHitboxHead")
+        or character:FindFirstChild("HeadHitbox")
+        or character:FindFirstChild("HitboxHeadSmall")
+        or character:FindFirstChild("HumanoidRootPart") 
+        or character:FindFirstChild("PhysicalHitbox")
+        or character:FindFirstChild("HitboxBody") 
+        or character:FindFirstChild("BodyHitbox")
+        or character:FindFirstChild("HitboxBodySmall")
+        or character:FindFirstChild("UpperTorso") 
+        or character:FindFirstChild("Torso") 
+        or character.PrimaryPart
+end
+
+local function getClosestPlayerToCursor(mousePos)
+    local maxDist = Settings.FOV or Settings.ProAimFOV or 120
+    local maxDistSq = maxDist * maxDist
+    local closestDistSq = maxDistSq
+    local closestTarget = nil
+    local closestPart = nil
+    local closestScreenPos = nil
+
+    local origin = Camera.CFrame.Position
+
+    forEachEnemy(function(char, source)
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local isAlive = false
+        if hum then
+            isAlive = hum.Health > 0
+        else
+            local healthVal = char:FindFirstChild("Health") or char:FindFirstChild("health")
+            if healthVal and (healthVal:IsA("NumberValue") or healthVal:IsA("IntValue")) then
+                isAlive = healthVal.Value > 0
+            elseif char:GetAttribute("Health") then
+                isAlive = ((tonumber(char:GetAttribute("Health")) or 0) > 0)
+            elseif Settings.TargetNPC then
+                isAlive = true
+            end
+        end
+
+        if isAlive and not isSafeShield(source, char) then
+            local targetPartName = Settings.TargetPart or Settings.ProAimTargetPart or "Head"
+            if targetPartName == "Safe" or targetPartName == "Random" then
+                targetPartName = (math.random(1, 10) <= 6) and "Head" or "HumanoidRootPart"
+            end
+            local part = char:FindFirstChild(targetPartName) or char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char.PrimaryPart
+            
+            if part then
+                local diff = part.Position - origin
+                local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                local maxPhysicalDist = Settings.AimDist or Settings.ProAimDist or 1000
+                if physicalDistSq <= (maxPhysicalDist * maxPhysicalDist) then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local dx = screenPos.X - mousePos.X
+                        local dy = screenPos.Y - mousePos.Y
+                        local distSq = dx * dx + dy * dy
+                        if distSq < closestDistSq then
+                            if isVisible(part) then
+                                closestDistSq = distSq
+                                closestTarget = source
+                                closestPart = part
+                                closestScreenPos = screenPos
                             end
                         end
                     end
                 end
             end
-        end)
+        end
+    end)
 
-        return closestTarget, closestPart, closestScreenPos
+    return closestTarget, closestPart, closestScreenPos
+end
+
+local function getProAimTarget()
+    local mousePos = UserInputService:GetMouseLocation()
+    local _, bestPart = getClosestPlayerToCursor(mousePos)
+    return bestPart
+end
+
+-- Cache mục tiêu Pro Aim
+local function getProAimTargetCached()
+    local now = tick()
+    if now - cachedProValid > 0.05 then
+        cachedProTarget = getProAimTarget()
+        cachedProValid = now
     end
+    return cachedProTarget
+end
+
+-- Humanization: jitter nhẹ để giả tay người
+local function AddJitter(baseCFrame, jitterAmount)
+    if jitterAmount <= 0 then return baseCFrame end
+    local r = math.random
+    local jx = (r() - 0.5) * jitterAmount * 2
+    local jy = (r() - 0.5) * jitterAmount * 2
+    local jz = (r() - 0.5) * jitterAmount * 2
+    return baseCFrame * CFrame.Angles(jx, jy, jz)
+end
+
+local isProAimHolding = false
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    local bind = Settings.ProAimHoldMouse
+    if bind and (input.KeyCode == bind or input.UserInputType == bind) then
+        isProAimHolding = true
+    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.AimEnabled then
+        if Settings.AimHoldMode then
+            isAiming = true
+        else
+            local target = getClosestPlayer()
+            local targetChar = target and (target:IsA("Player") and target.Character or target)
+            if targetChar then
+                local tPart = getTargetPart(targetChar)
+                if tPart then
+                    local targetCFrame = CFrame.new(Camera.CFrame.Position, tPart.Position)
+                    Camera.CFrame = AddJitter(targetCFrame, Settings.AimJitter)
+                end
+            end
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gpe)
+    local bind = Settings.ProAimHoldMouse
+    if bind and (input.KeyCode == bind or input.UserInputType == bind) then
+        isProAimHolding = false
+        ProAimLockedTarget = nil
+    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then isAiming = false end
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if Settings.InfJump
+        and LocalPlayer.Character
+        and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+
+
+    Targeting.isSameTeam = isSameTeam
+    Targeting.hasShieldProtection = hasShieldProtection
+    Targeting.isAutoFireVisible = isAutoFireVisible
+    Targeting.WallCheck = WallCheck
+    Targeting.getTargetPart = getTargetPart
+    Targeting.getClosestPlayer = getClosestPlayer
     Targeting.getClosestPlayerToCursor = getClosestPlayerToCursor
-
-    local function AddJitter(baseCFrame, jitterAmount)
-        if jitterAmount <= 0 then return baseCFrame end
-        local r = math.random
-        local jx = (r() - 0.5) * jitterAmount * 2
-        local jy = (r() - 0.5) * jitterAmount * 2
-        local jz = (r() - 0.5) * jitterAmount * 2
-        return baseCFrame * CFrame.Angles(jx, jy, jz)
-    end
-    Targeting.AddJitter = AddJitter
+    Targeting.forEachEnemy = forEachEnemy
+    Targeting.botCache = botCache
 
     return Targeting
 end
@@ -867,227 +1009,355 @@ end)()
 -- [[ MODULE: Player.lua ]]
 __MODULES['Player.lua'] = (function()
 -- ============================================================
--- MODULAR RIVALS | MODULE: PLAYER EXPLOITS & PHYSICS
+-- MODULAR RIVALS | MODULE 4: PLAYER MODS, HITBOX & PHYSICS
 -- ============================================================
 return function(Shared, Targeting)
     local Player = {}
 
     local Settings = Shared.Settings
     local LocalPlayer = Shared.LocalPlayer
+    local Players = Shared.Players
+    local Workspace = Shared.Workspace
     local Camera = Shared.Camera
     local Const = Shared.Const
     local UserInputService = Shared.UserInputService
+    local RunService = Shared.RunService
+    local forEachEnemy = Targeting.forEachEnemy
+    local undergroundSurfaceY = nil
 
-    local originalHitboxes = {}
+-- Hitbox Expander Cache & Reset Logic
+local originalHitboxes = {}
+local function ResetHitboxes()
+    for part, orig in pairs(originalHitboxes) do
+        if part and part.Parent then
+            pcall(function()
+                part.Size = orig.Size
+                part.Transparency = orig.Transparency
+                part.CanCollide = orig.CanCollide
+            end)
+        end
+    end
+    table.clear(originalHitboxes)
+end
+
+
+
+local noClipParts = {}
+local function RefreshNoClipParts()
+    table.clear(noClipParts)
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                table.insert(noClipParts, part)
+            end
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.2)
+    RefreshNoClipParts()
+    char.DescendantAdded:Connect(function(desc)
+        if desc:IsA("BasePart") then
+            table.insert(noClipParts, desc)
+        end
+    end)
+end)
+if LocalPlayer.Character then
+    RefreshNoClipParts()
+    LocalPlayer.Character.DescendantAdded:Connect(function(desc)
+        if desc:IsA("BasePart") then
+            table.insert(noClipParts, desc)
+        end
+    end)
+end
+
+
     local cachedHitboxVal = nil
     local cachedHitboxSizeVec = nil
 
-    local undergroundSurfaceY = nil
-    local originalTeleportCFrame = nil
-    local originalSpeedTeleCFrame = nil
-    local noClipParts = {}
-
-    local function ResetHitboxes()
-        for part, orig in pairs(originalHitboxes) do
-            pcall(function()
-                if part and part.Parent then
-                    part.Size = orig.Size
-                    part.Transparency = orig.Transparency
-                    part.CanCollide = orig.CanCollide
-                end
-            end)
-        end
-        table.clear(originalHitboxes)
-    end
-    Player.ResetHitboxes = ResetHitboxes
-
-    local function RefreshNoClipParts()
-        table.clear(noClipParts)
-        local char = LocalPlayer.Character
-        if char then
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    table.insert(noClipParts, part)
-                end
-            end
-        end
-    end
-    Player.RefreshNoClipParts = RefreshNoClipParts
-
-    LocalPlayer.CharacterAdded:Connect(function(char)
-        task.wait(0.2)
-        RefreshNoClipParts()
-        char.DescendantAdded:Connect(function(desc)
-            if desc:IsA("BasePart") then
-                table.insert(noClipParts, desc)
-            end
-        end)
-    end)
-    if LocalPlayer.Character then
-        RefreshNoClipParts()
-        LocalPlayer.Character.DescendantAdded:Connect(function(desc)
-            if desc:IsA("BasePart") then
-                table.insert(noClipParts, desc)
-            end
-        end)
-    end
-
-    UserInputService.JumpRequest:Connect(function()
-        if Settings.InfJump
-            and LocalPlayer.Character
-            and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
-        end
-    end)
-
-    -- Physics / Stepped Update (chạy trong RunService.Stepped)
     local function UpdatePhysics(step)
-        local myChar = LocalPlayer.Character
-        local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-
-        -- 1. Hitbox Expander
-        if Settings.HitboxExpander then
-            local hVal = Settings.HitboxSize or 10
-            if cachedHitboxVal ~= hVal then
-                cachedHitboxVal = hVal
-                cachedHitboxSizeVec = Vector3.new(hVal, hVal, hVal)
+        -- Xuyên tường, Chui đất & Speed Tele không cấp phát bộ nhớ
+    if Settings.Noclip or (Settings.UndergroundNoclip and undergroundSurfaceY) or Settings.SpeedTele then
+        for i = 1, #noClipParts do
+            local part = noClipParts[i]
+            if part and part.Parent and part.CanCollide then
+                part.CanCollide = false
             end
-            local targetPartName = Settings.HitboxPart or "Head"
+        end
+    end
 
-            Targeting.forEachEnemy(function(target, char, isNPC)
-                local isSafe = Targeting.isSameTeam(target) or Targeting.isSafeShield(target, char)
-                if not isSafe then
-                    local part = char:FindFirstChild(targetPartName)
-                    if part and part:IsA("BasePart") then
-                        if not originalHitboxes[part] then
-                            originalHitboxes[part] = {
-                                Size = part.Size,
-                                Transparency = part.Transparency,
-                                CanCollide = part.CanCollide
-                            }
-                        end
-                        part.Size = cachedHitboxSizeVec
-                        part.Transparency = Settings.HitboxInvisible and 1 or 0.5
+    -- Slow Fall (Hãm tốc độ rơi chậm mượt mà)
+    if Settings.SlowFall and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and not Settings.Fly and not (Settings.UndergroundNoclip and undergroundSurfaceY) then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        local currentVel = hrp.Velocity
+        local maxDown = -(Settings.SlowFallSpeed or 5)
+        if currentVel.Y < maxDown then
+            hrp.Velocity = Vector3.new(currentVel.X, maxDown, currentVel.Z)
+        end
+    end
+
+    -- Hitbox Expander (Mở rộng Hitbox Đầu hoặc Thân - Hỗ trợ cả Người chơi & NPC/Bot)
+    if Settings.HitboxExpander then
+        local isHead = (Settings.HitboxPart == "Head" or Settings.HitboxPart == "Đầu")
+        local targetName = isHead and "Head" or "HumanoidRootPart"
+        if cachedHitboxVal ~= Settings.HitboxSize then
+            cachedHitboxVal = Settings.HitboxSize
+            cachedHitboxSizeVec = Vector3.new(cachedHitboxVal, cachedHitboxVal, cachedHitboxVal)
+        end
+        local sizeVal = cachedHitboxSizeVec
+        local targetTransparency = Settings.HitboxInvisible and 1 or 0.55
+
+        forEachEnemy(function(char, source)
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local part = char:FindFirstChild(targetName)
+                if not part and not isHead then
+                    part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char.PrimaryPart
+                end
+                if part and part:IsA("BasePart") then
+                    if not originalHitboxes[part] then
+                        originalHitboxes[part] = {
+                            Size = part.Size,
+                            Transparency = part.Transparency,
+                            CanCollide = part.CanCollide
+                        }
+                    end
+                    if part.Size ~= sizeVal or part.Transparency ~= targetTransparency then
+                        part.Size = sizeVal
+                        part.Transparency = targetTransparency
                         part.CanCollide = false
                     end
                 end
-            end)
-        else
-            if next(originalHitboxes) ~= nil then
-                ResetHitboxes()
             end
+        end)
+    end
+    
+    -- Auto Teleport bám địch (Hỗ trợ cả Người chơi & NPC/Bot - Tối ưu hóa Squared Distance)
+    if Settings.AutoTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myHrp = LocalPlayer.Character.HumanoidRootPart
+        if not originalTeleportCFrame then
+            originalTeleportCFrame = myHrp.CFrame
         end
-
-        -- 2. Fly & Speed Hack
-        if myHrp and myHum then
-            if Settings.Fly then
-                local cam = Camera.CFrame
-                local moveDir = Vector3.zero
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
-
-                if moveDir.Magnitude > 0 then
-                    myHrp.AssemblyLinearVelocity = moveDir.Unit * (Settings.FlySpeed or 50)
-                else
-                    myHrp.AssemblyLinearVelocity = Vector3.zero
-                end
-            elseif Settings.SpeedHack then
-                local moveDir = Vector3.zero
-                local camCFrame = Camera.CFrame
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCFrame.RightVector end
-                moveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
-                if moveDir.Magnitude > 0 then
-                    myHrp.AssemblyLinearVelocity = moveDir.Unit * (Settings.WalkSpeed or 30) + Vector3.new(0, myHrp.AssemblyLinearVelocity.Y, 0)
+        local closestEnemy = nil
+        local shortestDistSq = math.huge
+        local myPos = myHrp.Position
+        local maxRange = Settings.TeleportRange or 1000
+        local maxRangeSq = maxRange * maxRange
+        
+        forEachEnemy(function(char, source)
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local targetHrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char.PrimaryPart
+            if char and targetHrp and hum and hum.Health > 0 and not isSafeShield(source, char) then
+                local diff = targetHrp.Position - myPos
+                local distSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                if distSq <= maxRangeSq and distSq < shortestDistSq then
+                    shortestDistSq = distSq
+                    closestEnemy = targetHrp
                 end
             end
-        end
+        end)
 
-        -- 3. NoClip
-        if Settings.Noclip or Settings.UndergroundNoclip then
-            for i = 1, #noClipParts do
-                local p = noClipParts[i]
-                if p and p.Parent then p.CanCollide = false end
+        if closestEnemy then
+            local offsetPos
+            local posType = Settings.AutoTeleportPosition
+            
+            if posType == "Random" then
+                posType = Const.TELE_TYPES[math.random(1, #Const.TELE_TYPES)]
             end
-        end
-
-        -- 4. Underground Noclip
-        if Settings.UndergroundNoclip and myHrp then
-            if not undergroundSurfaceY then
-                undergroundSurfaceY = myHrp.Position.Y
+            
+            if posType == "Trên Đầu" then
+                offsetPos = closestEnemy.Position + Vector3.new(0, Settings.AutoTeleportDistance + 3, 0)
+            elseif posType == "Trái" then
+                offsetPos = closestEnemy.Position + (closestEnemy.CFrame.RightVector * -Settings.AutoTeleportDistance) + Vector3.new(0, 1.5, 0)
+            elseif posType == "Phải" then
+                offsetPos = closestEnemy.Position + (closestEnemy.CFrame.RightVector * Settings.AutoTeleportDistance) + Vector3.new(0, 1.5, 0)
+            else -- Mặc định là Sau Lưng
+                local behindOffset = closestEnemy.CFrame.LookVector * -Settings.AutoTeleportDistance
+                offsetPos = closestEnemy.Position + behindOffset + Vector3.new(0, 1.5, 0)
             end
-            local moveDir = Vector3.zero
-            local camCFrame = Camera.CFrame
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCFrame.RightVector end
-            moveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
-
-            local targetY = undergroundSurfaceY - Settings.UndergroundDistance
-            if moveDir.Magnitude > 0 then
-                myHrp.AssemblyLinearVelocity = moveDir.Unit * (Settings.WalkSpeed or 30) + Vector3.new(0, (targetY - myHrp.Position.Y) * 10, 0)
-            else
-                myHrp.AssemblyLinearVelocity = Vector3.new(0, (targetY - myHrp.Position.Y) * 10, 0)
+            
+            myHrp.CFrame = CFrame.new(offsetPos, closestEnemy.Position)
+            myHrp.Velocity = Vector3.zero
+            
+            if Settings.AutoTeleportCameraLock then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestEnemy.Position)
             end
-            local camLx, camLz = camCFrame.LookVector.X, camCFrame.LookVector.Z
-            if camLx ~= 0 or camLz ~= 0 then
-                local lookAtPos = Vector3.new(myHrp.Position.X + camLx, targetY, myHrp.Position.Z + camLz)
-                myHrp.CFrame = CFrame.new(Vector3.new(myHrp.Position.X, targetY, myHrp.Position.Z), lookAtPos)
-            end
-        else
-            undergroundSurfaceY = nil
-        end
-
-        -- 5. Teleport Loop
-        if Settings.AutoTeleport and myHrp then
-            if not originalTeleportCFrame then
-                originalTeleportCFrame = myHrp.CFrame
-            end
-            local closest = Targeting.getClosestPlayer()
-            local targetChar = closest and (closest:IsA("Player") and closest.Character or closest)
-            local targetHrp = targetChar and (targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("Torso"))
-
-            if targetHrp then
-                local range = Settings.TeleportRange or 1000
-                if (targetHrp.Position - originalTeleportCFrame.Position).Magnitude <= range then
-                    local posType = Settings.AutoTeleportPosition or "Sau Lưng"
-                    local targetCFrame = targetHrp.CFrame
-                    local desiredPos = targetCFrame.Position
-                    if posType == "Sau Lưng" then
-                        desiredPos = targetCFrame.Position - (targetCFrame.LookVector * (Settings.AutoTeleportDistance or 3))
-                    elseif posType == "Trên Đầu" then
-                        desiredPos = targetCFrame.Position + Vector3.new(0, Settings.AutoTeleportDistance or 3, 0)
-                    elseif posType == "Trái" then
-                        desiredPos = targetCFrame.Position - (targetCFrame.RightVector * (Settings.AutoTeleportDistance or 3))
-                    elseif posType == "Phải" then
-                        desiredPos = targetCFrame.Position + (targetCFrame.RightVector * (Settings.AutoTeleportDistance or 3))
-                    end
-                    myHrp.CFrame = CFrame.new(desiredPos, targetHrp.Position)
-                    myHrp.AssemblyLinearVelocity = Vector3.zero
-                    if Settings.AutoTeleportCameraLock then
-                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetHrp.Position)
-                    end
-                elseif Settings.AutoTeleportReturn and originalTeleportCFrame then
-                    myHrp.CFrame = originalTeleportCFrame
-                    myHrp.AssemblyLinearVelocity = Vector3.zero
-                end
-            elseif Settings.AutoTeleportReturn and originalTeleportCFrame then
-                myHrp.CFrame = originalTeleportCFrame
-                myHrp.AssemblyLinearVelocity = Vector3.zero
-            end
-        else
-            originalTeleportCFrame = nil
+        elseif Settings.AutoTeleportReturn and originalTeleportCFrame then
+            -- Không còn kẻ địch nào (hoặc toàn bộ đang có khiên an toàn) -> Tự tele về vị trí ban đầu
+            myHrp.CFrame = originalTeleportCFrame
+            myHrp.Velocity = Vector3.zero
         end
     end
+
+    -- Speed Tele bám địch (Tốc độ Speed + Noclip di chuyển đến kẻ địch - Tối ưu hóa Squared Distance)
+    if Settings.SpeedTele and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myHrp = LocalPlayer.Character.HumanoidRootPart
+        if not originalSpeedTeleCFrame then
+            originalSpeedTeleCFrame = myHrp.CFrame
+        end
+        local closestEnemy = nil
+        local shortestDistSq = math.huge
+        local myPos = myHrp.Position
+        local maxRange = Settings.TeleportRange or 1000
+        local maxRangeSq = maxRange * maxRange
+        
+        forEachEnemy(function(char, source)
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local targetHrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char.PrimaryPart
+            if char and targetHrp and hum and hum.Health > 0 and not isSafeShield(source, char) then
+                local diff = targetHrp.Position - myPos
+                local distSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                if distSq <= maxRangeSq and distSq < shortestDistSq then
+                    shortestDistSq = distSq
+                    closestEnemy = targetHrp
+                end
+            end
+        end)
+
+        if closestEnemy then
+            local offsetPos
+            local posType = Settings.AutoTeleportPosition
+            
+            if posType == "Random" then
+                posType = Const.TELE_TYPES[math.random(1, #Const.TELE_TYPES)]
+            end
+            
+            if posType == "Trên Đầu" then
+                offsetPos = closestEnemy.Position + Vector3.new(0, Settings.AutoTeleportDistance + 3, 0)
+            elseif posType == "Trái" then
+                offsetPos = closestEnemy.Position + (closestEnemy.CFrame.RightVector * -Settings.AutoTeleportDistance) + Vector3.new(0, 1.5, 0)
+            elseif posType == "Phải" then
+                offsetPos = closestEnemy.Position + (closestEnemy.CFrame.RightVector * Settings.AutoTeleportDistance) + Vector3.new(0, 1.5, 0)
+            else -- Mặc định là Sau Lưng
+                local behindOffset = closestEnemy.CFrame.LookVector * -Settings.AutoTeleportDistance
+                offsetPos = closestEnemy.Position + behindOffset + Vector3.new(0, 1.5, 0)
+            end
+            
+            local diff = offsetPos - myHrp.Position
+            local dist = diff.Magnitude
+            local moveSpeed = Settings.SpeedTeleSpeed or 50
+            local stepDist = moveSpeed * 0.016
+            
+            if dist <= stepDist or dist <= 0.5 then
+                myHrp.CFrame = CFrame.new(offsetPos, closestEnemy.Position)
+            else
+                local moveDir = diff.Unit
+                myHrp.CFrame = CFrame.new(myHrp.Position + (moveDir * stepDist), closestEnemy.Position)
+            end
+            myHrp.Velocity = Vector3.zero
+            
+            if Settings.AutoTeleportCameraLock then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestEnemy.Position)
+            end
+        elseif Settings.AutoTeleportReturn and originalSpeedTeleCFrame then
+            local diff = originalSpeedTeleCFrame.Position - myHrp.Position
+            local dist = diff.Magnitude
+            local moveSpeed = Settings.SpeedTeleSpeed or 50
+            local stepDist = moveSpeed * 0.016
+            
+            if dist <= stepDist or dist <= 0.5 then
+                myHrp.CFrame = originalSpeedTeleCFrame
+            else
+                local moveDir = diff.Unit
+                local lookAtTarget = originalSpeedTeleCFrame.Position + originalSpeedTeleCFrame.LookVector * 10
+                myHrp.CFrame = CFrame.new(myHrp.Position + (moveDir * stepDist), lookAtTarget)
+            end
+            myHrp.Velocity = Vector3.zero
+        end
+    end
+    end
+
+    local function UpdatePlayer(step)
+        local now = tick()
+
+        -- SPINBOT / ANTI-AIM
+        if Settings.SpinBot and LocalPlayer.Character then
+            local myHrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myHum = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if myHrp and myHum and myHum.Health > 0 then
+                myHum.AutoRotate = false
+                local spinSpeed = (Settings.SpinSpeed or 50) * 0.4
+                local spinAngle = (now * spinSpeed * math.pi * 2) % (math.pi * 2)
+                myHrp.CFrame = CFrame.new(myHrp.Position) * CFrame.Angles(0, spinAngle, 0)
+            end
+        end
+
+        -- 3. PLAYER MODS
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = LocalPlayer.Character.Humanoid
+            local hrp = LocalPlayer.Character.HumanoidRootPart
+
+            if Settings.SpeedHack then humanoid.WalkSpeed = Settings.WalkSpeed end
+            if Settings.JumpHack then
+                humanoid.UseJumpPower = true
+                humanoid.JumpPower = Settings.JumpPower
+            end
+            if Settings.InfJump and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+            if Settings.Gravity then
+                Workspace.Gravity = Settings.GravityValue
+            else
+                Workspace.Gravity = 196.2
+            end
+
+            -- Fly
+            if Settings.Fly then
+                local moveDir = Vector3.zero
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+                if moveDir.Magnitude > 0 then
+                    hrp.Velocity = moveDir.Unit * Settings.FlySpeed
+                else
+                    hrp.Velocity = Vector3.zero
+                end
+            end
+
+            -- Underground (Chui đất & di chuyển WASD)
+            if Settings.UndergroundNoclip then
+                if not undergroundSurfaceY then
+                    undergroundSurfaceY = hrp.Position.Y
+                end
+                local targetY = undergroundSurfaceY - Settings.UndergroundDepth
+                local moveDir = Vector3.zero
+                local camLook = Camera.CFrame.LookVector
+                local camRight = Camera.CFrame.RightVector
+                local flatLook = Vector3.new(camLook.X, 0, camLook.Z).Unit
+                local flatRight = Vector3.new(camRight.X, 0, camRight.Z).Unit
+
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + flatLook end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - flatLook end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - flatRight end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + flatRight end
+
+                local currentPos = hrp.Position
+                local nextPos = Vector3.new(currentPos.X, targetY, currentPos.Z)
+                if moveDir.Magnitude > 0 then
+                    nextPos = nextPos + (moveDir.Unit * (Settings.UndergroundSpeed * step))
+                end
+                hrp.CFrame = CFrame.new(nextPos, nextPos + flatLook)
+                hrp.Velocity = Vector3.zero
+            else
+                if undergroundSurfaceY then
+                    undergroundSurfaceY = nil
+                end
+            end
+        end
+    end
+
+    Player.originalHitboxes = originalHitboxes
+    Player.appliedHitboxes = appliedHitboxes
+    Player.ResetHitboxes = ResetHitboxes
+    Player.RefreshNoClipParts = RefreshNoClipParts
     Player.UpdatePhysics = UpdatePhysics
+    Player.UpdatePlayer = UpdatePlayer
 
     return Player
 end
@@ -1097,51 +1367,56 @@ end)()
 -- [[ MODULE: Aim.lua ]]
 __MODULES['Aim.lua'] = (function()
 -- ============================================================
--- MODULAR RIVALS | MODULE: AIMBOT, PRO AIM, AUTOFIRE & VISUALS
+-- MODULAR RIVALS | MODULE 5: AIMBOT, PRO AIM, AUTOFIRE & VISUALS
 -- ============================================================
 return function(Shared, Targeting)
     local Aim = {}
 
     local Settings = Shared.Settings
     local LocalPlayer = Shared.LocalPlayer
+    local Players = Shared.Players
     local Camera = Shared.Camera
     local UserInputService = Shared.UserInputService
+    local Theme = Shared.Theme
+    local mousemoverel = Shared.mousemoverel
+    local mouse1click_fn = Shared.mouse1click_fn
+    local VirtualInputManager = Shared.VirtualInputManager
     local ColorList = Shared.ColorList
+    local getClosestPlayer = Targeting.getClosestPlayer
+    local getTargetPart = Targeting.getTargetPart
+    local getClosestPlayerToCursor = Targeting.getClosestPlayerToCursor
+    local isAutoFireVisible = Targeting.isAutoFireVisible
+    local forEachEnemy = Targeting.forEachEnemy
+    local isSameTeam = Targeting.isSameTeam
 
-    -- Drawing objects
-    local FOVring = Drawing.new("Circle")
-    FOVring.Visible = false
-    FOVring.Thickness = 1.5
-    FOVring.Radius = Settings.FOV
-    FOVring.Transparency = 0.8
-    FOVring.Color = Color3.fromRGB(155, 89, 235)
-    FOVring.Filled = false
-    Aim.FOVring = FOVring
+-- ============================================================
+-- DRAWING CORE
+-- ============================================================
+local FOVring = Drawing.new("Circle")
+FOVring.Visible = false; FOVring.Thickness = 1.5; FOVring.Color = Theme.AccentOn
+FOVring.Filled = false; FOVring.Transparency = 1
+FOVring.Radius = Settings.FOV; FOVring.Position = Camera.ViewportSize / 2
 
-    local AimSnaplineDraw = Drawing.new("Line")
-    AimSnaplineDraw.Visible = false
-    AimSnaplineDraw.Thickness = 1
-    AimSnaplineDraw.Color = Color3.fromRGB(155, 89, 235)
-    AimSnaplineDraw.Transparency = 0.8
-    Aim.AimSnaplineDraw = AimSnaplineDraw
+local AimSnaplineDraw = Drawing.new("Line")
+AimSnaplineDraw.Visible = false; AimSnaplineDraw.Thickness = 1.5
+AimSnaplineDraw.Color = Color3.fromRGB(255, 50, 50); AimSnaplineDraw.Transparency = 1
 
-    local CrosshairDraws = {
-        Top = Drawing.new("Line"),
-        Bottom = Drawing.new("Line"),
-        Left = Drawing.new("Line"),
-        Right = Drawing.new("Line")
-    }
-    Aim.CrosshairDraws = CrosshairDraws
+local CrosshairDraws = {
+    L = Drawing.new("Line"), R = Drawing.new("Line"),
+    T = Drawing.new("Line"), B = Drawing.new("Line"),
+    Circle = Drawing.new("Circle"), Dot = Drawing.new("Circle")
+}
 
-    local AimWarnText = Drawing.new("Text")
-    AimWarnText.Visible = false
-    AimWarnText.Size = 20
-    AimWarnText.Center = true
-    AimWarnText.Outline = true
-    AimWarnText.OutlineColor = Color3.fromRGB(0, 0, 0)
-    Aim.AimWarnText = AimWarnText
+local AimWarnText = Drawing.new("Text")
+AimWarnText.Visible = false
+AimWarnText.Center = true
+AimWarnText.Outline = true
+AimWarnText.Size = 22
 
-    -- Internal state
+local ESPTable = {}
+
+
+
     local aimSafeCounter = 0
     local isAiming = false
     local cachedClosest = nil
@@ -1157,324 +1432,297 @@ return function(Shared, Targeting)
     local isProAimHolding = false
     local cachedWarnTarget = nil
 
-    UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        local bind = Settings.ProAimHoldMouse
-        if bind and (input.KeyCode == bind or input.UserInputType == bind) then
-            isProAimHolding = true
+    local function FireShot()
+        if mouse1click_fn then
+            pcall(mouse1click_fn)
+        elseif VirtualInputManager then
+            pcall(VirtualInputManager.SendMouseButtonEvent, VirtualInputManager, 0, 0, 0, true, game, 0)
+            task.delay(0.02, function()
+                pcall(VirtualInputManager.SendMouseButtonEvent, VirtualInputManager, 0, 0, 0, false, game, 0)
+            end)
         end
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.AimEnabled then
-            if Settings.AimHoldMode then
-                isAiming = true
-            else
-                local target = Targeting.getClosestPlayer()
-                local targetChar = target and (target:IsA("Player") and target.Character or target)
-                if targetChar then
-                    local tPart = Targeting.getTargetPart(targetChar)
-                    if tPart then
-                        local targetCFrame = CFrame.new(Camera.CFrame.Position, tPart.Position)
-                        Camera.CFrame = Targeting.AddJitter(targetCFrame, Settings.AimJitter)
-                    end
-                end
-            end
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input, gpe)
-        local bind = Settings.ProAimHoldMouse
-        if bind and (input.KeyCode == bind or input.UserInputType == bind) then
-            isProAimHolding = false
-            ProAimLockedTarget = nil
-        end
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then isAiming = false end
-    end)
-
-    local function getProAimTargetCached()
-        local now = tick()
-        if cachedProTarget and (now - cachedProValid) < 0.05 then
-            return cachedProTarget
-        end
-        cachedProTarget = Targeting.getClosestPlayer()
-        cachedProValid = now
-        return cachedProTarget
     end
 
-    -- Update Aim logic (chạy trong RenderStepped)
+    local function AddJitter(cf, amount)
+        if amount <= 0 then return cf end
+        local rX = (math.random() - 0.5) * 2 * math.rad(amount)
+        local rY = (math.random() - 0.5) * 2 * math.rad(amount)
+        return cf * CFrame.Angles(rX, rY, 0)
+    end
+
     local function UpdateAim(step, center)
         local now = tick()
 
-        -- 1. FOV Ring
-        if Settings.ProAimEnabled and Settings.ProAimFOVVisible then
-            FOVring.Visible = true
-            FOVring.Position = center
-            FOVring.Radius = Settings.ProAimFOV or 120
-            FOVring.Color = Shared.Theme.Accent
-        elseif Settings.AimEnabled and Settings.FOVVisible then
-            FOVring.Visible = true
-            FOVring.Position = center
-            FOVring.Radius = Settings.FOV or 170
-            FOVring.Color = Shared.Theme.Accent
-        else
-            FOVring.Visible = false
-        end
-
-        -- 2. Snapline
-        local mousePos = UserInputService:GetMouseLocation()
-        local closestTarget = (now - cachedClosestValid < 0.05) and cachedClosest or Targeting.getClosestPlayer()
-        cachedClosest = closestTarget
+        if now - cachedClosestValid > 0.05 then
+        cachedClosest = getClosestPlayer()
         cachedClosestValid = now
+    end
+    local closestTarget = cachedClosest
 
-        local hasTarget = (Settings.AimEnabled and closestTarget) or (Settings.ProAimEnabled and ProAimLockedTarget)
-        if (Settings.AimSnapline or Settings.ProAimSnapline) and hasTarget then
-            local snapTarget = nil
-            if Settings.ProAimEnabled and ProAimLockedTarget then
-                snapTarget = ProAimLockedTarget
-            elseif closestTarget then
-                local targetChar = closestTarget:IsA("Player") and closestTarget.Character or closestTarget
-                if targetChar then
-                    local tPart = Targeting.getTargetPart(targetChar)
-                    if tPart and (not Settings.WallCheck or Targeting.isVisible(tPart)) then
-                        snapTarget = tPart
-                    end
-                end
-            end
+    -- 1. FOV & SNAPLINE (1 VÒNG TRÒN DUY NHẤT ĐỒNG BỘ)
+    FOVring.Visible = Settings.FOVVisible
+    if Settings.FOVVisible then
+        local mousePos = UserInputService:GetMouseLocation()
+        FOVring.Position = mousePos
+        FOVring.Radius = Settings.FOV
+        local hasTarget = (Settings.AimEnabled and closestTarget) or (Settings.ProAimEnabled and (ProAimLockedTarget ~= nil))
+        FOVring.Color = hasTarget and Color3.fromRGB(255, 50, 50) or Theme.AccentOn
+    end
 
-            if snapTarget then
-                local targetPos, onScreen = Camera:WorldToViewportPoint(snapTarget.Position)
-                if onScreen and targetPos.Z > 0 then
-                    AimSnaplineDraw.Visible = true
-                    AimSnaplineDraw.From = mousePos
-                    AimSnaplineDraw.To = Vector2.new(targetPos.X, targetPos.Y)
-                else
-                    AimSnaplineDraw.Visible = false
-                end
-            else
-                AimSnaplineDraw.Visible = false
+    local snapTarget = nil
+    if Settings.FOVVisible or Settings.AimSnapline then
+        if Settings.AimEnabled and closestTarget then
+            local targetChar = closestTarget:IsA("Player") and closestTarget.Character or closestTarget
+            if targetChar then
+                local tPart = getTargetPart(targetChar)
+                if tPart then snapTarget = tPart end
             end
+        elseif Settings.ProAimEnabled and ProAimLockedTarget then
+            snapTarget = ProAimLockedTarget
+        end
+    end
+
+    if snapTarget then
+        local targetPos, onScreen = Camera:WorldToViewportPoint(snapTarget.Position)
+        if onScreen then
+            AimSnaplineDraw.From = center
+            AimSnaplineDraw.To = Vector2.new(targetPos.X, targetPos.Y)
+            AimSnaplineDraw.Visible = true
         else
             AimSnaplineDraw.Visible = false
         end
+    else
+        AimSnaplineDraw.Visible = false
+    end
 
-        -- 3. Aimbot (Camera Lerp)
-        if Settings.AimEnabled and isAiming and closestTarget then
-            local target = closestTarget
-            local targetChar = target:IsA("Player") and target.Character or target
-            if targetChar then
-                local tPart = Targeting.getTargetPart(targetChar)
-                if tPart and (not Settings.WallCheck or Targeting.isVisible(tPart)) then
-                    local desired = CFrame.new(Camera.CFrame.Position, tPart.Position)
-                    desired = Targeting.AddJitter(desired, Settings.AimJitter)
+    -- 2. AIM HOLD (Hard Lock + smooth + jitter)
+    if isAiming and Settings.AimEnabled and Settings.AimHoldMode then
+        local target = closestTarget
+        if target and target.Character then
+            local tPart = getTargetPart(target.Character)
+            if tPart then
+                local desired = CFrame.new(Camera.CFrame.Position, tPart.Position)
+                desired = AddJitter(desired, Settings.AimJitter)
+                if Settings.AimSmoothness >= 1 then
+                    Camera.CFrame = desired
+                else
                     local t = 1 - math.pow(1 - math.clamp(Settings.AimSmoothness, 0, 1), step * 60)
-                    Camera.CFrame = Camera.CFrame:Lerp(desired, math.clamp(t, 0.05, 1))
+                    Camera.CFrame = Camera.CFrame:Lerp(desired, t)
                 end
             end
         end
+    end
 
-        -- 4. Pro Aim (Mouse Moverel)
-        local isHolding = isProAimHolding
-        if not isHolding and Settings.ProAimEnabled then
-            local bind = Settings.ProAimHoldMouse
-            if bind and bind.EnumType == Enum.UserInputType then
-                local ok, pressed = pcall(UserInputService.IsMouseButtonPressed, UserInputService, bind)
-                if ok and pressed then isHolding = true end
-            elseif bind and bind.EnumType == Enum.KeyCode then
-                local ok, pressed = pcall(UserInputService.IsKeyDown, UserInputService, bind)
-                if ok and pressed then isHolding = true end
-            end
+    -- 2.5 PRO AIM (Aimlock using mousemoverel & Smoothness - Tối ưu hóa 0 ép chuỗi/closure)
+    local isHolding = isProAimHolding
+    if not isHolding and typeof(Settings.ProAimHoldMouse) == "EnumItem" then
+        local bind = Settings.ProAimHoldMouse
+        if bind.EnumType == Enum.UserInputType then
+            local ok, pressed = pcall(UserInputService.IsMouseButtonPressed, UserInputService, bind)
+            if ok and pressed then isHolding = true end
+        elseif bind.EnumType == Enum.KeyCode then
+            local ok, pressed = pcall(UserInputService.IsKeyDown, UserInputService, bind)
+            if ok and pressed then isHolding = true end
         end
+    end
 
-        if Settings.ProAimEnabled and isHolding then
-            local mousePos = UserInputService:GetMouseLocation()
-            local targetSource, targetPart, targetScreenPos = Targeting.getClosestPlayerToCursor(mousePos)
-            if targetPart and targetScreenPos then
-                ProAimLockedTarget = targetPart
-                local smoothVal = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1)
-                local xOffset = Settings.ProAimXOffset or 0
-                local yOffset = Settings.ProAimYOffset or 0
-                local deltaX = (targetScreenPos.X - mousePos.X + xOffset) * smoothVal
-                local deltaY = (targetScreenPos.Y - mousePos.Y + yOffset) * smoothVal
+    if Settings.ProAimEnabled and isHolding then
+        local mousePos = UserInputService:GetMouseLocation()
+        local targetSource, targetPart, targetScreenPos = getClosestPlayerToCursor(mousePos)
 
-                if (Settings.ProAimJitter or 0) > 0 then
-                    deltaX = deltaX + (math.random() - 0.5) * Settings.ProAimJitter * 2
-                    deltaY = deltaY + (math.random() - 0.5) * Settings.ProAimJitter * 2
-                end
-
-                Shared.mousemoverel(deltaX, deltaY)
-            else
-                ProAimLockedTarget = nil
-            end
+        if targetPart and targetScreenPos then
+            ProAimLockedTarget = targetPart
+            local smoothVal = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1)
+            local xOffset = Settings.ProAimXOffset or 0
+            local yOffset = Settings.ProAimYOffset or 0
+            local deltaX = (targetScreenPos.X - mousePos.X + xOffset) * smoothVal
+            local deltaY = (targetScreenPos.Y - mousePos.Y + yOffset) * smoothVal
+            
+            mousemoverel(deltaX, deltaY)
         else
             ProAimLockedTarget = nil
         end
+    else
+        ProAimLockedTarget = nil
+    end
 
-        -- 5. AutoFire
-        local shouldAutoFire = Settings.AutoFire or (Settings.AutoFireHoldM2 and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
-        if shouldAutoFire then
-            local targetPart = ProAimLockedTarget
-            if not targetPart and closestTarget then
+    -- 2.6 AUTO FIRE & AUTO FIRE (HOLD M2) + WALL CHECK
+    local shouldAutoFire = Settings.AutoFire or (Settings.AutoFireHoldM2 and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
+    if shouldAutoFire then
+        local targetPart = ProAimLockedTarget
+        if not targetPart then
+            if closestTarget then
                 local targetChar = closestTarget:IsA("Player") and closestTarget.Character or closestTarget
                 if targetChar then
-                    targetPart = Targeting.getTargetPart(targetChar)
+                    targetPart = getTargetPart(targetChar)
                 end
             end
-            if targetPart and (now - lastShotTime) >= (Settings.AutoFireDelay or 0) then
-                local isSafe = Targeting.isSameTeam(closestTarget) or (closestTarget and Targeting.isSafeShield(closestTarget, targetPart.Parent))
-                if not isSafe then
-                    local isVis = not Settings.AutoFireWallCheck or Targeting.isAutoFireVisible(targetPart)
-                    if isVis then
-                        local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-                        if onScreen and pos.Z > 0 then
-                            local adist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                            local maxFov = Settings.FOV or 100
-                            if adist <= maxFov then
-                                lastShotTime = now
-                                Targeting.FireShot()
-                            end
-                        end
+        end
+        if not targetPart then
+            targetPart = getProAimTargetCached()
+        end
+
+        if targetPart then
+            local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+            if onScreen then
+                local adist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                local maxFov = Settings.FOV or 100
+                local delayTime = math.max(Settings.AutoFireDelay or 0, 0.05)
+                if adist <= maxFov and (now - lastShotTime) >= delayTime then
+                    if isAutoFireVisible(targetPart) then
+                        lastShotTime = now
+                        FireShot()
                     end
                 end
             end
-        end
-
-        -- 6. No Recoil (MOUSE AIMLOCK-BASED RECOIL STABILIZATION)
-        if Settings.NoRecoil and (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or (Settings.AutoFire and not Settings.AutoFireHoldM2) or (Settings.AutoFireHoldM2 and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))) then
-            local cam = Camera.CFrame
-            local mouseDelta = UserInputService:GetMouseDelta()
-            local mousePos = UserInputService:GetMouseLocation()
-
-            if math.abs(mouseDelta.X) > 2.5 or math.abs(mouseDelta.Y) > 2.5 or not noRecoilTargetPoint then
-                noRecoilTargetPoint = cam.Position + cam.LookVector * 1000
-            else
-                if ProAimLockedTarget then
-                    noRecoilTargetPoint = ProAimLockedTarget.Position
-                else
-                    noRecoilTargetPoint = cam.Position + (noRecoilTargetPoint - cam.Position).Unit * 1000
-                end
-
-                local screenPos, onScreen = Camera:WorldToViewportPoint(noRecoilTargetPoint)
-                if onScreen then
-                    local deltaX = screenPos.X - mousePos.X
-                    local deltaY = screenPos.Y - mousePos.Y
-                    if math.abs(deltaX) > 0.2 or math.abs(deltaY) > 0.2 then
-                        local s = math.clamp(Settings.NoRecoilStrength or 1, 0.1, 1)
-                        Shared.mousemoverel(deltaX * s, deltaY * s)
-                    end
-                else
-                    noRecoilTargetPoint = cam.Position + cam.LookVector * 1000
-                end
-            end
-        else
-            noRecoilTargetPoint = nil
-        end
-
-        -- 7. Slow Fall
-        if Settings.SlowFall and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = LocalPlayer.Character.HumanoidRootPart
-            local currentVel = hrp.Velocity
-            local maxDown = -(Settings.SlowFallSpeed or 5)
-            if currentVel.Y < maxDown then
-                hrp.Velocity = Vector3.new(currentVel.X, maxDown, currentVel.Z)
-            end
-        end
-
-        -- 8. Spectate
-        if Settings.Spectating and Settings.SpectatePlayer ~= "" then
-            local targetPlayer = Players:FindFirstChild(Settings.SpectatePlayer)
-            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
-                Camera.CameraSubject = targetPlayer.Character.Humanoid
-            end
-        elseif Camera.CameraSubject ~= LocalPlayer.Character then
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                Camera.CameraSubject = LocalPlayer.Character.Humanoid
-            end
-        end
-
-        -- 9. Crosshair
-        if Settings.Crosshair then
-            local size, thick = Settings.CrosshairSize, Settings.CrosshairThickness
-            local color = ColorList[Settings.CrosshairColor] or Color3.fromRGB(0, 255, 0)
-
-            for _, line in pairs(CrosshairDraws) do
-                line.Color = color
-                line.Thickness = thick
-                line.Visible = true
-            end
-
-            if Settings.CrosshairStyle == "Cross" then
-                CrosshairDraws.Top.From = Vector2.new(center.X, center.Y - size)
-                CrosshairDraws.Top.To = Vector2.new(center.X, center.Y)
-                CrosshairDraws.Bottom.From = Vector2.new(center.X, center.Y)
-                CrosshairDraws.Bottom.To = Vector2.new(center.X, center.Y + size)
-                CrosshairDraws.Left.From = Vector2.new(center.X - size, center.Y)
-                CrosshairDraws.Left.To = Vector2.new(center.X, center.Y)
-                CrosshairDraws.Right.From = Vector2.new(center.X, center.Y)
-                CrosshairDraws.Right.To = Vector2.new(center.X + size, center.Y)
-            elseif Settings.CrosshairStyle == "Dot" then
-                CrosshairDraws.Top.From = Vector2.new(center.X, center.Y - 2)
-                CrosshairDraws.Top.To = Vector2.new(center.X, center.Y + 2)
-                CrosshairDraws.Bottom.Visible = false
-                CrosshairDraws.Left.From = Vector2.new(center.X - 2, center.Y)
-                CrosshairDraws.Left.To = Vector2.new(center.X + 2, center.Y)
-                CrosshairDraws.Right.Visible = false
-            elseif Settings.CrosshairStyle == "X" then
-                local offset = size * 0.707
-                CrosshairDraws.Top.From = Vector2.new(center.X - offset, center.Y - offset)
-                CrosshairDraws.Top.To = center
-                CrosshairDraws.Bottom.From = center
-                CrosshairDraws.Bottom.To = Vector2.new(center.X + offset, center.Y + offset)
-                CrosshairDraws.Left.From = Vector2.new(center.X - offset, center.Y + offset)
-                CrosshairDraws.Left.To = center
-                CrosshairDraws.Right.From = center
-                CrosshairDraws.Right.To = Vector2.new(center.X + offset, center.Y - offset)
-            end
-        else
-            for _, line in pairs(CrosshairDraws) do line.Visible = false end
-        end
-
-        -- 10. Aim Warning
-        if Settings.AimWarning then
-            if now - lastWarnScan > 0.08 then
-                lastWarnScan = now
-                cachedWarnTarget = nil
-                local myChar = LocalPlayer.Character
-                local myHead = myChar and myChar:FindFirstChild("Head")
-                if myHead then
-                    local myHeadPos = myHead.Position
-                    local maxDist = Settings.AimDist or 1000
-                    local maxDistSq = maxDist * maxDist
-
-                    Targeting.forEachEnemy(function(target, char, isNPC)
-                        if cachedWarnTarget then return end
-                        if Targeting.isSameTeam(target) then return end
-                        local head = char:FindFirstChild("Head")
-                        if head then
-                            local dSq = (head.Position - myHeadPos).Magnitude ^ 2
-                            if dSq <= maxDistSq then
-                                local lookDir = head.CFrame.LookVector
-                                local toMe = (myHeadPos - head.Position).Unit
-                                if lookDir:Dot(toMe) > 0.88 then
-                                    cachedWarnTarget = target
-                                end
-                            end
-                        end
-                    end)
-                end
-            end
-
-            if cachedWarnTarget then
-                local flash = (math.floor(now * 4) % 2 == 0)
-                local nameStr = cachedWarnTarget:IsA("Player") and (cachedWarnTarget.DisplayName or cachedWarnTarget.Name) or (cachedWarnTarget:GetAttribute("DisplayName") or cachedWarnTarget.Name)
-                AimWarnText.Text = "⚠ ĐANG BỊ NHẮM BỞI: " .. string.upper(nameStr) .. " ⚠"
-                AimWarnText.Position = Vector2.new(center.X, center.Y - 100)
-                AimWarnText.Color = flash and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(255, 255, 0)
-                AimWarnText.Visible = true
-            else
-                AimWarnText.Visible = false
-            end
-        else
-            AimWarnText.Visible = false
         end
     end
+
+    -- 2.7 NO RECOIL (MOUSE AIMLOCK-BASED RECOIL STABILIZATION)
+    if Settings.NoRecoil and (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or (Settings.AutoFire and not Settings.AutoFireHoldM2) or (Settings.AutoFireHoldM2 and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))) then
+        local cam = Camera.CFrame
+        local mouseDelta = UserInputService:GetMouseDelta()
+        local mousePos = UserInputService:GetMouseLocation()
+
+        if math.abs(mouseDelta.X) > 2.5 or math.abs(mouseDelta.Y) > 2.5 or not noRecoilTargetPoint then
+            noRecoilTargetPoint = cam.Position + cam.LookVector * 1000
+        else
+            if ProAimLockedTarget then
+                noRecoilTargetPoint = ProAimLockedTarget.Position
+            else
+                noRecoilTargetPoint = cam.Position + (noRecoilTargetPoint - cam.Position).Unit * 1000
+            end
+
+            local screenPos, onScreen = Camera:WorldToViewportPoint(noRecoilTargetPoint)
+            if onScreen then
+                local deltaX = screenPos.X - mousePos.X
+                local deltaY = screenPos.Y - mousePos.Y
+                if math.abs(deltaX) > 0.2 or math.abs(deltaY) > 0.2 then
+                    local s = math.clamp(Settings.NoRecoilStrength or 1, 0.1, 1)
+                    mousemoverel(deltaX * s, deltaY * s)
+                end
+            else
+                noRecoilTargetPoint = cam.Position + cam.LookVector * 1000
+            end
+        end
+    else
+        noRecoilTargetPoint = nil
+    end
+
+    -- 4. SPECTATING
+    if Settings.Spectating and Settings.SpectatePlayer ~= "" then
+        local targetPlayer = Players:FindFirstChild(Settings.SpectatePlayer)
+        if targetPlayer and targetPlayer.Character
+            and targetPlayer.Character:FindFirstChild("Humanoid") then
+            Camera.CameraSubject = targetPlayer.Character.Humanoid
+        elseif LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            Camera.CameraSubject = LocalPlayer.Character.Humanoid
+        end
+    end
+
+    -- 5. CROSSHAIR (Tối ưu hóa: chỉ render khi bật, không gọi C++ ẩn vô ích)
+    if Settings.Crosshair then
+        local size, thick = Settings.CrosshairSize, Settings.CrosshairThickness
+        local color = ColorList[Settings.CrosshairColor] or Color3.fromRGB(0, 255, 0)
+        for _, draw in pairs(CrosshairDraws) do
+            draw.Color = color
+            draw.Thickness = thick
+        end
+
+        if Settings.CrosshairStyle == "Cross" or Settings.CrosshairStyle == "Cross + Dot" then
+            CrosshairDraws.L.Visible = true
+            CrosshairDraws.L.From = Vector2.new(center.X - size, center.Y)
+            CrosshairDraws.L.To = Vector2.new(center.X - 3, center.Y)
+            CrosshairDraws.R.Visible = true
+            CrosshairDraws.R.From = Vector2.new(center.X + 3, center.Y)
+            CrosshairDraws.R.To = Vector2.new(center.X + size, center.Y)
+            CrosshairDraws.T.Visible = true
+            CrosshairDraws.T.From = Vector2.new(center.X, center.Y - size)
+            CrosshairDraws.T.To = Vector2.new(center.X, center.Y - 3)
+            CrosshairDraws.B.Visible = true
+            CrosshairDraws.B.From = Vector2.new(center.X, center.Y + 3)
+            CrosshairDraws.B.To = Vector2.new(center.X, center.Y + size)
+        end
+        if Settings.CrosshairStyle == "X" then
+            local offset = size * 0.707
+            CrosshairDraws.L.Visible = true
+            CrosshairDraws.L.From = Vector2.new(center.X - offset, center.Y - offset)
+            CrosshairDraws.L.To = Vector2.new(center.X - 2, center.Y - 2)
+            CrosshairDraws.R.Visible = true
+            CrosshairDraws.R.From = Vector2.new(center.X + offset, center.Y + offset)
+            CrosshairDraws.R.To = Vector2.new(center.X + 2, center.Y + 2)
+            CrosshairDraws.T.Visible = true
+            CrosshairDraws.T.From = Vector2.new(center.X + offset, center.Y - offset)
+            CrosshairDraws.T.To = Vector2.new(center.X + 2, center.Y - 2)
+            CrosshairDraws.B.Visible = true
+            CrosshairDraws.B.From = Vector2.new(center.X - offset, center.Y + offset)
+            CrosshairDraws.B.To = Vector2.new(center.X - 2, center.Y + 2)
+        end
+        if Settings.CrosshairStyle == "Circle" then
+            CrosshairDraws.Circle.Visible = true
+            CrosshairDraws.Circle.Radius = size
+            CrosshairDraws.Circle.Position = center
+            CrosshairDraws.Circle.Filled = false
+        end
+        if Settings.CrosshairStyle == "Dot" or Settings.CrosshairStyle == "Cross + Dot" then
+            CrosshairDraws.Dot.Visible = true
+            CrosshairDraws.Dot.Radius = thick
+            CrosshairDraws.Dot.Position = center
+            CrosshairDraws.Dot.Filled = true
+        end
+    else
+        for _, draw in pairs(CrosshairDraws) do
+            if draw.Visible then draw.Visible = false end
+        end
+    end
+
+    -- 5.5 CẢNH BÁO BỊ NGẮM (Tối ưu hóa: Giữ bộ đệm cachedWarnTarget, triệt tiêu lỗi chớp nháy)
+    if Settings.AimWarning then
+        if now - lastWarnScan > 0.12 then
+            lastWarnScan = now
+            cachedWarnTarget = nil
+            local myChar = LocalPlayer.Character
+            local myHead = myChar and myChar:FindFirstChild("Head")
+            if myHead then
+                local myHeadPos = myHead.Position
+                local maxDist = Settings.AimDist or 1000
+                local maxDistSq = maxDist * maxDist
+                forEachEnemy(function(char, source)
+                    local eHead = char:FindFirstChild("Head")
+                    if eHead then
+                        local diff = eHead.Position - myHeadPos
+                        local distSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                        if distSq <= maxDistSq then
+                            local dirToMe = (myHeadPos - eHead.Position).Unit
+                            local dot = eHead.CFrame.LookVector:Dot(dirToMe)
+                            if dot > 0.97 and char:FindFirstChildOfClass("Tool") then
+                                cachedWarnTarget = source
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+        if cachedWarnTarget then
+            local flash = (math.floor(now * 4) % 2 == 0)
+            local nameStr = cachedWarnTarget:IsA("Player") and (cachedWarnTarget.DisplayName or cachedWarnTarget.Name) or (cachedWarnTarget.Name .. " [BOT]")
+            AimWarnText.Visible = true
+            AimWarnText.Text = "⚠ BỊ NGẮM: " .. nameStr .. " ⚠"
+            AimWarnText.Color = flash and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(255, 255, 0)
+            AimWarnText.Position = Vector2.new(center.X, center.Y - 120)
+        else
+            if AimWarnText.Visible then AimWarnText.Visible = false end
+        end
+    else
+        if AimWarnText.Visible then AimWarnText.Visible = false end
+    end
+
+    end
+
+    Aim.FOVring = FOVring
+    Aim.AimSnaplineDraw = AimSnaplineDraw
+    Aim.CrosshairDraws = CrosshairDraws
+    Aim.AimWarnText = AimWarnText
     Aim.UpdateAim = UpdateAim
 
     return Aim
@@ -1485,318 +1733,345 @@ end)()
 -- [[ MODULE: ESP.lua ]]
 __MODULES['ESP.lua'] = (function()
 -- ============================================================
--- MODULAR RIVALS | MODULE: ESP, CHAMS, SKELETON & OFFSCREEN
+-- MODULAR RIVALS | MODULE 6: ESP, CHAMS, SKELETON & COUNTER HUD
 -- ============================================================
 return function(Shared, Targeting)
     local ESP = {}
 
     local Settings = Shared.Settings
-    local Const = Shared.Const
     local LocalPlayer = Shared.LocalPlayer
-    local Camera = Shared.Camera
     local Players = Shared.Players
+    local Camera = Shared.Camera
     local Workspace = Shared.Workspace
     local ColorList = Shared.ColorList
-
-    local ChamsFolder = Instance.new("Folder")
-    ChamsFolder.Name = Shared.IDS.ChamsFolder
-    pcall(function() ChamsFolder.Parent = Shared.parentGui end)
-    if not ChamsFolder.Parent then pcall(function() ChamsFolder.Parent = Camera end) end
-    ESP.ChamsFolder = ChamsFolder
+    local Const = Shared.Const
+    local RandomString = Shared.RandomString
+    local IDS = Shared.IDS
+    local parentGui = Shared.parentGui
+    local isSameTeam = Targeting.isSameTeam
 
     local ESPTable = {}
     ESP.ESPTable = ESPTable
 
     local boneScreenCache = {}
 
-    local function createESP(player)
-        if ESPTable[player] then return end
-        local draw = {
-            BoxOutline = Drawing.new("Square"),
-            Box = Drawing.new("Square"),
-            Name = Drawing.new("Text"),
-            Distance = Drawing.new("Text"),
-            HealthBarBg = Drawing.new("Square"),
-            HealthBar = Drawing.new("Square"),
-            Tracer = Drawing.new("Line"),
-            Arrow1 = Drawing.new("Line"),
-            Arrow2 = Drawing.new("Line"),
-            Arrow3 = Drawing.new("Line"),
-            Skeleton = {},
-            Cham = nil
-        }
-        draw.BoxOutline.Thickness = 3
-        draw.BoxOutline.Filled = false
-        draw.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+local ChamsFolder = Instance.new("Folder")
+ChamsFolder.Name = IDS.ChamsFolder
+pcall(function() ChamsFolder.Parent = parentGui end)
+if not ChamsFolder.Parent then pcall(function() ChamsFolder.Parent = Camera end) end
 
-        draw.Box.Thickness = 1
-        draw.Box.Filled = false
+local function createESP(player)
+    if ESPTable[player] then return end
+    local esp = {}
+    esp.Box = Drawing.new("Square"); esp.Box.Thickness = 1.5
+    esp.Box.Color = Color3.fromRGB(255, 255, 255); esp.Box.Filled = false
+    esp.Name = Drawing.new("Text"); esp.Name.Size = 14; esp.Name.Center = true
+    esp.Name.Outline = true; esp.Name.Color = Color3.fromRGB(255, 255, 255)
+    esp.HealthBg = Drawing.new("Line"); esp.HealthBg.Thickness = 3
+    esp.HealthBg.Color = Color3.fromRGB(0, 0, 0)
+    esp.Health = Drawing.new("Line"); esp.Health.Thickness = 1.5
+    esp.Health.Color = Color3.fromRGB(0, 255, 0)
+    esp.Tracer = Drawing.new("Line"); esp.Tracer.Thickness = 1.5
+    esp.Tracer.Color = Color3.fromRGB(255, 255, 255)
 
-        draw.Name.Size = 13
-        draw.Name.Center = true
-        draw.Name.Outline = true
-        draw.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
-        draw.Name.Font = 2
+    esp.Info = Drawing.new("Text")
+    esp.Info.Size = 12
+    esp.Info.Center = true
+    esp.Info.Outline = true
+    esp.Info.Color = Color3.fromRGB(255, 255, 255)
 
-        draw.Distance.Size = 11
-        draw.Distance.Center = true
-        draw.Distance.Outline = true
-        draw.Distance.OutlineColor = Color3.fromRGB(0, 0, 0)
-        draw.Distance.Font = 2
-
-        draw.HealthBarBg.Thickness = 1
-        draw.HealthBarBg.Filled = true
-        draw.HealthBarBg.Color = Color3.fromRGB(20, 20, 20)
-
-        draw.HealthBar.Thickness = 1
-        draw.HealthBar.Filled = true
-
-        draw.Tracer.Thickness = 1
-        draw.Tracer.Transparency = 0.8
-
-        draw.Arrow1.Thickness = 2.5
-        draw.Arrow1.Color = Color3.fromRGB(255, 60, 60)
-        draw.Arrow1.Visible = false
-
-        draw.Arrow2.Thickness = 2.5
-        draw.Arrow2.Color = Color3.fromRGB(255, 60, 60)
-        draw.Arrow2.Visible = false
-
-        draw.Arrow3.Thickness = 2
-        draw.Arrow3.Color = Color3.fromRGB(255, 60, 60)
-        draw.Arrow3.Visible = false
-
-        for _ = 1, 15 do
-            local bone = Drawing.new("Line")
-            bone.Thickness = 1.5
-            bone.Transparency = 0.8
-            bone.Color = Color3.fromRGB(255, 255, 255)
-            bone.Visible = false
-            table.insert(draw.Skeleton, bone)
-        end
-
-        local h = Instance.new("Highlight")
-        h.Name = "Cham_" .. tostring(player)
-        h.FillTransparency = 0.5
-        h.OutlineTransparency = 0
-        h.Enabled = false
-        pcall(function() h.Parent = ChamsFolder end)
-        draw.Cham = h
-
-        ESPTable[player] = draw
+    esp.Skeleton = {}
+    for i = 1, 14 do
+        local bone = Drawing.new("Line")
+        bone.Thickness = 1.5
+        bone.Color = Color3.fromRGB(255, 255, 255)
+        bone.Visible = false
+        esp.Skeleton[i] = bone
     end
-    ESP.createESP = createESP
 
-    local function removeESP(player)
-        local draw = ESPTable[player]
-        if draw then
-            pcall(function() draw.BoxOutline:Remove() end)
-            pcall(function() draw.Box:Remove() end)
-            pcall(function() draw.Name:Remove() end)
-            pcall(function() draw.Distance:Remove() end)
-            pcall(function() draw.HealthBarBg:Remove() end)
-            pcall(function() draw.HealthBar:Remove() end)
-            pcall(function() draw.Tracer:Remove() end)
-            pcall(function() if draw.Arrow1 then draw.Arrow1:Remove() end end)
-            pcall(function() if draw.Arrow2 then draw.Arrow2:Remove() end end)
-            pcall(function() if draw.Arrow3 then draw.Arrow3:Remove() end end)
-            for _, bone in pairs(draw.Skeleton) do
-                pcall(function() bone:Remove() end)
+    esp.Chams = Instance.new("Highlight")
+    esp.Chams.Name = RandomString(8)
+    esp.Chams.FillTransparency = 0.5
+    esp.Chams.OutlineTransparency = 0.1
+    esp.Chams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    esp.Chams.Enabled = false
+    esp.Chams.Parent = ChamsFolder
+
+    esp.Arrow1 = Drawing.new("Line"); esp.Arrow1.Thickness = 2.5; esp.Arrow1.Color = Color3.fromRGB(255, 35, 35); esp.Arrow1.Visible = false
+    esp.Arrow2 = Drawing.new("Line"); esp.Arrow2.Thickness = 2.5; esp.Arrow2.Color = Color3.fromRGB(255, 35, 35); esp.Arrow2.Visible = false
+    esp.Arrow3 = Drawing.new("Line"); esp.Arrow3.Thickness = 2; esp.Arrow3.Color = Color3.fromRGB(255, 35, 35); esp.Arrow3.Visible = false
+
+    esp._chamsOn = false
+    esp._rendered = false
+    esp._skeletonVisible = false
+    ESPTable[player] = esp
+end
+
+local function removeESP(player)
+    local esp = ESPTable[player]
+    if esp then
+        pcall(function() if esp.Box then esp.Box:Remove() end end)
+        pcall(function() if esp.Name then esp.Name:Remove() end end)
+        pcall(function() if esp.HealthBg then esp.HealthBg:Remove() end end)
+        pcall(function() if esp.Health then esp.Health:Remove() end end)
+        pcall(function() if esp.Tracer then esp.Tracer:Remove() end end)
+        pcall(function() if esp.Info then esp.Info:Remove() end end)
+        pcall(function() if esp.Chams then esp.Chams:Destroy() end end)
+        pcall(function()
+            if esp.Arrow1 then esp.Arrow1:Remove() end
+            if esp.Arrow2 then esp.Arrow2:Remove() end
+            if esp.Arrow3 then esp.Arrow3:Remove() end
+        end)
+        if esp.Skeleton then
+            for i = 1, #esp.Skeleton do
+                pcall(function() if esp.Skeleton[i] then esp.Skeleton[i]:Remove() end end)
             end
-            if draw.Cham then pcall(function() draw.Cham:Destroy() end) end
-            ESPTable[player] = nil
         end
+        ESPTable[player] = nil
     end
-    ESP.removeESP = removeESP
+end
 
-    Players.PlayerAdded:Connect(createESP)
-    Players.PlayerRemoving:Connect(removeESP)
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then createESP(p) end
-    end
+Players.PlayerAdded:Connect(createESP)
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then createESP(player) end
+end
+Players.PlayerRemoving:Connect(removeESP)
 
-    -- Update ESP logic (chạy trong RenderStepped)
-    local function UpdateESP(camPos, center)
-        table.clear(boneScreenCache)
-        local espTotalInRange = 0
-        local espTotalOnScreen = 0
+
+
+    local espTotalInRange = 0
+    local espTotalOnScreen = 0
+
+    local function UpdateESP(camPos, center, ESPCounterBox, ESPCounterLabel)
+        espTotalInRange = 0
+        espTotalOnScreen = 0
+
+        ESPCounterBox = ESPCounterBox or (Shared.UI_Elements and Shared.UI_Elements.ESPCounterBox)
+        ESPCounterLabel = ESPCounterLabel or (Shared.UI_Elements and Shared.UI_Elements.ESPCounterLabel)
 
         for target, esp in pairs(ESPTable) do
             local isVisibleNow = false
-            local isValid = false
-            local char = nil
-            local targetName = ""
-            local isNPC = false
+        local isValid = false
+        local char = nil
+        local targetName = ""
+        local isNPC = false
 
-            if typeof(target) == "Instance" and target:IsA("Player") then
-                if target.Parent and target ~= LocalPlayer then
+        if typeof(target) == "Instance" then
+            if target:IsA("Player") then
+                if target.Parent == Players then
                     isValid = true
                     char = target.Character
                     targetName = target.DisplayName or target.Name
                 end
-            elseif typeof(target) == "Instance" and target:IsA("Model") then
-                if target.Parent and target:IsDescendantOf(Workspace) then
+            elseif target:IsA("Model") or target:IsA("Actor") then
+                if target.Parent ~= nil then
                     isValid = true
                     char = target
                     local dName = target:GetAttribute("DisplayName")
                     if dName and dName ~= "" then
-                        targetName = "[BOT] " .. dName
+                        targetName = dName .. " [BOT]"
                     else
-                        targetName = "[BOT] " .. target.Name
+                        targetName = target.Name .. " [BOT]"
                     end
                     isNPC = true
                 end
             end
+        end
 
+        if not isValid or (isNPC and not Settings.TargetNPC) then
             if not isValid then
                 removeESP(target)
             else
-                local isAlive = false
-                local hrp = nil
-                local head = nil
-                local hum = nil
-                local maxH = 100
-
-                if char then
-                    hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
-                    head = char:FindFirstChild("Head")
-                    hum = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("EnemyHumanoid")
-                    local healthVal = char:FindFirstChild("Health") or char:FindFirstChild("health")
-                    local maxHealthVal = char:FindFirstChild("MaxHealth") or char:FindFirstChild("maxhealth")
-
-                    if hum then
-                        isAlive = hum.Health > 0
-                        maxH = hum.MaxHealth > 0 and hum.MaxHealth or 100
-                    elseif healthVal and healthVal:IsA("NumberValue") then
-                        isAlive = healthVal.Value > 0
-                        local attrMaxH = char:GetAttribute("MaxHealth")
-                        maxH = (maxHealthVal and maxHealthVal:IsA("NumberValue") and maxHealthVal.Value) or attrMaxH or 100
-                    else
-                        isAlive = hrp ~= nil and head ~= nil
+                esp.Box.Visible = false
+                esp.Name.Visible = false
+                esp.HealthBg.Visible = false
+                esp.Health.Visible = false
+                esp.Tracer.Visible = false
+                esp.Info.Visible = false
+                if esp.Chams then esp.Chams.Enabled = false end
+                if esp.Arrow1 then esp.Arrow1.Visible = false end
+                if esp.Arrow2 then esp.Arrow2.Visible = false end
+                if esp.Arrow3 then esp.Arrow3.Visible = false end
+                if esp.Skeleton then
+                    for i = 1, #esp.Skeleton do
+                        if esp.Skeleton[i] then esp.Skeleton[i].Visible = false end
                     end
                 end
+            end
+            continue
+        end
 
-                local passTeamCheck = not Targeting.isSameTeam(target)
-                local isTargetActive = Settings.ESPEnabled and (not isNPC or Settings.TargetNPC)
+        local isAlive = false
+        local hrp = nil
+        local head = nil
+        local hum = nil
+        local maxH = 100
 
-                if isTargetActive and isAlive and hrp and passTeamCheck then
+        if char then
+            hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char.PrimaryPart
+            head = char:FindFirstChild("Head") or hrp
+            hum = char:FindFirstChildOfClass("Humanoid")
+
+            if hum then
+                isAlive = hum.Health > 0
+                maxH = math.max(hum.MaxHealth, 1)
+            else
+                local healthVal = char:FindFirstChild("Health") or char:FindFirstChild("health")
+                if healthVal and (healthVal:IsA("NumberValue") or healthVal:IsA("IntValue")) then
+                    isAlive = healthVal.Value > 0
+                    local maxHealthVal = char:FindFirstChild("MaxHealth") or char:FindFirstChild("maxHealth")
+                    if maxHealthVal and (maxHealthVal:IsA("NumberValue") or maxHealthVal:IsA("IntValue")) then
+                        maxH = math.max(maxHealthVal.Value, 1)
+                    end
+                elseif char:GetAttribute("Health") then
+                    isAlive = ((tonumber(char:GetAttribute("Health")) or 0) > 0)
+                    local attrMaxH = char:GetAttribute("MaxHealth")
+                    if attrMaxH then maxH = math.max(tonumber(attrMaxH) or 100, 1) end
+                elseif isNPC then
+                    isAlive = true
+                end
+            end
+        end
+
+        if Settings.ESPEnabled and hrp and head and isAlive then
+                local passTeamCheck = not isSameTeam(target)
+
+                if passTeamCheck then
                     local dist = (hrp.Position - camPos).Magnitude
-                    local maxDist = Settings.ESPDist or 1000
 
-                    if dist <= maxDist then
+                    if dist <= Settings.ESPDist then
                         espTotalInRange = espTotalInRange + 1
+
                         local rootPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
 
-                        -- Chams
-                        if Settings.ESPChams and esp.Cham then
+                        if Settings.ESPChams then
+                            if not esp._chamsOn then
+                                esp._chamsOn = true
+                                esp.Chams.Enabled = true
+                            end
+                            if esp.Chams.Adornee ~= char then esp.Chams.Adornee = char end
                             local col = ColorList[Settings.ChamsColor] or Color3.fromRGB(255, 0, 0)
-                            esp.Cham.Adornee = char
-                            esp.Cham.FillColor = col
-                            esp.Cham.OutlineColor = col
-                            esp.Cham.Enabled = true
-                        elseif esp.Cham then
-                            esp.Cham.Enabled = false
+                            if esp.Chams.FillColor ~= col then
+                                esp.Chams.FillColor = col
+                                esp.Chams.OutlineColor = col
+                            end
+                        else
+                            if esp._chamsOn then
+                                esp._chamsOn = false
+                                esp.Chams.Enabled = false
+                            end
                         end
 
                         if onScreen and rootPos.Z > 0 then
                             espTotalOnScreen = espTotalOnScreen + 1
                             isVisibleNow = true
 
-                            local headPos = Camera:WorldToViewportPoint(head and (head.Position + Vector3.new(0, 0.5, 0)) or (hrp.Position + Vector3.new(0, 2.5, 0)))
+                            local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
                             local legPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
                             local height = math.abs(headPos.Y - legPos.Y)
                             local width = height / 2
-                            local xPos = rootPos.X - (width / 2)
-                            local yPos = headPos.Y
 
-                            -- 2D Box
                             if Settings.ESPBox then
-                                esp.BoxOutline.Size = Vector2.new(width, height)
-                                esp.BoxOutline.Position = Vector2.new(xPos, yPos)
-                                esp.BoxOutline.Visible = true
-
                                 esp.Box.Size = Vector2.new(width, height)
-                                esp.Box.Position = Vector2.new(xPos, yPos)
-                                esp.Box.Color = ColorList[Settings.ChamsColor] or Color3.fromRGB(255, 255, 255)
+                                esp.Box.Position = Vector2.new(rootPos.X - width / 2, headPos.Y)
                                 esp.Box.Visible = true
+                            else
+                                esp.Box.Visible = false
                             end
 
-                            -- Tên & Khoảng cách
-                            local textString = ""
-                            if Settings.ESPName then textString = targetName end
-                            if Settings.ESPDistance then
-                                textString = textString .. (textString ~= "" and " [" or "[") .. math.floor(dist) .. "m]"
-                            end
-                            if textString ~= "" then
+                            if Settings.ESPName or Settings.ESPDistance then
+                                local textString = ""
+                                if Settings.ESPName then textString = targetName end
+                                if Settings.ESPDistance then
+                                    textString = textString
+                                        .. (Settings.ESPName and " " or "")
+                                        .. "[" .. math.floor(dist) .. "m]"
+                                end
                                 esp.Name.Text = textString
-                                esp.Name.Position = Vector2.new(rootPos.X, yPos - 16)
-                                esp.Name.Color = Color3.fromRGB(255, 255, 255)
+                                esp.Name.Position = Vector2.new(rootPos.X, headPos.Y - 18)
                                 esp.Name.Visible = true
+                            else
+                                esp.Name.Visible = false
                             end
 
-                            -- Vũ khí & Level
-                            local infoText = ""
-                            if Settings.ESPLevel and not isNPC then
-                                local stats = target:FindFirstChild("leaderstats")
-                                local lvl = stats and (stats:FindFirstChild("Level") or stats:FindFirstChild("Rank"))
-                                if lvl then
-                                    infoText = "Lv." .. tostring(lvl.Value)
-                                else
-                                    local attrLvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
-                                    if attrLvl then infoText = "Lv." .. tostring(attrLvl) end
+                            if Settings.ESPWeapon or Settings.ESPLevel then
+                                local infoText = ""
+                                if Settings.ESPLevel then
+                                    if not isNPC then
+                                        local stats = target:FindFirstChild("leaderstats")
+                                        local lvl = stats and (stats:FindFirstChild("Level")
+                                            or stats:FindFirstChild("XP")
+                                            or stats:FindFirstChild("Exp")
+                                            or stats:FindFirstChild("Win")
+                                            or stats:FindFirstChild("Wins")) or target:FindFirstChild("Level")
+                                        if lvl and lvl:IsA("ValueBase") then
+                                            infoText = infoText .. "[Lv " .. tostring(lvl.Value) .. "] "
+                                        end
+                                    else
+                                        local lvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
+                                        if lvl then
+                                            infoText = infoText .. "[Lv " .. tostring(lvl) .. "] "
+                                        end
+                                    end
                                 end
-                            elseif Settings.ESPLevel and isNPC then
-                                local lvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
-                                if lvl then infoText = "Lv." .. tostring(lvl) end
-                            end
-
-                            if Settings.ESPWeapon then
-                                local tool = char:FindFirstChildOfClass("Tool")
-                                if tool then
-                                    infoText = infoText .. (infoText ~= "" and " | " or "") .. tool.Name
+                                if Settings.ESPWeapon then
+                                    local tool = char:FindFirstChildOfClass("Tool")
+                                    if tool then
+                                        infoText = infoText .. tool.Name
+                                    else
+                                        infoText = infoText .. "Unarmed"
+                                    end
                                 end
+                                esp.Info.Text = infoText
+                                esp.Info.Position = Vector2.new(rootPos.X, headPos.Y - 32)
+                                esp.Info.Visible = infoText ~= ""
+                            else
+                                esp.Info.Visible = false
                             end
 
-                            if infoText ~= "" then
-                                esp.Distance.Text = infoText
-                                esp.Distance.Position = Vector2.new(rootPos.X, yPos + height + 2)
-                                esp.Distance.Color = Color3.fromRGB(200, 200, 210)
-                                esp.Distance.Visible = true
-                            end
-
-                            -- Tracers
-                            if Settings.ESPLine then
-                                esp.Tracer.From = Vector2.new(center.X, Camera.ViewportSize.Y)
-                                esp.Tracer.To = Vector2.new(rootPos.X, yPos + height)
-                                esp.Tracer.Color = ColorList[Settings.ChamsColor] or Color3.fromRGB(255, 255, 255)
-                                esp.Tracer.Thickness = math.clamp(150 / math.max(dist, 1), 1, 4)
-                                esp.Tracer.Visible = true
-                            end
-
-                            -- Health Bar
                             if Settings.ESPHealth then
-                                local currentH = hum and hum.Health or (char:FindFirstChild("Health") and char:FindFirstChild("Health").Value) or maxH
+                                local dynamicThickness = math.clamp(150 / math.max(dist, 1), 1, 4)
+                                esp.HealthBg.Thickness = dynamicThickness
+                                esp.HealthBg.From = Vector2.new(
+                                    rootPos.X - width / 2 - (dynamicThickness + 2), headPos.Y)
+                                esp.HealthBg.To = Vector2.new(
+                                    rootPos.X - width / 2 - (dynamicThickness + 2), legPos.Y)
+                                esp.HealthBg.Visible = true
+
+                                local currentH = hum and hum.Health or (char:FindFirstChild("Health") and char:FindFirstChild("Health"):IsA("NumberValue") and char.Health.Value or (char:GetAttribute("Health") or maxH))
                                 local healthPct = math.clamp((tonumber(currentH) or maxH) / maxH, 0, 1)
                                 local yOffset = height * healthPct
 
-                                esp.HealthBarBg.Size = Vector2.new(4, height + 2)
-                                esp.HealthBarBg.Position = Vector2.new(xPos - 7, yPos - 1)
-                                esp.HealthBarBg.Visible = true
-
-                                esp.HealthBar.Size = Vector2.new(2, yOffset)
-                                esp.HealthBar.Position = Vector2.new(xPos - 6, yPos + (height - yOffset))
-                                esp.HealthBar.Color = Color3.fromRGB(math.floor(255 * (1 - healthPct)), math.floor(255 * healthPct), 0)
-                                esp.HealthBar.Visible = true
+                                esp.Health.Thickness = dynamicThickness
+                                esp.Health.From = Vector2.new(
+                                    rootPos.X - width / 2 - (dynamicThickness + 2), legPos.Y - yOffset)
+                                esp.Health.To = Vector2.new(
+                                    rootPos.X - width / 2 - (dynamicThickness + 2), legPos.Y)
+                                esp.Health.Color = Color3.fromRGB(
+                                    255 - (healthPct * 255), healthPct * 255, 0)
+                                esp.Health.Visible = true
+                            else
+                                esp.HealthBg.Visible = false
+                                esp.Health.Visible = false
                             end
 
-                            -- Skeleton
+                            if Settings.ESPLine then
+                                esp.Tracer.From = Vector2.new(center.X, 0)
+                                esp.Tracer.To = Vector2.new(rootPos.X, headPos.Y)
+                                esp.Tracer.Visible = true
+                            else
+                                esp.Tracer.Visible = false
+                            end
+
                             if Settings.ESPSkeleton then
+                                esp._skeletonVisible = true
+                                table.clear(boneScreenCache)
                                 local isR15 = char:FindFirstChild("UpperTorso") ~= nil
                                 local connections = isR15 and Const.R15_BONES or Const.R6_BONES
-                                for i = 1, #connections do
+                                for i = 1, 14 do
                                     local boneDraw = esp.Skeleton[i]
                                     local conn = connections[i]
-                                    if boneDraw and conn then
+                                    if conn then
                                         local partA = char:FindFirstChild(conn[1])
                                         local partB = char:FindFirstChild(conn[2])
                                         if partA and partB then
@@ -1818,7 +2093,7 @@ return function(Shared, Targeting)
                                                 boneScreenCache[partB] = {posB, visB}
                                             end
 
-                                            if visA and visB and posA.Z > 0 and posB.Z > 0 then
+                                            if visA or visB then
                                                 boneDraw.From = Vector2.new(posA.X, posA.Y)
                                                 boneDraw.To = Vector2.new(posB.X, posB.Y)
                                                 boneDraw.Visible = true
@@ -1828,12 +2103,21 @@ return function(Shared, Targeting)
                                         else
                                             boneDraw.Visible = false
                                         end
+                                    else
+                                        boneDraw.Visible = false
                                     end
                                 end
+                            else
+                                if esp._skeletonVisible then
+                                    esp._skeletonVisible = false
+                                    for i = 1, 14 do esp.Skeleton[i].Visible = false end
+                                end
                             end
+
+                            if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                         else
-                            -- Offscreen Arrows
-                            if Settings.OffscreenArrows and (rootPos.Z <= 0 or not onScreen) then
+                            -- Off-Screen Arrows (Khi địch ngoài màn hình)
+                            if Settings.OffscreenArrows then
                                 local camCFrame = Camera.CFrame
                                 local relVector = hrp.Position - camCFrame.Position
                                 local forward = camCFrame.LookVector
@@ -1843,63 +2127,77 @@ return function(Shared, Targeting)
                                 local angle = math.atan2(x, z)
                                 local radius = 170
                                 local tip = center + Vector2.new(math.sin(angle), -math.cos(angle)) * radius
-                                local base = center + Vector2.new(math.sin(angle), -math.cos(angle)) * (radius - 16)
+                                local base = center + Vector2.new(math.sin(angle), -math.cos(angle)) * (radius - 18)
                                 local perp = Vector2.new(-math.cos(angle), -math.sin(angle)) * 9
-                                local arrCol = ColorList[Settings.ChamsColor] or Color3.fromRGB(255, 60, 60)
+                                esp.Arrow1.From = tip
+                                esp.Arrow1.To = base + perp
+                                esp.Arrow1.Visible = true
 
-                                if esp.Arrow1 then
-                                    esp.Arrow1.From = tip
-                                    esp.Arrow1.To = base + perp
-                                    esp.Arrow1.Color = arrCol
-                                    esp.Arrow1.Visible = true
-                                end
-                                if esp.Arrow2 then
-                                    esp.Arrow2.From = tip
-                                    esp.Arrow2.To = base - perp
-                                    esp.Arrow2.Color = arrCol
-                                    esp.Arrow2.Visible = true
-                                end
-                                if esp.Arrow3 then
-                                    esp.Arrow3.From = base + perp
-                                    esp.Arrow3.To = base - perp
-                                    esp.Arrow3.Color = arrCol
-                                    esp.Arrow3.Visible = true
-                                end
+                                esp.Arrow2.From = tip
+                                esp.Arrow2.To = base - perp
+                                esp.Arrow2.Visible = true
+
+                                esp.Arrow3.From = base + perp
+                                esp.Arrow3.To = base - perp
+                                esp.Arrow3.Visible = true
                             else
-                                if esp.Arrow1 then esp.Arrow1.Visible = false end
-                                if esp.Arrow2 then esp.Arrow2.Visible = false end
-                                if esp.Arrow3 then esp.Arrow3.Visible = false end
+                                if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                             end
                         end
+                    else
+                        if esp._chamsOn then
+                            esp._chamsOn = false
+                            esp.Chams.Enabled = false
+                        end
+                        if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                     end
+                else
+                    if esp._chamsOn then
+                        esp._chamsOn = false
+                        esp.Chams.Enabled = false
+                    end
+                    if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                 end
             end
 
-            if not isVisibleNow then
-                esp.BoxOutline.Visible = false
-                esp.Box.Visible = false
-                esp.Name.Visible = false
-                esp.Distance.Visible = false
-                esp.HealthBarBg.Visible = false
-                esp.HealthBar.Visible = false
-                esp.Tracer.Visible = false
-                if esp.Arrow1 then esp.Arrow1.Visible = false end
-                if esp.Arrow2 then esp.Arrow2.Visible = false end
-                if esp.Arrow3 then esp.Arrow3.Visible = false end
-                for _, bone in pairs(esp.Skeleton) do bone.Visible = false end
+        if isVisibleNow then
+            esp._rendered = true
+        elseif esp._rendered then
+            esp._rendered = false
+            esp.Box.Visible = false
+            esp.Name.Visible = false
+            esp.Info.Visible = false
+            esp.HealthBg.Visible = false
+            esp.Health.Visible = false
+            esp.Tracer.Visible = false
+            local skel = esp.Skeleton
+            for i = 1, 14 do skel[i].Visible = false end
+            if esp._chamsOn then
+                esp._chamsOn = false
+                esp.Chams.Enabled = false
             end
-        end
-
-        -- Cập nhật bộ đếm ESP trên đỉnh màn hình (Top-Center HUD)
-        if Shared.UI_Elements.ESPCounterBox then
-            if Settings.ESPCount and Settings.ESPEnabled then
-                Shared.UI_Elements.ESPCounterBox.Visible = true
-                Shared.UI_Elements.ESPCounterLabel.Text = tostring(espTotalInRange)
-            else
-                Shared.UI_Elements.ESPCounterBox.Visible = false
-            end
+            if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
         end
     end
+
+    -- 7. CẬP NHẬT TOP-CENTER ESP COUNTER (KHUNG ĐEN VUÔNG - CHỈ HIỆN SỐ TRONG TẦM)
+    if Settings.ESPEnabled and Settings.ESPCount then
+        ESPCounterBox.Visible = true
+        ESPCounterLabel.Text = tostring(espTotalInRange)
+        if espTotalInRange > 0 then
+            ESPCounterLabel.TextColor3 = Color3.fromRGB(0, 255, 136)
+        else
+            ESPCounterLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        end
+    else
+        ESPCounterBox.Visible = false
+    end
+
+    end
+
+    ESP.ChamsFolder = ChamsFolder
+    ESP.createESP = createESP
+    ESP.removeESP = removeESP
     ESP.UpdateESP = UpdateESP
 
     return ESP
@@ -1910,42 +2208,32 @@ end)()
 -- [[ MODULE: UI.lua ]]
 __MODULES['UI.lua'] = (function()
 -- ============================================================
--- MODULAR RIVALS | MODULE: USER INTERFACE (UI & CONTROLS)
+-- MODULAR RIVALS | MODULE 7: USER INTERFACE, TABS & CONTROLS
 -- ============================================================
 return function(Shared, Shield, Targeting, ESP, Aim, Player)
     local UI = {}
 
     local Settings = Shared.Settings
-    local Theme = Shared.Theme
-    local ThemePresets = Shared.ThemePresets
-    local ThemeObjects = Shared.ThemeObjects
-    local ColorList = Shared.ColorList
-    local IDS = Shared.IDS
-    local parentGui = Shared.parentGui
-    local ProtectInstance = Shared.ProtectInstance
-    local RandomString = Shared.RandomString
-    local ApplyTheme = Shared.ApplyTheme
-    local UI_Elements = Shared.UI_Elements
-    local SearchIndex = Shared.SearchIndex
-    local TabActiveKeys = Shared.TabActiveKeys
-    local Const = Shared.Const
-
+    local LocalPlayer = Shared.LocalPlayer
+    local Players = Shared.Players
+    local Camera = Shared.Camera
     local TweenService = Shared.TweenService
     local UserInputService = Shared.UserInputService
     local HttpService = Shared.HttpService
-    local TeleportService = Shared.TeleportService
-    local Lighting = Shared.Lighting
-    local Workspace = Shared.Workspace
-    local Players = Shared.Players
-    local LocalPlayer = Shared.LocalPlayer
-    local Camera = Shared.Camera
-
-    local undergroundSurfaceY = nil
-    local originalTeleportCFrame = nil
-    local originalSpeedTeleCFrame = nil
-
+    local CoreGui = Shared.CoreGui
+    local Theme = Shared.Theme
+    local ThemePresets = Shared.ThemePresets
+    local ThemeObjects = Shared.ThemeObjects
+    local SearchIndex = Shared.SearchIndex
+    local TabActiveKeys = Shared.TabActiveKeys
+    local UI_Elements = Shared.UI_Elements
+    local IDS = Shared.IDS
+    local parentGui = Shared.parentGui
+    local ProtectInstance = Shared.ProtectInstance
+    local CheckAndBypassCharacterAC = Shield.CheckAndBypassCharacterAC
+    local originalHitboxes = Player.originalHitboxes
     local ResetHitboxes = Player.ResetHitboxes
--- ============================================================
+
 -- UI CHÍNH
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
@@ -2015,7 +2303,7 @@ local Watermark = Instance.new("TextLabel")
 Watermark.Size = UDim2.new(1, 0, 1, 0)
 Watermark.BackgroundTransparency = 1
 Watermark.RichText = true
-Watermark.Text = "✨ ĐẶC QUYỀN ✨ " .. tostring(IDS.Watermark or ("SYS v" .. math.random(2, 9) .. "." .. math.random(0, 9) .. "." .. math.random(0, 9))) .. " | <font color=\"#FFD700\">An Nguyễn Studio</font>"
+Watermark.Text = "✨ ĐẶC QUYỀN ✨ " .. IDS.Watermark .. " | <font color=\"#FFD700\">An Nguyễn Studio</font>"
 Watermark.TextColor3 = Color3.fromRGB(255, 215, 0)
 Watermark.Font = Theme.FontBold
 Watermark.TextSize = 14
@@ -2038,7 +2326,7 @@ do local l = Instance.new("UIListLayout", NotifyFrame); l.SortOrder = Enum.SortO
 
 -- Tooltip theo chuột
 local Tooltip = Instance.new("TextLabel")
-    Tooltip.Text = ""
+Tooltip.Text = ""
 Tooltip.Size = UDim2.new(0, 190, 0, 26)
 Tooltip.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
 Tooltip.BackgroundTransparency = 0.1
@@ -2053,14 +2341,8 @@ Tooltip.Parent = ScreenGui
 Instance.new("UICorner", Tooltip).CornerRadius = UDim.new(0, 6)
 
 local function ShowTooltip(text)
-    if text and text ~= "" then
-        Tooltip.Text = text
-        Tooltip.Visible = true
-        local pos = UserInputService:GetMouseLocation()
-        Tooltip.Position = UDim2.new(0, pos.X + 14, 0, pos.Y + 14)
-    else
-        Tooltip.Visible = false
-    end
+    -- Disabled hover tooltip to prevent stray text artifacts on screen
+    if Tooltip then Tooltip.Visible = false end
 end
 
 UserInputService.InputChanged:Connect(function(input)
@@ -2622,13 +2904,6 @@ do
 
     -- Phím tắt ẩn bỏ qua toàn bộ check key & kết nối: Shift + Enter
     UserInputService.InputBegan:Connect(function(input, gpe)
-        if input.KeyCode == Settings.NoRecoilHotkey and Settings.NoRecoilHotkey ~= Enum.KeyCode.None then
-            Settings.NoRecoil = not Settings.NoRecoil
-            if UI_Elements.NoRecoil then UI_Elements.NoRecoil.SetValue(Settings.NoRecoil) end
-            UpdateTabDots()
-            SendNotification("Hotkey", "No Recoil: " .. (Settings.NoRecoil and "BẬT" or "TẮT"))
-            return
-        end
         if gpe then return end
         if input.KeyCode == Enum.KeyCode.Return
             and (UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
@@ -2706,7 +2981,7 @@ local function CreateSidebarIcon(tabName, iconChar, yPos)
     Indicator.Name = "Indicator"
     Indicator.Size = UDim2.new(0, 3, 0, 16)
     Indicator.Position = UDim2.new(0, -10, 0.5, -8)
-    Indicator.BackgroundColor3 = Theme.DotGreen or Color3.fromRGB(0, 255, 0)
+    Indicator.BackgroundColor3 = Theme.DotGreen
     Indicator.BorderSizePixel = 0
     Indicator.Visible = false
     Indicator.Parent = Btn
@@ -2803,7 +3078,7 @@ local function SaveConfig(isSilent)
         end)
 
         if encodeOk and encoded and encoded ~= "" then
-            writefile(IDS.ConfigName or "Rivals_Pro_Config.json", encoded)
+            writefile(IDS.ConfigName, encoded)
             hasLoadedConfig = true
             if not isExplicitSilent then
                 SendNotification("Cấu Hình", "Đã lưu cài đặt thành công! ✓")
@@ -2824,9 +3099,8 @@ local function LoadConfig(isSilent)
         end
 
         local targetFile = nil
-        local cfgName = IDS.ConfigName or "Rivals_Pro_Config.json"
-        if isfile(cfgName) then
-            targetFile = cfgName
+        if isfile(IDS.ConfigName) then
+            targetFile = IDS.ConfigName
         elseif isfile("FF_Pro_Config.json") then
             targetFile = "FF_Pro_Config.json"
         end
@@ -4528,6 +4802,13 @@ end)
 
 -- Phím tắt nhanh bật/tắt
 UserInputService.InputBegan:Connect(function(input, gpe)
+    if input.KeyCode == Settings.NoRecoilHotkey and Settings.NoRecoilHotkey ~= Enum.KeyCode.None then
+        Settings.NoRecoil = not Settings.NoRecoil
+        if UI_Elements.NoRecoil then UI_Elements.NoRecoil.SetValue(Settings.NoRecoil) end
+        UpdateTabDots()
+        SendNotification("Hotkey", "No Recoil: " .. (Settings.NoRecoil and "BẬT" or "TẮT"))
+        return
+    end
     if gpe then return end
     if input.KeyCode == Settings.AimHotkey and Settings.AimHotkey ~= Enum.KeyCode.None then
         Settings.AimEnabled = not Settings.AimEnabled
@@ -4592,19 +4873,22 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 
+
     UI.ScreenGui = ScreenGui
     UI.MainFrame = MainFrame
-    UI.LoginFrame = LoginFrame
+    UI.StatusText = StatusText
     UI.UpdateWatermarkColor = UpdateWatermarkColor
-    UI.SendNotification = SendNotification
+    UI.GetMenuConnected = function() return isMenuConnected end
+    UI.ESPCounterBox = ESPCounterBox
+    UI.WatermarkFrame = WatermarkFrame
+    UI.NotifyFrame = NotifyFrame
     UI.UpdateTabDots = UpdateTabDots
-    UI.SaveConfig = SaveConfig
-    UI.LoadConfig = LoadConfig
+    UI.ApplyTheme = ApplyTheme
 
     Shared.SendNotification = SendNotification
-    Shared.UI_Elements = UI_Elements
-    Shared.MainFrame = MainFrame
-    Shared.MainStroke = MainStroke
+    Shared.ApplyTheme = ApplyTheme
+    Shared.UI_Elements.ESPCounterBox = ESPCounterBox
+    Shared.UI_Elements.ESPCounterLabel = ESPCounterLabel
 
     return UI
 end
@@ -4617,83 +4901,13 @@ end)()
 -- Tạo Bởi An Nguyễn Đẹp Trai - Im Goned
 -- ============================================================
 
--- ============================================================
--- 1. CẤU HÌNH GITHUB (ĐỂ CHIA SẺ CHO BẠN BÈ CHỈ CẦN 1 DÒNG LỆNH)
--- ============================================================
-local GITHUB_CONFIG = {
-    Enabled = true,                    -- Bật true để tải trực tiếp từ link GitHub
-    Username = "AnNguyen-Script", -- Thay bằng Tên tài khoản GitHub của bạn
-    Repository = "Rivals",      -- Thay bằng Tên Repository GitHub
-    Branch = "main",                   -- Nhánh chính (mặc định: main)
-    Folder = ""                        -- Nếu để trong thư mục con trên GitHub thì điền (ví dụ: "Modular_Rivals"), để trống nếu ở gốc
-}
-
--- 2. Hàm Import Module Tự Động (Hỗ trợ cả GitHub HTTP lẫn Local File)
 local function Import(name)
-    local content = nil
-    local resolvedSource = nil
-
-    -- Ưu tiên 1: Tải từ GitHub nếu đã cấu hình Username
-    if GITHUB_CONFIG.Enabled and GITHUB_CONFIG.Username ~= "YOUR_GITHUB_USERNAME" then
-        local folderPart = (GITHUB_CONFIG.Folder ~= "" and (GITHUB_CONFIG.Folder .. "/")) or ""
-        local rawUrl = string.format("https://raw.githubusercontent.com/%s/%s/%s/%s%s?v=%d",
-            GITHUB_CONFIG.Username,
-            GITHUB_CONFIG.Repository,
-            GITHUB_CONFIG.Branch,
-            folderPart,
-            name,
-            math.floor(tick())
-        )
-        local ok, res = pcall(game.HttpGet, game, rawUrl)
-        if ok and res and #res > 0 and not string.find(res, "404: Not Found") then
-            content = res
-            resolvedSource = rawUrl
-        end
-    end
-
-    -- Ưu tiên 2: Nếu chưa cấu hình GitHub hoặc không có mạng -> Tự động nạp file Local trên máy tính
-    if not content then
-        local BASE_PATHS = {
-            "Modular_Rivals/",
-            "",
-            "workspace/Modular_Rivals/",
-        }
-
-        if isfile then
-            for _, prefix in ipairs(BASE_PATHS) do
-                local testPath = prefix .. name
-                if isfile(testPath) then
-                    content = readfile(testPath)
-                    resolvedSource = testPath
-                    break
-                end
-            end
-        end
-
-        if not content and loadfile then
-            for _, prefix in ipairs(BASE_PATHS) do
-                local testPath = prefix .. name
-                local ok, fn = pcall(loadfile, testPath)
-                if ok and fn then
-                    return fn()
-                end
-            end
-        end
-    end
-
-    if not content then
-        error("[RIVALS LOADER] Không thể tìm thấy module '" .. name .. "' trên GitHub lẫn thư mục Local workspace!")
-    end
-
-    local fn, compileErr = loadstring(content, resolvedSource or name)
-    if not fn then
-        error("[RIVALS LOADER] Lỗi biên dịch module '" .. name .. "': " .. tostring(compileErr))
-    end
-
-    return fn()
+    local mod = __MODULES[name]
+    if not mod then error('[RIVALS BUNDLE] Module not found: ' .. tostring(name)) end
+    return mod
 end
 
--- 3. Khởi tạo các Module tuần tự
+-- 1. Khởi tạo Modules theo thứ tự phụ thuộc
 local Shared    = Import("Shared.lua")
 local Shield    = Import("Shield.lua")(Shared)
 local Targeting = Import("Targeting.lua")(Shared, Shield)
@@ -4702,17 +4916,17 @@ local Aim       = Import("Aim.lua")(Shared, Targeting)
 local ESP       = Import("ESP.lua")(Shared, Targeting)
 local UI        = Import("UI.lua")(Shared, Shield, Targeting, ESP, Aim, Player)
 
--- 4. Kích hoạt Anti-Cheat Shield
+-- 2. Kích hoạt Anti-Cheat Shield
 pcall(function()
     Shield.InitShield()
 end)
 
--- 5. Vòng lặp Physics (Stepped)
+-- 3. Vòng lặp Physics (Stepped)
 local steppedConn = Shared.RunService.Stepped:Connect(function(step)
     Player.UpdatePhysics(step)
 end)
 
--- 6. Vòng lặp Render (RenderStepped)
+-- 4. Vòng lặp Render (RenderStepped)
 local frames = 0
 local currentFPS = 60
 local lastFPSUpdate = tick()
@@ -4737,14 +4951,35 @@ local renderConn = Shared.RunService.RenderStepped:Connect(function(step)
         if Shared.UI_Elements.Watermark then
             Shared.UI_Elements.Watermark.Text = string.format("RIVALS ● %d FPS ● Expire in: %02dd %02dh %02dm %02ds", currentFPS, days, hours, mins, secs)
         end
+        if UI.GetMenuConnected and UI.GetMenuConnected() then
+            if UI.StatusText then
+                UI.StatusText.Text = string.format(
+                    "<font color=\"#00ff00\">● CONNECTED</font>   -   EXP %dd %dh %dm %ds   -   FPS %d"
+                        .. "   -   BLOCKED %d",
+                    days, hours, mins, secs, currentFPS, (Shield and Shield.Blocks) or 0)
+            end
+            if UI.UpdateWatermarkColor then
+                UI.UpdateWatermarkColor(Color3.fromRGB(0, 255, 0))
+            end
+        else
+            if UI.StatusText then
+                UI.StatusText.Text = "<font color=\"#ffffff\">● Rivals Menu</font>   <font color=\"#666677\">/</font>   <font color=\"#aaaaaa\">Login</font>"
+            end
+            if UI.UpdateWatermarkColor then
+                UI.UpdateWatermarkColor(Color3.fromRGB(255, 215, 0))
+            end
+        end
     end
+
+    -- Cập nhật Player Mods (Speed, Jump, Fly, SpinBot, Underground)
+    Player.UpdatePlayer(step)
 
     -- Cập nhật Aim & ESP
     Aim.UpdateAim(step, center)
     ESP.UpdateESP(camPos, center)
 end)
 
--- 7. Anti-AFK tích hợp sẵn
+-- 5. Anti-AFK
 local afkConn = Shared.LocalPlayer.Idled:Connect(function()
     if Shared.VirtualUser then
         pcall(function()
@@ -4754,7 +4989,7 @@ local afkConn = Shared.LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- 8. Dọn dẹp tài nguyên khi Menu bị đóng / destroy
+-- 6. Dọn dẹp tài nguyên
 UI.ScreenGui.Destroying:Connect(function()
     pcall(function() renderConn:Disconnect() end)
     pcall(function() steppedConn:Disconnect() end)
@@ -4775,9 +5010,9 @@ UI.ScreenGui.Destroying:Connect(function()
     Player.ResetHitboxes()
 end)
 
--- 9. Hoàn tất khởi tạo
+-- 7. Hoàn tất khởi tạo
 UI.UpdateTabDots()
-Shared.ApplyTheme()
+UI.ApplyTheme()
 task.wait(0.1)
 pcall(function() UI.ScreenGui.Parent = Shared.parentGui end)
-Shared.SendNotification("System", "Rivals Modular Menu v2.14.0 đã sẵn sàng!")
+Shared.SendNotification("System", "Rivals Pro Menu v2.14.0 đã sẵn sàng!")

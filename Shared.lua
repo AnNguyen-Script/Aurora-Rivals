@@ -72,20 +72,18 @@ Shared.ThemePresets = {
 
 Shared.Theme = {
     MainBg = Color3.fromRGB(18, 18, 20),
-    PanelBg = Color3.fromRGB(25, 25, 28),
-    Panel = Color3.fromRGB(22, 22, 25),
-    Stroke = Color3.fromRGB(45, 45, 50),
-    Accent = Color3.fromRGB(255, 255, 255),
+    PanelBg = Color3.fromRGB(30, 30, 34),
+    TopBarText = Color3.fromRGB(180, 180, 180),
+    TextWhite = Color3.fromRGB(240, 240, 240),
+    TextDark = Color3.fromRGB(120, 120, 120),
     AccentOn = Color3.fromRGB(255, 255, 255),
     AccentOff = Color3.fromRGB(45, 45, 50),
-    KnobOn = Color3.fromRGB(25, 25, 28),
-    KnobOff = Color3.fromRGB(18, 18, 20),
+    KnobOn = Color3.fromRGB(18, 18, 20),
+    KnobOff = Color3.fromRGB(180, 180, 180),
+    DotGreen = Color3.fromRGB(0, 255, 0),
     DotRed = Color3.fromRGB(255, 50, 50),
-    DotGreen = Color3.fromRGB(50, 255, 120),
-    TextWhite = Color3.fromRGB(240, 240, 245),
-    TextDark = Color3.fromRGB(130, 130, 140),
-    Font = Enum.Font.Gotham,
-    FontBold = Enum.Font.GothamBold,
+    Font = Enum.Font.GothamMedium,
+    FontBold = Enum.Font.GothamBold
 }
 
 -- Static Constant Tables

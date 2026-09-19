@@ -79,20 +79,18 @@ Shared.ThemePresets = {
 
 Shared.Theme = {
     MainBg = Color3.fromRGB(18, 18, 20),
-    PanelBg = Color3.fromRGB(25, 25, 28),
-    Panel = Color3.fromRGB(22, 22, 25),
-    Stroke = Color3.fromRGB(45, 45, 50),
-    Accent = Color3.fromRGB(255, 255, 255),
+    PanelBg = Color3.fromRGB(30, 30, 34),
+    TopBarText = Color3.fromRGB(180, 180, 180),
+    TextWhite = Color3.fromRGB(240, 240, 240),
+    TextDark = Color3.fromRGB(120, 120, 120),
     AccentOn = Color3.fromRGB(255, 255, 255),
     AccentOff = Color3.fromRGB(45, 45, 50),
-    KnobOn = Color3.fromRGB(25, 25, 28),
-    KnobOff = Color3.fromRGB(18, 18, 20),
+    KnobOn = Color3.fromRGB(18, 18, 20),
+    KnobOff = Color3.fromRGB(180, 180, 180),
+    DotGreen = Color3.fromRGB(0, 255, 0),
     DotRed = Color3.fromRGB(255, 50, 50),
-    DotGreen = Color3.fromRGB(50, 255, 120),
-    TextWhite = Color3.fromRGB(240, 240, 245),
-    TextDark = Color3.fromRGB(130, 130, 140),
-    Font = Enum.Font.Gotham,
-    FontBold = Enum.Font.GothamBold,
+    Font = Enum.Font.GothamMedium,
+    FontBold = Enum.Font.GothamBold
 }
 
 -- Static Constant Tables
@@ -2163,8 +2161,11 @@ return function(Shared, Shield, Targeting, ESP, Aim, Player)
     local RandomString = Shared.RandomString
     local isMenuConnected = false
     local SendNotification = nil
+    local GetActivePreset = Shared.GetActivePreset
     local Theme = Shared.Theme
     local ThemePresets = Shared.ThemePresets
+    local MainFrame = nil
+    local MainStroke = nil
     local ThemeObjects = Shared.ThemeObjects
     local SearchIndex = Shared.SearchIndex
     local TabActiveKeys = Shared.TabActiveKeys
@@ -4815,6 +4816,42 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 
+
+    local function ApplyTheme()
+        local p = GetActivePreset()
+        Theme.MainBg = p.MainBg
+        Theme.PanelBg = p.PanelBg
+        Theme.AccentOn = p.AccentOn
+        Theme.AccentOff = p.AccentOff
+
+        if MainFrame then
+            pcall(function() MainFrame.BackgroundColor3 = p.MainBg end)
+        end
+        if MainStroke then
+            pcall(function() MainStroke.Color = p.Stroke end)
+        end
+
+        for _, o in pairs(ThemeObjects.Panels) do
+            pcall(function()
+                o.Bg.BackgroundColor3 = p.Panel
+                o.Header.BackgroundColor3 = p.PanelBg
+                o.HeaderSquare.BackgroundColor3 = p.PanelBg
+                o.Stroke.Color = p.Stroke
+            end)
+        end
+        for _, o in pairs(ThemeObjects.Toggles) do
+            pcall(function()
+                o.Btn.BackgroundColor3 = o.State and p.AccentOn or p.AccentOff
+                o.Knob.BackgroundColor3 = o.State and Theme.KnobOn or Theme.KnobOff
+            end)
+        end
+        for _, o in pairs(ThemeObjects.SliderFills) do
+            pcall(function() o.Fill.BackgroundColor3 = p.AccentOn end)
+        end
+        for _, o in pairs(ThemeObjects.Dropbox) do
+            pcall(function() o.Box.BackgroundColor3 = Color3.fromRGB(35, 35, 38) end)
+        end
+    end
 
     UI.ScreenGui = ScreenGui
     UI.MainFrame = MainFrame

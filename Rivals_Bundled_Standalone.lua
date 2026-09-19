@@ -263,7 +263,9 @@ Shared.Settings = {
 }
 
 Shared.GetActivePreset = function()
-    Shared.undergroundSurfaceY = nil
+    Shared.ESPTable = {}
+Shared.NPCCache = {}
+Shared.undergroundSurfaceY = nil
 Shared.originalTeleportCFrame = nil
 Shared.originalSpeedTeleCFrame = nil
 
@@ -455,6 +457,8 @@ return function(Shared, Shield)
     local Const = Shared.Const
     local UserInputService = Shared.UserInputService
     local WallCheckRayParams = Shared.WallCheckRayParams
+    local ESPTable = Shared.ESPTable
+    local createESP = function(p) if Shared.createESP then Shared.createESP(p) end end
 
     local cachedProTarget = nil
     local cachedProValid = 0
@@ -567,7 +571,8 @@ local function isSafeShield(target, char)
 end
 
 -- Bộ đệm & Bộ quét Bot (Tối ưu hóa: Squared Distance, 0 GC Churn)
-local NPCCache = {}
+local NPCCache = Shared.NPCCache or {}
+    Shared.NPCCache = NPCCache
 local lastNPCRefresh = 0
 local playerCharsCache = {}
 local npcAddedSet = {}
@@ -1726,10 +1731,13 @@ return function(Shared, Targeting)
     local parentGui = Shared.parentGui
     local isSameTeam = Targeting.isSameTeam
 
-    local ESPTable = {}
+    local ESPTable = Shared.ESPTable or {}
+    Shared.ESPTable = ESPTable
     ESP.ESPTable = ESPTable
 
     local boneScreenCache = {}
+    local VEC3_UP_HEAD = Vector3.new(0, 0.5, 0)
+    local VEC3_DOWN_LEG = Vector3.new(0, 3, 0)
 
 local ChamsFolder = Instance.new("Folder")
 ChamsFolder.Name = IDS.ChamsFolder
@@ -1780,6 +1788,11 @@ local function createESP(player)
     esp._chamsOn = false
     esp._rendered = false
     esp._skeletonVisible = false
+    esp._lastTextTick = 0
+    esp._cachedNameText = ""
+    esp._cachedInfoText = ""
+    esp._cachedHealthPct = 1
+    esp._cachedHealthCol = Color3.fromRGB(0, 255, 0)
     ESPTable[player] = esp
 end
 
@@ -1806,6 +1819,33 @@ local function removeESP(player)
         ESPTable[player] = nil
     end
 end
+
+local function hideAllESP(esp)
+    if not esp then return end
+    if esp.Box and esp.Box.Visible then esp.Box.Visible = false end
+    if esp.Name and esp.Name.Visible then esp.Name.Visible = false end
+    if esp.Info and esp.Info.Visible then esp.Info.Visible = false end
+    if esp.HealthBg and esp.HealthBg.Visible then esp.HealthBg.Visible = false end
+    if esp.Health and esp.Health.Visible then esp.Health.Visible = false end
+    if esp.Tracer and esp.Tracer.Visible then esp.Tracer.Visible = false end
+    if esp.Arrow1 and esp.Arrow1.Visible then esp.Arrow1.Visible = false end
+    if esp.Arrow2 and esp.Arrow2.Visible then esp.Arrow2.Visible = false end
+    if esp.Arrow3 and esp.Arrow3.Visible then esp.Arrow3.Visible = false end
+    if esp.Skeleton then
+        for i = 1, 14 do
+            local b = esp.Skeleton[i]
+            if b and b.Visible then b.Visible = false end
+        end
+    end
+    if esp.Chams and esp.Chams.Enabled then
+        esp.Chams.Enabled = false
+        esp._chamsOn = false
+    end
+    esp._rendered = false
+end
+Shared.hideAllESP = hideAllESP
+Shared.createESP = createESP
+Shared.removeESP = removeESP
 
 Players.PlayerAdded:Connect(createESP)
 for _, player in pairs(Players:GetPlayers()) do
@@ -1942,8 +1982,8 @@ Players.PlayerRemoving:Connect(removeESP)
                             espTotalOnScreen = espTotalOnScreen + 1
                             isVisibleNow = true
 
-                            local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-                            local legPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+                            local headPos = Camera:WorldToViewportPoint(head.Position + VEC3_UP_HEAD)
+                            local legPos = Camera:WorldToViewportPoint(hrp.Position - VEC3_DOWN_LEG)
                             local height = math.abs(headPos.Y - legPos.Y)
                             local width = height / 2
 
@@ -1955,76 +1995,102 @@ Players.PlayerRemoving:Connect(removeESP)
                                 esp.Box.Visible = false
                             end
 
-                            if Settings.ESPName or Settings.ESPDistance then
-                                local textString = ""
-                                if Settings.ESPName then textString = targetName end
-                                if Settings.ESPDistance then
-                                    textString = textString
-                                        .. (Settings.ESPName and " " or "")
-                                        .. "[" .. math.floor(dist) .. "m]"
+                            -- [ESP THROTTLING]: Cập nhật chuỗi & dữ liệu chỉ 12-15 FPS để tiết kiệm CPU
+                            local now = tick()
+                            if (now - (esp._lastTextTick or 0)) >= 0.08 then
+                                esp._lastTextTick = now
+
+                                -- 1. Tên & Khoảng cách (Tránh ghép chuỗi mỗi frame)
+                                if Settings.ESPName or Settings.ESPDistance then
+                                    local textString = ""
+                                    if Settings.ESPName then textString = targetName end
+                                    if Settings.ESPDistance then
+                                        textString = textString
+                                            .. (Settings.ESPName and " " or "")
+                                            .. "[" .. math.floor(dist) .. "m]"
+                                    end
+                                    esp._cachedNameText = textString
+                                else
+                                    esp._cachedNameText = ""
                                 end
-                                esp.Name.Text = textString
+
+                                -- 2. Vũ khí & Cấp độ (Tránh quét con trỏ Tool/leaderstats mỗi frame)
+                                if Settings.ESPWeapon or Settings.ESPLevel then
+                                    local infoText = ""
+                                    if Settings.ESPLevel then
+                                        if not isNPC then
+                                            local stats = target:FindFirstChild("leaderstats")
+                                            local lvl = stats and (stats:FindFirstChild("Level")
+                                                or stats:FindFirstChild("XP")
+                                                or stats:FindFirstChild("Exp")
+                                                or stats:FindFirstChild("Win")
+                                                or stats:FindFirstChild("Wins")) or target:FindFirstChild("Level")
+                                            if lvl and lvl:IsA("ValueBase") then
+                                                infoText = infoText .. "[Lv " .. tostring(lvl.Value) .. "] "
+                                            end
+                                        else
+                                            local lvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
+                                            if lvl then
+                                                infoText = infoText .. "[Lv " .. tostring(lvl) .. "] "
+                                            end
+                                        end
+                                    end
+                                    if Settings.ESPWeapon then
+                                        local tool = char:FindFirstChildOfClass("Tool")
+                                        if tool then
+                                            infoText = infoText .. tool.Name
+                                        else
+                                            infoText = infoText .. "Unarmed"
+                                        end
+                                    end
+                                    esp._cachedInfoText = infoText
+                                else
+                                    esp._cachedInfoText = ""
+                                end
+
+                                -- 3. Phần trăm máu & màu sắc
+                                if Settings.ESPHealth then
+                                    local currentH = hum and hum.Health or (char:FindFirstChild("Health") and char:FindFirstChild("Health"):IsA("NumberValue") and char.Health.Value or (char:GetAttribute("Health") or maxH))
+                                    local healthPct = math.clamp((tonumber(currentH) or maxH) / maxH, 0, 1)
+                                    esp._cachedHealthPct = healthPct
+                                    esp._cachedHealthCol = Color3.fromRGB(255 - (healthPct * 255), healthPct * 255, 0)
+                                end
+                            end
+
+                            -- [VỊ TRÍ RENDER MƯỢT 60-144 FPS]: Chỉ cập nhật tọa độ hình học
+                            if Settings.ESPName or Settings.ESPDistance then
+                                if esp.Name.Text ~= esp._cachedNameText then
+                                    esp.Name.Text = esp._cachedNameText
+                                end
                                 esp.Name.Position = Vector2.new(rootPos.X, headPos.Y - 18)
                                 esp.Name.Visible = true
                             else
                                 esp.Name.Visible = false
                             end
 
-                            if Settings.ESPWeapon or Settings.ESPLevel then
-                                local infoText = ""
-                                if Settings.ESPLevel then
-                                    if not isNPC then
-                                        local stats = target:FindFirstChild("leaderstats")
-                                        local lvl = stats and (stats:FindFirstChild("Level")
-                                            or stats:FindFirstChild("XP")
-                                            or stats:FindFirstChild("Exp")
-                                            or stats:FindFirstChild("Win")
-                                            or stats:FindFirstChild("Wins")) or target:FindFirstChild("Level")
-                                        if lvl and lvl:IsA("ValueBase") then
-                                            infoText = infoText .. "[Lv " .. tostring(lvl.Value) .. "] "
-                                        end
-                                    else
-                                        local lvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
-                                        if lvl then
-                                            infoText = infoText .. "[Lv " .. tostring(lvl) .. "] "
-                                        end
-                                    end
+                            if (Settings.ESPWeapon or Settings.ESPLevel) and esp._cachedInfoText ~= "" then
+                                if esp.Info.Text ~= esp._cachedInfoText then
+                                    esp.Info.Text = esp._cachedInfoText
                                 end
-                                if Settings.ESPWeapon then
-                                    local tool = char:FindFirstChildOfClass("Tool")
-                                    if tool then
-                                        infoText = infoText .. tool.Name
-                                    else
-                                        infoText = infoText .. "Unarmed"
-                                    end
-                                end
-                                esp.Info.Text = infoText
                                 esp.Info.Position = Vector2.new(rootPos.X, headPos.Y - 32)
-                                esp.Info.Visible = infoText ~= ""
+                                esp.Info.Visible = true
                             else
                                 esp.Info.Visible = false
                             end
 
                             if Settings.ESPHealth then
                                 local dynamicThickness = math.clamp(150 / math.max(dist, 1), 1, 4)
+                                local barX = rootPos.X - width / 2 - (dynamicThickness + 2)
                                 esp.HealthBg.Thickness = dynamicThickness
-                                esp.HealthBg.From = Vector2.new(
-                                    rootPos.X - width / 2 - (dynamicThickness + 2), headPos.Y)
-                                esp.HealthBg.To = Vector2.new(
-                                    rootPos.X - width / 2 - (dynamicThickness + 2), legPos.Y)
+                                esp.HealthBg.From = Vector2.new(barX, headPos.Y)
+                                esp.HealthBg.To = Vector2.new(barX, legPos.Y)
                                 esp.HealthBg.Visible = true
 
-                                local currentH = hum and hum.Health or (char:FindFirstChild("Health") and char:FindFirstChild("Health"):IsA("NumberValue") and char.Health.Value or (char:GetAttribute("Health") or maxH))
-                                local healthPct = math.clamp((tonumber(currentH) or maxH) / maxH, 0, 1)
-                                local yOffset = height * healthPct
-
+                                local yOffset = height * (esp._cachedHealthPct or 1)
                                 esp.Health.Thickness = dynamicThickness
-                                esp.Health.From = Vector2.new(
-                                    rootPos.X - width / 2 - (dynamicThickness + 2), legPos.Y - yOffset)
-                                esp.Health.To = Vector2.new(
-                                    rootPos.X - width / 2 - (dynamicThickness + 2), legPos.Y)
-                                esp.Health.Color = Color3.fromRGB(
-                                    255 - (healthPct * 255), healthPct * 255, 0)
+                                esp.Health.From = Vector2.new(barX, legPos.Y - yOffset)
+                                esp.Health.To = Vector2.new(barX, legPos.Y)
+                                esp.Health.Color = esp._cachedHealthCol or Color3.fromRGB(0, 255, 0)
                                 esp.Health.Visible = true
                             else
                                 esp.HealthBg.Visible = false
@@ -2039,7 +2105,8 @@ Players.PlayerRemoving:Connect(removeESP)
                                 esp.Tracer.Visible = false
                             end
 
-                            if Settings.ESPSkeleton then
+                            -- [SKELETON LOD]: Tự động ẩn Skeleton khi địch > 150m (quá xa, nhìn rối mắt và tốn FPS)
+                            if Settings.ESPSkeleton and dist <= 150 then
                                 esp._skeletonVisible = true
                                 table.clear(boneScreenCache)
                                 local isR15 = char:FindFirstChild("UpperTorso") ~= nil
@@ -2116,6 +2183,7 @@ Players.PlayerRemoving:Connect(removeESP)
                                 esp.Arrow3.From = base + perp
                                 esp.Arrow3.To = base - perp
                                 esp.Arrow3.Visible = true
+                                isVisibleNow = true
                             else
                                 if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                             end
@@ -2138,21 +2206,10 @@ Players.PlayerRemoving:Connect(removeESP)
 
         if isVisibleNow then
             esp._rendered = true
-        elseif esp._rendered then
-            esp._rendered = false
-            esp.Box.Visible = false
-            esp.Name.Visible = false
-            esp.Info.Visible = false
-            esp.HealthBg.Visible = false
-            esp.Health.Visible = false
-            esp.Tracer.Visible = false
-            local skel = esp.Skeleton
-            for i = 1, 14 do skel[i].Visible = false end
-            if esp._chamsOn then
-                esp._chamsOn = false
-                esp.Chams.Enabled = false
+        else
+            if esp._rendered or (esp.Arrow1 and esp.Arrow1.Visible) or (esp.Box and esp.Box.Visible) or (esp.Tracer and esp.Tracer.Visible) or (esp.Name and esp.Name.Visible) then
+                hideAllESP(esp)
             end
-            if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
         end
     end
 
@@ -2174,6 +2231,7 @@ Players.PlayerRemoving:Connect(removeESP)
     ESP.ChamsFolder = ChamsFolder
     ESP.createESP = createESP
     ESP.removeESP = removeESP
+    ESP.hideAllESP = hideAllESP
     ESP.UpdateESP = UpdateESP
 
     return ESP
@@ -3982,6 +4040,15 @@ end)
 local PanelESP = CreatePanel(TabESP, "ESP", "", 0, 0, 0.5, 1)
 CreateToggle(PanelESP, "Enable ESP", Theme.DotGreen, "ESPEnabled", function(v)
     Settings.ESPEnabled = v
+    if not v and Shared.ESPTable then
+        for _, esp in pairs(Shared.ESPTable) do
+            if Shared.hideAllESP then
+                Shared.hideAllESP(esp)
+            elseif ESP and ESP.hideAllESP then
+                ESP.hideAllESP(esp)
+            end
+        end
+    end
     if ESPCounterBox then
         ESPCounterBox.Visible = v and Settings.ESPCount
     end
@@ -4002,7 +4069,16 @@ CreateToggle(PanelESP, "Player Count (Top)", Theme.DotGreen, "ESPCount", functio
     end
 end)
 CreateToggle(PanelESP, "Aim Warning", Theme.DotGreen, "AimWarning", function(v) Settings.AimWarning = v end)
-CreateToggle(PanelESP, 'Arrows <font color="#ff3333">[BETA]</font>', Theme.DotGreen, "OffscreenArrows", function(v) Settings.OffscreenArrows = v end)
+CreateToggle(PanelESP, 'Arrows <font color="#ff3333">[BETA]</font>', Theme.DotGreen, "OffscreenArrows", function(v)
+    Settings.OffscreenArrows = v
+    if not v and Shared.ESPTable then
+        for _, esp in pairs(Shared.ESPTable) do
+            if esp.Arrow1 then esp.Arrow1.Visible = false end
+            if esp.Arrow2 then esp.Arrow2.Visible = false end
+            if esp.Arrow3 then esp.Arrow3.Visible = false end
+        end
+    end
+end)
 
 local PanelESPSet = CreatePanel(TabESP, "Settings", "⚙", 0.5, 0, 0.5, 1)
 CreateToggle(PanelESPSet, "Team Check", Theme.DotGreen, "TeamCheck", function(v)
@@ -4013,10 +4089,16 @@ end)
 CreateToggle(PanelESPSet, "Bot [BETA]", Theme.DotGreen, "TargetNPC", function(v)
     Settings.TargetNPC = v
     if not v then
-        table.clear(NPCCache)
-        for target, esp in pairs(ESPTable) do
-            if typeof(target) == "Instance" and not target:IsA("Player") then
-                removeESP(target)
+        if Shared.NPCCache then table.clear(Shared.NPCCache) end
+        if Shared.ESPTable then
+            for target, esp in pairs(Shared.ESPTable) do
+                if typeof(target) == "Instance" and not target:IsA("Player") then
+                    if Shared.removeESP then
+                        Shared.removeESP(target)
+                    elseif ESP and ESP.removeESP then
+                        ESP.removeESP(target)
+                    end
+                end
             end
         end
     end
@@ -4493,10 +4575,75 @@ end)()
 -- Tạo Bởi An Nguyễn Đẹp Trai - Im Goned
 -- ============================================================
 
+local GITHUB_CONFIG = {
+    Enabled = true,                    -- Tải trực tiếp từ GitHub
+    Username = "AnNguyen-Script",       -- GitHub Username
+    Repository = "Aurora-Rivals",      -- GitHub Repository
+    Branch = "main",                   -- Nhánh chính
+    Folder = ""                        -- Thư mục gốc repo
+}
+
+-- Hàm Import Module Tự Động
 local function Import(name)
-    local mod = __MODULES[name]
-    if not mod then error('[RIVALS BUNDLE] Module not found: ' .. tostring(name)) end
-    return mod
+    local content = nil
+    local resolvedSource = nil
+
+    if GITHUB_CONFIG.Enabled and GITHUB_CONFIG.Username ~= "YOUR_GITHUB_USERNAME" then
+        local folderPart = (GITHUB_CONFIG.Folder ~= "" and (GITHUB_CONFIG.Folder .. "/")) or ""
+        local rawUrl = string.format("https://raw.githubusercontent.com/%s/%s/%s/%s%s?v=%d",
+            GITHUB_CONFIG.Username,
+            GITHUB_CONFIG.Repository,
+            GITHUB_CONFIG.Branch,
+            folderPart,
+            name,
+            math.floor(tick())
+        )
+        local ok, res = pcall(game.HttpGet, game, rawUrl)
+        if ok and res and #res > 0 and not string.find(res, "404: Not Found") then
+            content = res
+            resolvedSource = rawUrl
+        end
+    end
+
+    if not content then
+        local BASE_PATHS = {
+            "Modular_Rivals/",
+            "",
+            "workspace/Modular_Rivals/",
+        }
+
+        if isfile then
+            for _, prefix in ipairs(BASE_PATHS) do
+                local testPath = prefix .. name
+                if isfile(testPath) then
+                    content = readfile(testPath)
+                    resolvedSource = testPath
+                    break
+                end
+            end
+        end
+
+        if not content and loadfile then
+            for _, prefix in ipairs(BASE_PATHS) do
+                local testPath = prefix .. name
+                local ok, fn = pcall(loadfile, testPath)
+                if ok and fn then
+                    return fn()
+                end
+            end
+        end
+    end
+
+    if not content then
+        error("[RIVALS LOADER] Không thể tìm thấy module '" .. name .. "' trên GitHub lẫn Local!")
+    end
+
+    local fn, compileErr = loadstring(content, resolvedSource or name)
+    if not fn then
+        error("[RIVALS LOADER] Lỗi biên dịch module '" .. name .. "': " .. tostring(compileErr))
+    end
+
+    return fn()
 end
 
 -- 1. Khởi tạo Modules theo thứ tự phụ thuộc

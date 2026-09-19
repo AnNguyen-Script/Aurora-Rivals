@@ -419,7 +419,7 @@ end
 local TabAimbot = CreateSidebarIcon("Aimbot", "rbxassetid://7733917120", 10)
 local TabESP = CreateSidebarIcon("ESP", "rbxassetid://7733774602", 55)
 local TabPlayer = CreateSidebarIcon("Player", "rbxassetid://7733920644", 100)
-local TabSecurity = CreateSidebarIcon("Security", "🛡", 145)
+local TabSecurity = CreateSidebarIcon("Security", "rbxassetid://7734056608", 145)
 
 Tabs["Aimbot"].Visible = true
 SidebarButtons["Aimbot"].BackgroundTransparency = 0.9

@@ -16,7 +16,8 @@ return function(Shared, Targeting)
     local parentGui = Shared.parentGui
     local isSameTeam = Targeting.isSameTeam
 
-    local ESPTable = {}
+    local ESPTable = Shared.ESPTable or {}
+    Shared.ESPTable = ESPTable
     ESP.ESPTable = ESPTable
 
     local boneScreenCache = {}
@@ -96,6 +97,33 @@ local function removeESP(player)
         ESPTable[player] = nil
     end
 end
+
+local function hideAllESP(esp)
+    if not esp then return end
+    if esp.Box and esp.Box.Visible then esp.Box.Visible = false end
+    if esp.Name and esp.Name.Visible then esp.Name.Visible = false end
+    if esp.Info and esp.Info.Visible then esp.Info.Visible = false end
+    if esp.HealthBg and esp.HealthBg.Visible then esp.HealthBg.Visible = false end
+    if esp.Health and esp.Health.Visible then esp.Health.Visible = false end
+    if esp.Tracer and esp.Tracer.Visible then esp.Tracer.Visible = false end
+    if esp.Arrow1 and esp.Arrow1.Visible then esp.Arrow1.Visible = false end
+    if esp.Arrow2 and esp.Arrow2.Visible then esp.Arrow2.Visible = false end
+    if esp.Arrow3 and esp.Arrow3.Visible then esp.Arrow3.Visible = false end
+    if esp.Skeleton then
+        for i = 1, 14 do
+            local b = esp.Skeleton[i]
+            if b and b.Visible then b.Visible = false end
+        end
+    end
+    if esp.Chams and esp.Chams.Enabled then
+        esp.Chams.Enabled = false
+        esp._chamsOn = false
+    end
+    esp._rendered = false
+end
+Shared.hideAllESP = hideAllESP
+Shared.createESP = createESP
+Shared.removeESP = removeESP
 
 Players.PlayerAdded:Connect(createESP)
 for _, player in pairs(Players:GetPlayers()) do
@@ -406,6 +434,7 @@ Players.PlayerRemoving:Connect(removeESP)
                                 esp.Arrow3.From = base + perp
                                 esp.Arrow3.To = base - perp
                                 esp.Arrow3.Visible = true
+                                isVisibleNow = true
                             else
                                 if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
                             end
@@ -428,21 +457,10 @@ Players.PlayerRemoving:Connect(removeESP)
 
         if isVisibleNow then
             esp._rendered = true
-        elseif esp._rendered then
-            esp._rendered = false
-            esp.Box.Visible = false
-            esp.Name.Visible = false
-            esp.Info.Visible = false
-            esp.HealthBg.Visible = false
-            esp.Health.Visible = false
-            esp.Tracer.Visible = false
-            local skel = esp.Skeleton
-            for i = 1, 14 do skel[i].Visible = false end
-            if esp._chamsOn then
-                esp._chamsOn = false
-                esp.Chams.Enabled = false
+        else
+            if esp._rendered or (esp.Arrow1 and esp.Arrow1.Visible) or (esp.Box and esp.Box.Visible) or (esp.Tracer and esp.Tracer.Visible) or (esp.Name and esp.Name.Visible) then
+                hideAllESP(esp)
             end
-            if esp.Arrow1 then esp.Arrow1.Visible = false; esp.Arrow2.Visible = false; esp.Arrow3.Visible = false end
         end
     end
 
@@ -464,6 +482,7 @@ Players.PlayerRemoving:Connect(removeESP)
     ESP.ChamsFolder = ChamsFolder
     ESP.createESP = createESP
     ESP.removeESP = removeESP
+    ESP.hideAllESP = hideAllESP
     ESP.UpdateESP = UpdateESP
 
     return ESP

@@ -2080,21 +2080,34 @@ Players.PlayerRemoving:Connect(removeESP)
                                 if Settings.ESPWeapon or Settings.ESPLevel then
                                     local infoText = ""
                                     if Settings.ESPLevel then
+                                        local lvl = nil
                                         if not isNPC then
-                                            local stats = target:FindFirstChild("leaderstats")
-                                            local lvl = stats and (stats:FindFirstChild("Level")
-                                                or stats:FindFirstChild("XP")
-                                                or stats:FindFirstChild("Exp")
-                                                or stats:FindFirstChild("Win")
-                                                or stats:FindFirstChild("Wins")) or target:FindFirstChild("Level")
-                                            if lvl and lvl:IsA("ValueBase") then
-                                                infoText = infoText .. "[Lv " .. tostring(lvl.Value) .. "] "
+                                            lvl = target:GetAttribute("Level")
+                                            if not lvl then
+                                                local customStats = target:FindFirstChild("CustomLeaderstats")
+                                                if customStats then
+                                                    local lVal = customStats:FindFirstChild("Level")
+                                                    if lVal and lVal:IsA("ValueBase") then
+                                                        lvl = lVal.Value
+                                                    end
+                                                end
+                                            end
+                                            if not lvl then
+                                                local stats = target:FindFirstChild("leaderstats")
+                                                local lVal = stats and (stats:FindFirstChild("Level")
+                                                    or stats:FindFirstChild("XP")
+                                                    or stats:FindFirstChild("Exp")
+                                                    or stats:FindFirstChild("Win")
+                                                    or stats:FindFirstChild("Wins")) or target:FindFirstChild("Level")
+                                                if lVal and lVal:IsA("ValueBase") then
+                                                    lvl = lVal.Value
+                                                end
                                             end
                                         else
-                                            local lvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
-                                            if lvl then
-                                                infoText = infoText .. "[Lv " .. tostring(lvl) .. "] "
-                                            end
+                                            lvl = char:GetAttribute("Level") or char:GetAttribute("Lv")
+                                        end
+                                        if lvl then
+                                            infoText = infoText .. "[Lv " .. tostring(lvl) .. "] "
                                         end
                                     end
                                     if Settings.ESPWeapon then

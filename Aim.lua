@@ -21,6 +21,8 @@ return function(Shared, Targeting)
     local forEachEnemy = Targeting.forEachEnemy
     local isSameTeam = Targeting.isSameTeam
     local getProAimTargetCached = Targeting.getProAimTargetCached
+    local WallCheck = Targeting.WallCheck
+    local isSafeShield = Targeting.isSafeShield
 
 -- ============================================================
 -- DRAWING CORE
@@ -56,6 +58,9 @@ local ESPTable = {}
     local cachedClosest = nil
     local cachedClosestValid = 0
     local ProAimLockedTarget = nil
+    local ProAimLockedChar = nil
+    local ProAimAccumX = 0
+    local ProAimAccumY = 0
     local lastTargetSwitch = 0
     local aimAcquireTime = 0
     local lastShotTime = 0
@@ -154,7 +159,50 @@ local ESPTable = {}
         end
     end
 
-    -- 2.5 PRO AIM (Aimlock using mousemoverel & Smoothness - Tối ưu hóa 0 ép chuỗi/closure)
+    -- Helper kiểm tra mục tiêu đã khóa còn sống và hợp lệ không
+    local function isLockedTargetValid(part, char)
+        if not part or not part.Parent or not char or not char.Parent then
+            return false
+        end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health <= 0 then
+            return false
+        end
+        local healthVal = char:FindFirstChild("Health") or char:FindFirstChild("health")
+        if healthVal and (healthVal:IsA("NumberValue") or healthVal:IsA("IntValue")) and healthVal.Value <= 0 then
+            return false
+        end
+        if char:GetAttribute("Health") and ((tonumber(char:GetAttribute("Health")) or 0) <= 0) then
+            return false
+        end
+        if isSafeShield and isSafeShield(nil, char) then
+            return false
+        end
+        local diff = part.Position - Camera.CFrame.Position
+        local maxPhysicalDist = Settings.AimDist or Settings.ProAimDist or 1000
+        if (diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z) > (maxPhysicalDist * maxPhysicalDist) then
+            return false
+        end
+        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+        if not onScreen then
+            return false
+        end
+        local mousePos = UserInputService:GetMouseLocation()
+        local dx = screenPos.X - mousePos.X
+        local dy = screenPos.Y - mousePos.Y
+        local fov = (Settings.FOV or Settings.ProAimFOV or 120) * 1.6
+        if (dx * dx + dy * dy) > (fov * fov) then
+            return false
+        end
+        if Settings.WallCheck and WallCheck then
+            if not WallCheck(part) then
+                return false
+            end
+        end
+        return true
+    end
+
+    -- 2.5 PRO AIM (Aimlock using mousemoverel & Smoothness - Khử giật, dính mượt, ổn định xương & đón đầu vận tốc)
     local isHolding = isProAimHolding
     if not isHolding and typeof(Settings.ProAimHoldMouse) == "EnumItem" then
         local bind = Settings.ProAimHoldMouse
@@ -168,23 +216,102 @@ local ESPTable = {}
     end
 
     if Settings.ProAimEnabled and isHolding then
-        local mousePos = UserInputService:GetMouseLocation()
-        local targetSource, targetPart, targetScreenPos = getClosestPlayerToCursor(mousePos)
-
-        if targetPart and targetScreenPos then
-            ProAimLockedTarget = targetPart
-            local smoothVal = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1)
-            local xOffset = Settings.ProAimXOffset or 0
-            local yOffset = Settings.ProAimYOffset or 0
-            local deltaX = (targetScreenPos.X - mousePos.X + xOffset) * smoothVal
-            local deltaY = (targetScreenPos.Y - mousePos.Y + yOffset) * smoothVal
-            
-            mousemoverel(deltaX, deltaY)
-        else
+        -- 1. Giữ khóa dính mục tiêu (Sticky Lock): Chỉ đổi mục tiêu khi mục tiêu cũ chết/khuất/ra ngoài tầm
+        if ProAimLockedTarget and not isLockedTargetValid(ProAimLockedTarget, ProAimLockedChar) then
             ProAimLockedTarget = nil
+            ProAimLockedChar = nil
+            ProAimAccumX = 0
+            ProAimAccumY = 0
+        end
+
+        -- 2. Tìm mục tiêu mới nếu chưa khóa
+        if not ProAimLockedTarget then
+            local mousePos = UserInputService:GetMouseLocation()
+            local targetSource, targetPart, targetScreenPos = getClosestPlayerToCursor(mousePos)
+            if targetPart and targetScreenPos then
+                ProAimLockedTarget = targetPart
+                ProAimLockedChar = targetPart.Parent
+                ProAimAccumX = 0
+                ProAimAccumY = 0
+            end
+        end
+
+        -- 3. Xử lý bám mục tiêu siêu mượt bằng mousemoverel
+        if ProAimLockedTarget then
+            local char = ProAimLockedChar or ProAimLockedTarget.Parent
+            local rootPart = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
+            local aimWorldPos = ProAimLockedTarget.Position
+
+            -- Khử rung lắc do animation: Nếu aim vào Head, cố định X, Z theo HumanoidRootPart
+            if rootPart and (ProAimLockedTarget.Name == "Head" or ProAimLockedTarget.Name == "HitboxHead") then
+                aimWorldPos = Vector3.new(rootPart.Position.X, ProAimLockedTarget.Position.Y, rootPart.Position.Z)
+            end
+
+            -- Dự đoán chuyển động theo vận tốc (Velocity Prediction / Lead Aim)
+            local targetVel = (rootPart and rootPart.AssemblyLinearVelocity) or ProAimLockedTarget.AssemblyLinearVelocity or Vector3.zero
+            if targetVel.Magnitude > 120 then
+                targetVel = targetVel.Unit * 120
+            end
+
+            local dt = math.clamp(step or 0.016, 0.001, 0.05)
+            local predictedWorldPos = aimWorldPos + (targetVel * (dt + 0.02))
+
+            local targetScreenPos, onScreen = Camera:WorldToViewportPoint(predictedWorldPos)
+            if not onScreen then
+                targetScreenPos, onScreen = Camera:WorldToViewportPoint(aimWorldPos)
+            end
+
+            if onScreen then
+                local mousePos = UserInputService:GetMouseLocation()
+                local xOffset = Settings.ProAimXOffset or 0
+                local yOffset = Settings.ProAimYOffset or 0
+                local deltaX = targetScreenPos.X - mousePos.X + xOffset
+                local deltaY = targetScreenPos.Y - mousePos.Y + yOffset
+                local distSq = deltaX * deltaX + deltaY * deltaY
+                local dist = math.sqrt(distSq)
+
+                -- Deadzone: Nếu khoảng cách < 1.2 pixel -> đã trúng tâm, ngưng kéo để triệt tiêu micro-jitter
+                if dist >= 1.2 then
+                    local smoothFactor = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1)
+                    -- Exponential decay: tốc độ bám mục tiêu độc lập với FPS (Frame-Independent)
+                    local decayRate = 12 + (smoothFactor * 36)
+                    local alpha = 1 - math.exp(-decayRate * dt)
+                    alpha = math.clamp(alpha, 0.03, 0.85)
+
+                    -- Proximity Ease-Out: khi tâm gần mục tiêu (< 16px), giảm tốc êm ái chống văng lố (overshoot)
+                    local proximityEase = math.clamp(dist / 14, 0.35, 1.0)
+
+                    local stepMoveX = deltaX * alpha * proximityEase
+                    local stepMoveY = deltaY * alpha * proximityEase
+
+                    -- Bộ tích lũy điểm ảnh phụ (Subpixel Accumulator) cho chuyển động chuột mượt mà tuyệt đối
+                    ProAimAccumX = ProAimAccumX + stepMoveX
+                    ProAimAccumY = ProAimAccumY + stepMoveY
+
+                    local moveX = math.round(ProAimAccumX)
+                    local moveY = math.round(ProAimAccumY)
+
+                    if moveX ~= 0 or moveY ~= 0 then
+                        ProAimAccumX = ProAimAccumX - moveX
+                        ProAimAccumY = ProAimAccumY - moveY
+                        mousemoverel(moveX, moveY)
+                    end
+                else
+                    ProAimAccumX = 0
+                    ProAimAccumY = 0
+                end
+            else
+                ProAimLockedTarget = nil
+                ProAimLockedChar = nil
+                ProAimAccumX = 0
+                ProAimAccumY = 0
+            end
         end
     else
         ProAimLockedTarget = nil
+        ProAimLockedChar = nil
+        ProAimAccumX = 0
+        ProAimAccumY = 0
     end
 
     -- 2.6 AUTO FIRE & AUTO FIRE (HOLD M2) + WALL CHECK
@@ -222,29 +349,29 @@ local ESPTable = {}
 
     -- 2.7 NO RECOIL (MOUSE AIMLOCK-BASED RECOIL STABILIZATION)
     if Settings.NoRecoil and (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or (Settings.AutoFire and not Settings.AutoFireHoldM2) or (Settings.AutoFireHoldM2 and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))) then
-        local cam = Camera.CFrame
-        local mouseDelta = UserInputService:GetMouseDelta()
-        local mousePos = UserInputService:GetMouseLocation()
+        -- NẾU ĐANG AIMLOCK KHÓA VÀO MỤC TIÊU:
+        -- Aimlock đã tự động ghim chuột bám chặt mục tiêu, không can thiệp đè lên để tránh xung đột chuột gây giật rung
+        if not (Settings.ProAimEnabled and isHolding and ProAimLockedTarget) then
+            local cam = Camera.CFrame
+            local mouseDelta = UserInputService:GetMouseDelta()
+            local mousePos = UserInputService:GetMouseLocation()
 
-        if math.abs(mouseDelta.X) > 2.5 or math.abs(mouseDelta.Y) > 2.5 or not noRecoilTargetPoint then
-            noRecoilTargetPoint = cam.Position + cam.LookVector * 1000
-        else
-            if ProAimLockedTarget then
-                noRecoilTargetPoint = ProAimLockedTarget.Position
+            if math.abs(mouseDelta.X) > 2.5 or math.abs(mouseDelta.Y) > 2.5 or not noRecoilTargetPoint then
+                noRecoilTargetPoint = cam.Position + cam.LookVector * 1000
             else
                 noRecoilTargetPoint = cam.Position + (noRecoilTargetPoint - cam.Position).Unit * 1000
-            end
 
-            local screenPos, onScreen = Camera:WorldToViewportPoint(noRecoilTargetPoint)
-            if onScreen then
-                local deltaX = screenPos.X - mousePos.X
-                local deltaY = screenPos.Y - mousePos.Y
-                if math.abs(deltaX) > 0.2 or math.abs(deltaY) > 0.2 then
-                    local s = math.clamp(Settings.NoRecoilStrength or 1, 0.1, 1)
-                    mousemoverel(deltaX * s, deltaY * s)
+                local screenPos, onScreen = Camera:WorldToViewportPoint(noRecoilTargetPoint)
+                if onScreen then
+                    local deltaX = screenPos.X - mousePos.X
+                    local deltaY = screenPos.Y - mousePos.Y
+                    if math.abs(deltaX) > 0.2 or math.abs(deltaY) > 0.2 then
+                        local s = math.clamp(Settings.NoRecoilStrength or 1, 0.1, 1)
+                        mousemoverel(deltaX * s, deltaY * s)
+                    end
+                else
+                    noRecoilTargetPoint = cam.Position + cam.LookVector * 1000
                 end
-            else
-                noRecoilTargetPoint = cam.Position + cam.LookVector * 1000
             end
         end
     else
@@ -389,6 +516,9 @@ local ESPTable = {}
         if bind and (input.KeyCode == bind or input.UserInputType == bind) then
             isProAimHolding = false
             ProAimLockedTarget = nil
+            ProAimLockedChar = nil
+            ProAimAccumX = 0
+            ProAimAccumY = 0
         end
         if input.UserInputType == Enum.UserInputType.MouseButton1 then isAiming = false end
     end)

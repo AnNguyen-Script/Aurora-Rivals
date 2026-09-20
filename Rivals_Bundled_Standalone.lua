@@ -3134,6 +3134,7 @@ local function CreateToggle(parent, text, dotColor, settingKey, callback)
         UpdateTabDots()
         if callback then callback(state) end
     end)
+    return Frame
 end
 
 local function CreateSafeToggle(parent, text, dotColor, settingKey, callback)
@@ -3252,6 +3253,7 @@ local function CreateSafeToggle(parent, text, dotColor, settingKey, callback)
         UpdateTabDots()
         if callback then callback(state) end
     end)
+    return Frame
 end
 
 local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey, dropKey, options, toggleCb, dropCb)
@@ -4138,31 +4140,43 @@ end
 -- ============================================================
 local PanelAimbot = CreatePanel(TabAimbot, "Aimbot", "", 0, 0, 0.5, 1)
 local fovSliderFrame = nil
+local drawFovToggleFrame = nil
+
 CreateToggleWithDropdown(PanelAimbot, "Enable Aimbot", Theme.DotGreen, "AimEnabled", "TargetPart", {"Head", "HumanoidRootPart", "Safe"}, function(v) 
     Settings.AimEnabled = v
     if fovSliderFrame then
         fovSliderFrame.Visible = (v == true)
     end
+    if drawFovToggleFrame then
+        drawFovToggleFrame.Visible = (v == true)
+    end
 end, function(v) 
     Settings.TargetPart = v
     Settings.ProAimTargetPart = v
 end)
+
 fovSliderFrame = CreateSlider(PanelAimbot, "FOV Size", "FOV", 10, 500, " px", function(v)
     Settings.FOV = v
     Settings.ProAimFOV = v
     FOVring.Radius = v
 end)
-if fovSliderFrame then
-    fovSliderFrame.Visible = (Settings.AimEnabled == true)
-end
-CreateToggle(PanelAimbot, "Aim Safe", Theme.DotGreen, "AimSafe", function(v) Settings.AimSafe = v end)
-CreateToggle(PanelAimbot, "Draw FOV", Theme.DotGreen, "FOVVisible", function(v)
+
+drawFovToggleFrame = CreateToggle(PanelAimbot, "Draw FOV", Theme.DotGreen, "FOVVisible", function(v)
     Settings.FOVVisible = v
     Settings.ProAimFOVVisible = v
     Settings.AimSnapline = v
     Settings.ProAimSnapline = v
     FOVring.Visible = v
 end)
+
+CreateToggle(PanelAimbot, "Aim Safe", Theme.DotGreen, "AimSafe", function(v) Settings.AimSafe = v end)
+
+if fovSliderFrame then
+    fovSliderFrame.Visible = (Settings.AimEnabled == true)
+end
+if drawFovToggleFrame then
+    drawFovToggleFrame.Visible = (Settings.AimEnabled == true)
+end
 CreateToggleWithDropdown(PanelAimbot, "Hitbox Expander", Theme.DotGreen, "HitboxExpander", "HitboxPart", {"Head", "Torso"}, function(v)
     Settings.HitboxExpander = v
     if not v then ResetHitboxes() end

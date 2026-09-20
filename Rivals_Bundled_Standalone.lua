@@ -5638,7 +5638,8 @@ end)
 local frames = 0
 local currentFPS = 60
 local lastFPSUpdate = tick()
-local expTime = 999 * 24 * 60 * 60
+local expStartTime = tick()
+local totalExpDuration = 999 * 24 * 60 * 60
 
 local renderConn = Shared.RunService.RenderStepped:Connect(function(step)
     local now = tick()
@@ -5652,10 +5653,13 @@ local renderConn = Shared.RunService.RenderStepped:Connect(function(step)
         currentFPS = math.floor(frames / (now - lastFPSUpdate))
         frames = 0
         lastFPSUpdate = now
-        local days = math.floor(expTime / 86400)
-        local hours = math.floor((expTime % 86400) / 3600)
-        local mins = math.floor((expTime % 3600) / 60)
-        local secs = expTime % 60
+
+        -- Đếm ngược thời gian hết hạn (EXP) từng giây thực tế
+        local remaining = math.max(0, totalExpDuration - (now - expStartTime))
+        local days = math.floor(remaining / 86400)
+        local hours = math.floor((remaining % 86400) / 3600)
+        local mins = math.floor((remaining % 3600) / 60)
+        local secs = math.floor(remaining % 60)
         if Shared.UI_Elements.Watermark then
             Shared.UI_Elements.Watermark.Text = string.format("RIVALS ● %d FPS ● Expire in: %02dd %02dh %02dm %02ds", currentFPS, days, hours, mins, secs)
         end

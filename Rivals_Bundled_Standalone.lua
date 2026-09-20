@@ -4180,7 +4180,7 @@ end
 local hitboxSizeSliderFrame = nil
 local hideHitboxToggleFrame = nil
 
-CreateToggleWithDropdown(PanelAimbot, "Hitbox Expander", Theme.DotGreen, "HitboxExpander", "HitboxPart", {"Head", "Torso"}, function(v)
+CreateToggleWithDropdown(PanelAimbot, "Hitbox", Theme.DotGreen, "HitboxExpander", "HitboxPart", {"Head", "Torso"}, function(v)
     Settings.HitboxExpander = v
     if not v then ResetHitboxes() end
     if hitboxSizeSliderFrame then
@@ -4194,11 +4194,11 @@ end, function(v)
     ResetHitboxes()
 end)
 
-hitboxSizeSliderFrame = CreateSlider(PanelAimbot, "Hitbox Size", "HitboxSize", 2, 500, " studs", function(v)
+hitboxSizeSliderFrame = CreateSlider(PanelAimbot, "Size", "HitboxSize", 2, 500, " studs", function(v)
     Settings.HitboxSize = v
 end)
 
-hideHitboxToggleFrame = CreateToggle(PanelAimbot, "Hide Hitbox (Ẩn Khung)", Theme.DotGreen, "HitboxInvisible", function(v)
+hideHitboxToggleFrame = CreateToggle(PanelAimbot, "Hide", Theme.DotGreen, "HitboxInvisible", function(v)
     Settings.HitboxInvisible = v
     for part, orig in pairs(originalHitboxes) do
         if part and part.Parent then
@@ -4230,7 +4230,7 @@ CreateToggleWithKeybind(PanelAimbotSet, "Aimlock", Theme.DotRed, "ProAimEnabled"
     end
 end, function(v) Settings.ProAimHoldMouse = v end)
 
-aimlockSmoothSliderFrame = CreateSlider(PanelAimbotSet, "Aimlock Smooth", "ProAimSmoothness", 0.01, 1, "", function(v)
+aimlockSmoothSliderFrame = CreateSlider(PanelAimbotSet, "Smooth", "ProAimSmoothness", 0.01, 1, "", function(v)
     Settings.ProAimSmoothness = v
     Settings.AimSmoothness = v
 end)

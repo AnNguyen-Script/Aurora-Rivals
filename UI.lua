@@ -301,26 +301,26 @@ Sidebar.Parent = MainFrame
 do local l = Instance.new("Frame", Sidebar); l.Size = UDim2.new(0, 1, 1, 0); l.Position = UDim2.new(1, -1, 0, 0); l.BackgroundColor3 = Color3.fromRGB(35, 35, 40); l.BorderSizePixel = 0 end
 
 -- ============================================================
--- PROFILE CARD & REAL-TIME MONITOR (GÓC DƯỚI SIDEBAR)
+-- PROFILE CARD & REAL-TIME MONITOR (GÓC PHẢI TRÊN TOPBAR, CẠNH NÚT X)
 -- ============================================================
 local ProfileCard = Instance.new("Frame")
 ProfileCard.Name = "ProfileCard"
-ProfileCard.Size = UDim2.new(1, -8, 0, 95)
-ProfileCard.Position = UDim2.new(0, 4, 1, -145)
+ProfileCard.Size = UDim2.new(0, 160, 0, 28)
+ProfileCard.Position = UDim2.new(1, -210, 0.5, -14)
 ProfileCard.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 ProfileCard.BackgroundTransparency = 0.25
 ProfileCard.BorderSizePixel = 0
-ProfileCard.Parent = Sidebar
-Instance.new("UICorner", ProfileCard).CornerRadius = UDim.new(0, 8)
+ProfileCard.Parent = TopBar
+Instance.new("UICorner", ProfileCard).CornerRadius = UDim.new(0, 6)
 
 local PCStroke = Instance.new("UIStroke", ProfileCard)
-PCStroke.Color = Color3.fromRGB(40, 40, 48)
+PCStroke.Color = Color3.fromRGB(45, 45, 55)
 PCStroke.Thickness = 1
 
 local AvatarImg = Instance.new("ImageLabel")
 AvatarImg.Name = "Avatar"
-AvatarImg.Size = UDim2.new(0, 28, 0, 28)
-AvatarImg.Position = UDim2.new(0.5, -14, 0, 6)
+AvatarImg.Size = UDim2.new(0, 22, 0, 22)
+AvatarImg.Position = UDim2.new(0, 4, 0.5, -11)
 AvatarImg.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 AvatarImg.BorderSizePixel = 0
 AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(LocalPlayer.UserId) .. "&w=100&h=100"
@@ -328,8 +328,8 @@ AvatarImg.Parent = ProfileCard
 Instance.new("UICorner", AvatarImg).CornerRadius = UDim.new(1, 0)
 
 local OnlineDot = Instance.new("Frame")
-OnlineDot.Size = UDim2.new(0, 7, 0, 7)
-OnlineDot.Position = UDim2.new(1, -6, 1, -6)
+OnlineDot.Size = UDim2.new(0, 6, 0, 6)
+OnlineDot.Position = UDim2.new(1, -5, 1, -5)
 OnlineDot.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
 OnlineDot.BorderSizePixel = 0
 OnlineDot.Parent = AvatarImg
@@ -337,44 +337,27 @@ Instance.new("UICorner", OnlineDot).CornerRadius = UDim.new(1, 0)
 
 local ProfileName = Instance.new("TextLabel")
 ProfileName.Name = "Name"
-ProfileName.Size = UDim2.new(1, -4, 0, 14)
-ProfileName.Position = UDim2.new(0, 2, 0, 36)
+ProfileName.Size = UDim2.new(1, -34, 0, 12)
+ProfileName.Position = UDim2.new(0, 30, 0, 2)
 ProfileName.BackgroundTransparency = 1
 ProfileName.Font = Theme.FontBold
-ProfileName.TextSize = 8
+ProfileName.TextSize = 10
 ProfileName.TextColor3 = Theme.TextWhite
-ProfileName.TextScaled = true
+ProfileName.TextXAlignment = Enum.TextXAlignment.Left
 ProfileName.Text = LocalPlayer.DisplayName
 ProfileName.Parent = ProfileCard
 
-local PCDivider = Instance.new("Frame")
-PCDivider.Size = UDim2.new(0.8, 0, 0, 1)
-PCDivider.Position = UDim2.new(0.1, 0, 0, 52)
-PCDivider.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-PCDivider.BorderSizePixel = 0
-PCDivider.Parent = ProfileCard
-
-local FPSLabel = Instance.new("TextLabel")
-FPSLabel.Name = "FPS"
-FPSLabel.Size = UDim2.new(1, 0, 0, 16)
-FPSLabel.Position = UDim2.new(0, 0, 0, 55)
-FPSLabel.BackgroundTransparency = 1
-FPSLabel.Font = Theme.Font
-FPSLabel.TextSize = 9
-FPSLabel.RichText = true
-FPSLabel.Text = "<font color=\"#00ff88\"><b>60</b></font><font size=\"7\" color=\"#777788\"> FPS</font>"
-FPSLabel.Parent = ProfileCard
-
-local PingLabel = Instance.new("TextLabel")
-PingLabel.Name = "Ping"
-PingLabel.Size = UDim2.new(1, 0, 0, 16)
-PingLabel.Position = UDim2.new(0, 0, 0, 73)
-PingLabel.BackgroundTransparency = 1
-PingLabel.Font = Theme.Font
-PingLabel.TextSize = 9
-PingLabel.RichText = true
-PingLabel.Text = "<font color=\"#00d8ff\"><b>--</b></font><font size=\"7\" color=\"#777788\"> ms</font>"
-PingLabel.Parent = ProfileCard
+local MonitorLabel = Instance.new("TextLabel")
+MonitorLabel.Name = "Monitor"
+MonitorLabel.Size = UDim2.new(1, -34, 0, 12)
+MonitorLabel.Position = UDim2.new(0, 30, 0, 14)
+MonitorLabel.BackgroundTransparency = 1
+MonitorLabel.Font = Theme.Font
+MonitorLabel.TextSize = 9
+MonitorLabel.RichText = true
+MonitorLabel.TextXAlignment = Enum.TextXAlignment.Left
+MonitorLabel.Text = "<font color=\"#00ff88\"><b>60</b></font><font size=\"7\" color=\"#777788\"> FPS</font>  <font color=\"#00d8ff\"><b>--</b></font><font size=\"7\" color=\"#777788\"> ms</font>"
+MonitorLabel.Parent = ProfileCard
 
 -- ============================================================
 -- BẢNG TRẠNG THÁI TÍNH NĂNG ĐANG BẬT (ACTIVE FEATURES OVERLAY)
@@ -409,7 +392,6 @@ local featureConfigs = {
     {name = "Spinbot", get = function() return Settings.SpinBot end},
     {name = "Speed Hack", get = function() return Settings.SpeedHack end},
     {name = "Fly", get = function() return Settings.Fly end},
-    {name = "Player ESP", get = function() return Settings.ESPEnabled end},
 }
 
 local featureBadges = {}
@@ -499,11 +481,9 @@ task.spawn(function()
             end
 
             local fpsCol = (currentFPS >= 50) and "#00ff88" or ((currentFPS >= 30) and "#ffaa00" or "#ff4455")
-            FPSLabel.Text = string.format("<font color=\"%s\"><b>%d</b></font><font size=\"7\" color=\"#777788\"> FPS</font>", fpsCol, currentFPS)
-
             local pingNum = tonumber(currentPing) or 0
             local pingCol = (pingNum <= 70) and "#00d8ff" or ((pingNum <= 150) and "#ffaa00" or "#ff4455")
-            PingLabel.Text = string.format("<font color=\"%s\"><b>%s</b></font><font size=\"7\" color=\"#777788\"> ms</font>", pingCol, currentPing)
+            MonitorLabel.Text = string.format("<font color=\"%s\"><b>%d</b></font><font size=\"7\" color=\"#777788\"> FPS</font>  <font color=\"%s\"><b>%s</b></font><font size=\"7\" color=\"#777788\"> ms</font>", fpsCol, currentFPS, pingCol, currentPing)
 
             UpdateActiveFeatures()
         end

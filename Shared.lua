@@ -246,6 +246,7 @@ Shared.Settings = {
 
     ToggleKeybind = Enum.KeyCode.Insert,
     Spectating = false, SpectatePlayer = "",
+    KeybindsOverlay = true,
     ThemeName = "Dark",
     AimHotkey = Enum.KeyCode.N,
     AutoFireHotkey = Enum.KeyCode.M,

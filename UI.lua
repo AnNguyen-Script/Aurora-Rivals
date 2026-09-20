@@ -377,111 +377,92 @@ PingLabel.Text = "<font color=\"#00d8ff\"><b>--</b></font><font size=\"7\" color
 PingLabel.Parent = ProfileCard
 
 -- ============================================================
--- BẢNG TRẠNG THÁI PHÍM TẮT NỔI (KEYBINDS OVERLAY WIDGET)
+-- BẢNG TRẠNG THÁI TÍNH NĂNG ĐANG BẬT (ACTIVE FEATURES OVERLAY)
+-- GÓC TRÁI TRÊN CÙNG - MỖI CHỨC NĂNG LÀ 1 KHUNG ĐỘC LẬP (PILL/TAG)
 -- ============================================================
-local KeybindsOverlay = Instance.new("Frame")
-KeybindsOverlay.Name = "KeybindsOverlay"
-KeybindsOverlay.Size = UDim2.new(0, 195, 0, 130)
-KeybindsOverlay.Position = UDim2.new(0, 20, 0.45, 0)
-KeybindsOverlay.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
-KeybindsOverlay.BackgroundTransparency = 0.2
-KeybindsOverlay.BorderSizePixel = 0
-KeybindsOverlay.Visible = (Settings.KeybindsOverlay ~= false)
-KeybindsOverlay.Parent = ScreenGui
-Instance.new("UICorner", KeybindsOverlay).CornerRadius = UDim.new(0, 8)
+local ActiveFeaturesList = Instance.new("Frame")
+ActiveFeaturesList.Name = "ActiveFeaturesList"
+ActiveFeaturesList.Position = UDim2.new(0, 15, 0, 15)
+ActiveFeaturesList.Size = UDim2.new(0, 220, 1, -30)
+ActiveFeaturesList.BackgroundTransparency = 1
+ActiveFeaturesList.BorderSizePixel = 0
+ActiveFeaturesList.Visible = (Settings.KeybindsOverlay ~= false)
+ActiveFeaturesList.Parent = ScreenGui
 
-local KBStroke = Instance.new("UIStroke", KeybindsOverlay)
-KBStroke.Color = Color3.fromRGB(45, 45, 55)
-KBStroke.Thickness = 1
+local AFL_Layout = Instance.new("UIListLayout", ActiveFeaturesList)
+AFL_Layout.SortOrder = Enum.SortOrder.LayoutOrder
+AFL_Layout.Padding = UDim.new(0, 4)
+AFL_Layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+AFL_Layout.VerticalAlignment = Enum.VerticalAlignment.Top
 
-local KBHeader = Instance.new("Frame", KeybindsOverlay)
-KBHeader.Size = UDim2.new(1, 0, 0, 26)
-KBHeader.BackgroundTransparency = 1
-
-local KBTitle = Instance.new("TextLabel", KBHeader)
-KBTitle.Size = UDim2.new(1, -12, 1, 0)
-KBTitle.Position = UDim2.new(0, 10, 0, 0)
-KBTitle.BackgroundTransparency = 1
-KBTitle.Text = "KEYBINDS"
-KBTitle.TextColor3 = Color3.fromRGB(200, 200, 215)
-KBTitle.Font = Theme.FontBold
-KBTitle.TextSize = 11
-KBTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local KBDivider = Instance.new("Frame", KeybindsOverlay)
-KBDivider.Size = UDim2.new(1, -16, 0, 1)
-KBDivider.Position = UDim2.new(0, 8, 0, 26)
-KBDivider.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-KBDivider.BorderSizePixel = 0
-
-local KBList = Instance.new("Frame", KeybindsOverlay)
-KBList.Size = UDim2.new(1, -16, 1, -32)
-KBList.Position = UDim2.new(0, 8, 0, 30)
-KBList.BackgroundTransparency = 1
-
-local KBLayout = Instance.new("UIListLayout", KBList)
-KBLayout.SortOrder = Enum.SortOrder.LayoutOrder
-KBLayout.Padding = UDim.new(0, 3)
-
-MakeDraggable(KBHeader, KeybindsOverlay)
-
-local kbEntries = {
-    {name = "Aimlock", getActive = function() return Settings.AimEnabled or Settings.ProAimEnabled end, getKey = function() return (Settings.AimHotkey and Settings.AimHotkey ~= Enum.KeyCode.None) and Settings.AimHotkey.Name or "MB2" end},
-    {name = "Hitbox Expander", getActive = function() return Settings.HitboxExpander end, getKey = function() return "H" end},
-    {name = "No Recoil", getActive = function() return Settings.NoRecoil end, getKey = function() return (Settings.NoRecoilHotkey and Settings.NoRecoilHotkey.Name) or "F1" end},
-    {name = "Auto Fire", getActive = function() return Settings.AutoFire end, getKey = function() return (Settings.AutoFireHotkey and Settings.AutoFireHotkey.Name) or "M" end},
-    {name = "Auto Teleport", getActive = function() return Settings.AutoTeleport end, getKey = function() return (Settings.AutoTeleportHotkey and Settings.AutoTeleportHotkey.Name) or "E" end},
-    {name = "Speed Teleport", getActive = function() return Settings.SpeedTele end, getKey = function() return (Settings.SpeedTeleHotkey and Settings.SpeedTeleHotkey.Name) or "T" end},
-    {name = "Underground", getActive = function() return Settings.UndergroundNoclip end, getKey = function() return (Settings.UndergroundHotkey and Settings.UndergroundHotkey.Name) or "Q" end},
-    {name = "Spinbot", getActive = function() return Settings.SpinBot end, getKey = function() return "C" end},
+local featureConfigs = {
+    {name = "Aimbot Mouse", get = function() return Settings.AimEnabled end},
+    {name = "Aimbot Safe", get = function() return Settings.ProAimEnabled end},
+    {name = "Hitbox Expander", get = function() return Settings.HitboxExpander end},
+    {name = "No Recoil", get = function() return Settings.NoRecoil end},
+    {name = "Auto Fire", get = function() return Settings.AutoFire end},
+    {name = "Auto Teleport", get = function() return Settings.AutoTeleport end},
+    {name = "Speed Teleport", get = function() return Settings.SpeedTele end},
+    {name = "Underground", get = function() return Settings.UndergroundNoclip end},
+    {name = "Spinbot", get = function() return Settings.SpinBot end},
+    {name = "Speed Hack", get = function() return Settings.SpeedHack end},
+    {name = "Fly", get = function() return Settings.Fly end},
+    {name = "Player ESP", get = function() return Settings.ESPEnabled end},
 }
 
-local kbRowPool = {}
-local function UpdateKeybindsOverlay()
-    if not KeybindsOverlay.Visible then return end
-    local count = 0
-    for i, entry in ipairs(kbEntries) do
-        local isActive = entry.getActive()
-        local keyText = entry.getKey()
-        local row = kbRowPool[i]
-        if not row then
-            row = Instance.new("Frame")
-            row.Size = UDim2.new(1, 0, 0, 18)
-            row.BackgroundTransparency = 1
-            row.Parent = KBList
+local featureBadges = {}
 
-            local nameLbl = Instance.new("TextLabel", row)
-            nameLbl.Name = "NameLbl"
-            nameLbl.Size = UDim2.new(0.62, 0, 1, 0)
-            nameLbl.BackgroundTransparency = 1
-            nameLbl.Font = Theme.Font
-            nameLbl.TextSize = 10
-            nameLbl.TextColor3 = Color3.fromRGB(180, 180, 190)
-            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+for idx, feat in ipairs(featureConfigs) do
+    local badge = Instance.new("Frame")
+    badge.Name = "Badge_" .. feat.name
+    badge.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+    badge.BackgroundTransparency = 0.25
+    badge.BorderSizePixel = 0
+    badge.AutomaticSize = Enum.AutomaticSize.X
+    badge.Size = UDim2.new(0, 0, 0, 22)
+    badge.Visible = false
+    badge.LayoutOrder = idx
+    badge.Parent = ActiveFeaturesList
+    Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 2)
 
-            local statusLbl = Instance.new("TextLabel", row)
-            statusLbl.Name = "StatusLbl"
-            statusLbl.Size = UDim2.new(0.38, 0, 1, 0)
-            statusLbl.Position = UDim2.new(0.62, 0, 0, 0)
-            statusLbl.BackgroundTransparency = 1
-            statusLbl.Font = Theme.FontBold
-            statusLbl.TextSize = 10
-            statusLbl.RichText = true
-            statusLbl.TextXAlignment = Enum.TextXAlignment.Right
+    local leftBar = Instance.new("Frame", badge)
+    leftBar.Size = UDim2.new(0, 3, 1, -4)
+    leftBar.Position = UDim2.new(0, 2, 0, 2)
+    leftBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    leftBar.BorderSizePixel = 0
 
-            kbRowPool[i] = row
+    local pad = Instance.new("UIPadding", badge)
+    pad.PaddingLeft = UDim.new(0, 11)
+    pad.PaddingRight = UDim.new(0, 10)
+    pad.PaddingTop = UDim.new(0, 0)
+    pad.PaddingBottom = UDim.new(0, 0)
+
+    local txt = Instance.new("TextLabel", badge)
+    txt.Name = "Title"
+    txt.AutomaticSize = Enum.AutomaticSize.X
+    txt.Size = UDim2.new(0, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.Font = Enum.Font.Code
+    txt.TextSize = 13
+    txt.TextColor3 = Color3.fromRGB(240, 240, 245)
+    txt.Text = feat.name
+    txt.TextXAlignment = Enum.TextXAlignment.Left
+    txt.TextYAlignment = Enum.TextYAlignment.Center
+
+    featureBadges[idx] = {badge = badge, feat = feat}
+end
+
+local function UpdateActiveFeatures()
+    if not ActiveFeaturesList.Visible then return end
+    for _, item in ipairs(featureBadges) do
+        local isEnabled = false
+        pcall(function()
+            isEnabled = (item.feat.get() == true)
+        end)
+        if item.badge.Visible ~= isEnabled then
+            item.badge.Visible = isEnabled
         end
-
-        row.NameLbl.Text = entry.name
-        if isActive then
-            row.StatusLbl.Text = string.format("<font color=\"#00ff88\">[ON]</font> <font color=\"#888899\">(%s)</font>", keyText)
-        else
-            row.StatusLbl.Text = string.format("<font color=\"#ff4455\">[OFF]</font> <font color=\"#888899\">(%s)</font>", keyText)
-        end
-        row.Visible = true
-        count = count + 1
     end
-    KeybindsOverlay.Size = UDim2.new(0, 195, 0, 36 + count * 21)
 end
 
 -- Monitor FPS & Ping Loop
@@ -518,7 +499,7 @@ task.spawn(function()
             local pingCol = (pingNum <= 70) and "#00d8ff" or ((pingNum <= 150) and "#ffaa00" or "#ff4455")
             PingLabel.Text = string.format("<font color=\"%s\"><b>%s</b></font><font size=\"7\" color=\"#777788\"> ms</font>", pingCol, currentPing)
 
-            UpdateKeybindsOverlay()
+            UpdateActiveFeatures()
         end
     end)
 end)
@@ -2452,10 +2433,10 @@ end)
 
 local PanelSettings = CreatePanel(TabSecurity, "Bảo Mật", "", 0.5, 0, 0.5, 1)
 CreateKeybind(PanelSettings, "Phím Ẩn/Hiện Menu", "ToggleKeybind", function(key) Settings.ToggleKeybind = key end)
-CreateToggle(PanelSettings, "Bảng Phím Tắt (Keybinds Overlay)", Theme.DotGreen, "KeybindsOverlay", function(v)
+CreateToggle(PanelSettings, "Bảng Tính Năng Đang Bật", Theme.DotGreen, "KeybindsOverlay", function(v)
     Settings.KeybindsOverlay = v
-    KeybindsOverlay.Visible = v
-    if v then UpdateKeybindsOverlay() end
+    ActiveFeaturesList.Visible = v
+    if v then UpdateActiveFeatures() end
 end)
 
 local function RejoinServer()

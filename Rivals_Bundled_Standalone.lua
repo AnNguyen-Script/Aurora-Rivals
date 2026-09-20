@@ -3227,6 +3227,7 @@ end)
 local Tabs = {}
 local SidebarButtons = {}
 local activeTab = nil
+local TabOrder = {Aimbot = 1, ESP = 2, Player = 3, Security = 4}
 
 -- Chấm trạng thái trên icon tab: sáng khi tab có feature đang bật
 local function UpdateTabDots()
@@ -3246,9 +3247,15 @@ local function UpdateTabDots()
 end
 
 local function CreateSidebarIcon(tabName, iconChar, yPos)
-    local TabContent = Instance.new("Frame")
+    local TabContent = Instance.new(useCanvasGroup and "CanvasGroup" or "Frame")
+    TabContent.Name = "Tab_" .. tabName
     TabContent.Size = UDim2.new(1, 0, 1, 0)
+    TabContent.Position = UDim2.new(0, 0, 0, 0)
     TabContent.BackgroundTransparency = 1
+    TabContent.BorderSizePixel = 0
+    if useCanvasGroup then
+        TabContent.GroupTransparency = 0
+    end
     TabContent.Visible = false
     TabContent.Parent = ContentArea
     Tabs[tabName] = TabContent
@@ -3303,36 +3310,81 @@ local function CreateSidebarIcon(tabName, iconChar, yPos)
 
     Btn.MouseButton1Click:Connect(function()
         if activeTab == tabName then return end
-        if activeTab then
-            Tabs[activeTab].Visible = false
-            SidebarButtons[activeTab].BackgroundTransparency = 1
-            local oldIcon = SidebarButtons[activeTab]:FindFirstChild("Icon")
+        local oldTabName = activeTab
+        local newTabName = tabName
+        activeTab = newTabName
+
+        -- 1. Cập nhật trạng thái nút Sidebar (Nội suy mượt màu sắc & nền)
+        if oldTabName and SidebarButtons[oldTabName] then
+            local oldBtn = SidebarButtons[oldTabName]
+            TweenService:Create(oldBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+            local oldIcon = oldBtn:FindFirstChild("Icon")
             if oldIcon then
                 if oldIcon:IsA("ImageLabel") then
-                    oldIcon.ImageColor3 = Theme.TextDark
+                    TweenService:Create(oldIcon, TweenInfo.new(0.2), {ImageColor3 = Theme.TextDark}):Play()
                 else
-                    oldIcon.TextColor3 = Theme.TextDark
+                    TweenService:Create(oldIcon, TweenInfo.new(0.2), {TextColor3 = Theme.TextDark}):Play()
                 end
             end
-            SidebarButtons[activeTab].Indicator.Visible = false
         end
-        activeTab = tabName
-        Tabs[activeTab].Visible = true
-        SidebarButtons[activeTab].BackgroundTransparency = 0.9
-        local newIcon = SidebarButtons[activeTab]:FindFirstChild("Icon")
-        if newIcon then
-            if newIcon:IsA("ImageLabel") then
-                newIcon.ImageColor3 = Theme.TextWhite
-            else
-                newIcon.TextColor3 = Theme.TextWhite
+
+        local newBtn = SidebarButtons[newTabName]
+        if newBtn then
+            TweenService:Create(newBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.9}):Play()
+            local newIcon = newBtn:FindFirstChild("Icon")
+            if newIcon then
+                if newIcon:IsA("ImageLabel") then
+                    TweenService:Create(newIcon, TweenInfo.new(0.2), {ImageColor3 = Theme.TextWhite}):Play()
+                else
+                    TweenService:Create(newIcon, TweenInfo.new(0.2), {TextColor3 = Theme.TextWhite}):Play()
+                end
             end
         end
-        SidebarButtons[activeTab].Indicator.Visible = true
-        -- Animation chuyển tab: slide nhẹ
-        ContentArea.Position = UDim2.new(0, 32, 0, 40)
-        TweenService:Create(ContentArea,
-            TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {Position = UDim2.new(0, 50, 0, 40)}):Play()
+
+        -- 2. Animation Chuyển Trang (Smooth Page Slide & Fade Transition)
+        local oldTab = oldTabName and Tabs[oldTabName]
+        local newTab = Tabs[newTabName]
+
+        local isForward = (TabOrder[newTabName] or 1) >= (TabOrder[oldTabName] or 1)
+        local slideDist = 20
+
+        if oldTab then
+            if useCanvasGroup then
+                -- Trang cũ: trượt nhẹ sang hướng đối diện và mờ dần (Fade out)
+                local targetX = isForward and -slideDist or slideDist
+                local oldTween = TweenService:Create(oldTab,
+                    TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                    {Position = UDim2.new(0, targetX, 0, 0), GroupTransparency = 1})
+                oldTween:Play()
+                task.delay(0.18, function()
+                    if activeTab ~= oldTabName then
+                        oldTab.Visible = false
+                        oldTab.Position = UDim2.new(0, 0, 0, 0)
+                        oldTab.GroupTransparency = 0
+                    end
+                end)
+            else
+                oldTab.Visible = false
+            end
+        end
+
+        if newTab then
+            newTab.Visible = true
+            if useCanvasGroup then
+                -- Trang mới: xuất hiện từ hướng trượt tới, mờ -> rõ (Fade in) với Easing Cubic siêu mượt
+                local startX = isForward and slideDist or -slideDist
+                newTab.Position = UDim2.new(0, startX, 0, 0)
+                newTab.GroupTransparency = 1
+                TweenService:Create(newTab,
+                    TweenInfo.new(0.24, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
+                    {Position = UDim2.new(0, 0, 0, 0), GroupTransparency = 0}):Play()
+            else
+                newTab.Position = UDim2.new(0, isForward and slideDist or -slideDist, 0, 0)
+                TweenService:Create(newTab,
+                    TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
+                    {Position = UDim2.new(0, 0, 0, 0)}):Play()
+            end
+        end
     end)
 
     Btn.MouseEnter:Connect(function()
@@ -3355,6 +3407,10 @@ local TabPlayer = CreateSidebarIcon("Player", "rbxassetid://7733920644", 100)
 local TabSecurity = CreateSidebarIcon("Security", "rbxassetid://7734053495", UDim2.new(0.5, -15, 1, -40))
 
 Tabs["Aimbot"].Visible = true
+if useCanvasGroup then
+    Tabs["Aimbot"].GroupTransparency = 0
+end
+Tabs["Aimbot"].Position = UDim2.new(0, 0, 0, 0)
 SidebarButtons["Aimbot"].BackgroundTransparency = 0.9
 if SidebarButtons["Aimbot"]:FindFirstChild("Icon") then
     SidebarButtons["Aimbot"].Icon.ImageColor3 = Theme.TextWhite

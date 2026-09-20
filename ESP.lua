@@ -29,6 +29,137 @@ ChamsFolder.Name = IDS.ChamsFolder
 pcall(function() ChamsFolder.Parent = parentGui end)
 if not ChamsFolder.Parent then pcall(function() ChamsFolder.Parent = Camera end) end
 
+local function getEquippedWeapon(target, char, isNPC)
+    if not char then return "Unarmed" end
+
+    -- 1. [FIGHTER INTERFACES]: Kiểm tra PlayerGui (Rivals HUD - Cực kỳ chuẩn xác cho LocalPlayer & các fighter có frame)
+    local pgui = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
+    if pgui then
+        local mainGui = pgui:FindFirstChild("MainGui")
+        local mainFrame = mainGui and mainGui:FindFirstChild("MainFrame")
+        local fi = mainFrame and mainFrame:FindFirstChild("FighterInterfaces")
+        if fi then
+            local targetName = target and target.Name or (char and char.Name)
+            local fighter = targetName and fi:FindFirstChild(targetName)
+            if fighter then
+                local bottomRight = fighter:FindFirstChild("BottomRight")
+                local brContainer = bottomRight and bottomRight:FindFirstChild("Container")
+                
+                -- A. Tìm trong EquippedDisplay: frame Details nào đang hiển thị (Visible == true)
+                local eqDisplay = brContainer and brContainer:FindFirstChild("EquippedDisplay")
+                local eqContainer = eqDisplay and eqDisplay:FindFirstChild("Container")
+                if eqContainer then
+                    for _, child in ipairs(eqContainer:GetChildren()) do
+                        if child:IsA("GuiObject") and child.Visible then
+                            local nameContainer = child:FindFirstChild("NameContainer", true)
+                            local title = nameContainer and nameContainer:FindFirstChild("Title")
+                            if title and title:IsA("TextLabel") and title.Visible and title.Text ~= "" and not tonumber(title.Text) then
+                                local txt = title.Text:gsub("^%s+", ""):gsub("%s+$", "")
+                                if txt ~= "" and not txt:find("^<font") then
+                                    return txt
+                                end
+                            end
+                        end
+                    end
+                    -- Nếu không lấy được qua Visible (do canvas group/animation), lấy text Title hợp lệ đầu tiên
+                    for _, desc in ipairs(eqContainer:GetDescendants()) do
+                        if desc:IsA("TextLabel") and desc.Name == "Title" and desc.Text ~= "" then
+                            local txt = desc.Text:gsub("^%s+", ""):gsub("%s+$", "")
+                            if not tonumber(txt) and not txt:find("^<font") and txt ~= "" then
+                                return txt
+                            end
+                        end
+                    end
+                end
+
+                -- B. Tìm trong Hotbar (Nếu có slot Selected/Active)
+                local hotbar = brContainer and brContainer:FindFirstChild("Hotbar")
+                local hbContainer = hotbar and hotbar:FindFirstChild("Container")
+                if hbContainer then
+                    for _, slot in ipairs(hbContainer:GetChildren()) do
+                        if slot:IsA("GuiObject") then
+                            local sel = slot:FindFirstChild("Selected") or slot:FindFirstChild("Active") or slot:FindFirstChild("Highlight")
+                            if (sel and sel:IsA("GuiObject") and sel.Visible) or slot:GetAttribute("Selected") == true then
+                                return slot.Name
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 2. [ATTRIBUTES]: Kiểm tra thuộc tính trên Character và Player
+    local wAttr = char:GetAttribute("EquippedWeapon")
+        or char:GetAttribute("Weapon")
+        or char:GetAttribute("CurrentWeapon")
+        or char:GetAttribute("Equipped")
+        or char:GetAttribute("Gun")
+    if not wAttr and not isNPC and target then
+        wAttr = target:GetAttribute("EquippedWeapon")
+            or target:GetAttribute("Weapon")
+            or target:GetAttribute("CurrentWeapon")
+            or target:GetAttribute("Equipped")
+    end
+    if wAttr and tostring(wAttr) ~= "" then
+        return tostring(wAttr)
+    end
+
+    -- 3. [WELDS / MOTOR6D]: Quét khớp nối ở tay nhân vật (3rd-person models của địch)
+    local limbs = {
+        char:FindFirstChild("RightHand"),
+        char:FindFirstChild("Right Arm"),
+        char:FindFirstChild("RightLowerArm"),
+        char:FindFirstChild("LeftHand"),
+        char:FindFirstChild("Left Arm")
+    }
+    for _, limb in ipairs(limbs) do
+        if limb then
+            for _, joint in ipairs(limb:GetChildren()) do
+                if joint:IsA("JointInstance") or joint:IsA("WeldConstraint") then
+                    local p0 = joint.Part0
+                    local p1 = joint.Part1
+                    local connectedPart = (p0 ~= limb and p0) or (p1 ~= limb and p1)
+                    if connectedPart and connectedPart.Parent and connectedPart.Parent ~= char and not connectedPart.Parent:IsA("Accessory") then
+                        local mName = connectedPart.Parent.Name
+                        if mName ~= "Workspace" and not mName:lower():find("character") and not mName:lower():find("rig") then
+                            return mName
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 4. [CHARACTER CHILDREN]: Quét các Model vũ khí gắn trực tiếp vào nhân vật
+    for _, child in ipairs(char:GetChildren()) do
+        if child:IsA("Model") and not child:IsA("Accessory") then
+            local n = child.Name
+            local nl = n:lower()
+            if not nl:find("animate") and not nl:find("ragdoll") and not nl:find("humanoid") and not nl:find("root") and not nl:find("body") then
+                return n
+            end
+        end
+    end
+
+    -- 5. [WORKSPACE standardweapons_bundle]: Quét bundle trong Workspace
+    local swBundle = workspace:FindFirstChild("standardweapons_bundle")
+    if swBundle and target then
+        local pModel = swBundle:FindFirstChild(target.Name) or swBundle:FindFirstChild(char.Name)
+        if pModel then
+            return pModel.Name
+        end
+    end
+
+    -- 6. [FALLBACK TOOL]: Kiểm tra Tool Roblox truyền thống
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then
+        return tool.Name
+    end
+
+    return "Unarmed"
+end
+
 local function createESP(player)
     if ESPTable[player] then return end
     local esp = {}
@@ -388,14 +519,10 @@ Players.PlayerRemoving:Connect(removeESP)
                                         end
                                     end
                                     if Settings.ESPWeapon then
-                                        local tool = char:FindFirstChildOfClass("Tool")
-                                        if tool then
-                                            infoText = infoText .. tool.Name
-                                        else
-                                            infoText = infoText .. "Unarmed"
-                                        end
+                                        local wName = getEquippedWeapon(target, char, isNPC)
+                                        infoText = infoText .. (wName or "Unarmed")
                                     end
-                                    esp._cachedInfoText = infoText
+                                    esp._cachedInfoText = infoText:gsub("%s+$", "")
                                 else
                                     esp._cachedInfoText = ""
                                 end
@@ -424,7 +551,8 @@ Players.PlayerRemoving:Connect(removeESP)
                                 if esp.Info.Text ~= esp._cachedInfoText then
                                     esp.Info.Text = esp._cachedInfoText
                                 end
-                                esp.Info.Position = Vector2.new(rootPos.X, headPos.Y - 32)
+                                local offsetY = (Settings.ESPName or Settings.ESPDistance) and -32 or -18
+                                esp.Info.Position = Vector2.new(rootPos.X, headPos.Y + offsetY)
                                 if not esp.Info.Visible then esp.Info.Visible = true end
                             else
                                 if esp.Info.Visible then esp.Info.Visible = false end

@@ -3874,7 +3874,7 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
 
     -- Toggle Label
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -145, 0, 35)
+    Label.Size = UDim2.new(1, -150, 0, 35)
     Label.Position = UDim2.new(0, dotColor and 15 or 0, 0, 0)
     Label.BackgroundTransparency = 1
     Label.RichText = true
@@ -3885,94 +3885,174 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
 
-    -- Dropdown Button in the middle
+    -- Dropdown Button in the middle (Smooth Accordion)
+    local dropWidth = 80
     local Dropbox = Instance.new("TextButton")
-    Dropbox.Size = UDim2.new(0, 75, 0, 24)
-    Dropbox.Position = UDim2.new(1, -125, 0, 5)
-    Dropbox.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+    Dropbox.Size = UDim2.new(0, dropWidth, 0, 24)
+    Dropbox.Position = UDim2.new(1, -130, 0, 5)
+    Dropbox.BackgroundColor3 = Color3.fromRGB(32, 32, 36)
     Dropbox.Text = ""
     Dropbox.Parent = Frame
     Instance.new("UICorner", Dropbox).CornerRadius = UDim.new(0, 6)
 
+    local DropStroke = Instance.new("UIStroke", Dropbox)
+    DropStroke.Color = Color3.fromRGB(50, 50, 58)
+    DropStroke.Thickness = 1
+
     local ValLabel = Instance.new("TextLabel")
-    ValLabel.Size = UDim2.new(1, -20, 1, 0)
-    ValLabel.Position = UDim2.new(0, 6, 0, 0)
+    ValLabel.Size = UDim2.new(1, -22, 1, 0)
+    ValLabel.Position = UDim2.new(0, 7, 0, 0)
     ValLabel.BackgroundTransparency = 1
     ValLabel.Text = currentVal
     ValLabel.TextColor3 = Theme.TextWhite
     ValLabel.Font = Theme.Font
     ValLabel.TextSize = 12
     ValLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ValLabel.TextTruncate = Enum.TextTruncate.AtEnd
     ValLabel.Parent = Dropbox
 
     local Arrow = Instance.new("TextLabel")
-    Arrow.Size = UDim2.new(0, 16, 1, 0)
-    Arrow.Position = UDim2.new(1, -16, 0, 0)
+    Arrow.Size = UDim2.new(0, 18, 1, 0)
+    Arrow.Position = UDim2.new(1, -18, 0, 0)
     Arrow.BackgroundTransparency = 1
-    Arrow.Text = "v"
+    Arrow.Text = "▾"
     Arrow.TextColor3 = Theme.TextDark
-    Arrow.Font = Theme.Font
-    Arrow.TextSize = 11
+    Arrow.Font = Theme.FontBold
+    Arrow.TextSize = 13
     Arrow.Parent = Dropbox
 
-    local ListFrame = Instance.new("Frame")
-    ListFrame.Size = UDim2.new(0, 75, 0, #options * 25)
-    ListFrame.Position = UDim2.new(1, -125, 0, 35)
-    ListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 33)
+    local totalHeight = #options * 26 + 4
+    local ListFrame = Instance.new(useCanvasGroup and "CanvasGroup" or "Frame")
+    ListFrame.Size = UDim2.new(0, dropWidth, 0, 0)
+    ListFrame.Position = UDim2.new(1, -130, 0, 33)
+    ListFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
     ListFrame.BorderSizePixel = 0
+    ListFrame.ClipsDescendants = true
+    if useCanvasGroup then
+        ListFrame.GroupTransparency = 1
+    end
     ListFrame.Visible = false
     ListFrame.Parent = Frame
     Instance.new("UICorner", ListFrame).CornerRadius = UDim.new(0, 6)
+
+    local ListStroke = Instance.new("UIStroke", ListFrame)
+    ListStroke.Color = Color3.fromRGB(48, 48, 56)
+    ListStroke.Thickness = 1
+
+    local ListPad = Instance.new("UIPadding", ListFrame)
+    ListPad.PaddingTop = UDim.new(0, 2)
+    ListPad.PaddingBottom = UDim.new(0, 2)
 
     local ListLayout = Instance.new("UIListLayout")
     ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
     ListLayout.Parent = ListFrame
 
     local isOpen = false
+    local optionButtons = {}
 
-    for _, opt in ipairs(options) do
-        local OptBtn = Instance.new("TextButton")
-        OptBtn.Size = UDim2.new(1, 0, 0, 25)
-        OptBtn.BackgroundTransparency = 1
-        OptBtn.Text = opt
-        OptBtn.TextColor3 = Theme.TextWhite
-        OptBtn.Font = Theme.Font
-        OptBtn.TextSize = 12
-        OptBtn.Parent = ListFrame
-
-        OptBtn.MouseButton1Click:Connect(function()
-            ValLabel.Text = opt
-            isOpen = false
-            Arrow.Text = "v"
-            local tw = TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)})
-            tw:Play()
-            tw.Completed:Connect(function()
-                if not isOpen then
-                    ListFrame.Visible = false
-                end
-            end)
-            if dropCb then dropCb(opt) end
-        end)
+    local function UpdateOptionColors()
+        for optName, btn in pairs(optionButtons) do
+            local isSel = (optName == currentVal)
+            btn.TextColor3 = isSel and (Theme.AccentOn or Color3.fromRGB(0, 255, 136)) or Theme.TextWhite
+            btn.Font = isSel and Theme.FontBold or Theme.Font
+        end
     end
 
-    Dropbox.MouseButton1Click:Connect(function()
-        isOpen = not isOpen
+    local function ToggleDropdown(forceClose)
+        if forceClose then
+            isOpen = false
+        else
+            isOpen = not isOpen
+        end
+
         if isOpen then
             ListFrame.Visible = true
-            TweenService:Create(Frame, TweenInfo.new(0.2), {
-                Size = UDim2.new(1, 0, 0, 35 + (#options * 25))
+            TweenService:Create(Arrow, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Rotation = 180,
+                TextColor3 = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
             }):Play()
-            Arrow.Text = "^"
+            TweenService:Create(DropStroke, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Color = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+            }):Play()
+            TweenService:Create(Frame, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Size = UDim2.new(1, 0, 0, 35 + totalHeight + 4)
+            }):Play()
+            TweenService:Create(ListFrame, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, dropWidth, 0, totalHeight)
+            }):Play()
+            if useCanvasGroup then
+                TweenService:Create(ListFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    GroupTransparency = 0
+                }):Play()
+            end
         else
-            Arrow.Text = "v"
-            local tw = TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)})
-            tw:Play()
-            tw.Completed:Connect(function()
+            TweenService:Create(Arrow, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Rotation = 0,
+                TextColor3 = Theme.TextDark
+            }):Play()
+            TweenService:Create(DropStroke, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Color = Color3.fromRGB(50, 50, 58)
+            }):Play()
+            local twFrame = TweenService:Create(Frame, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Size = UDim2.new(1, 0, 0, 35)
+            })
+            twFrame:Play()
+            TweenService:Create(ListFrame, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, dropWidth, 0, 0)
+            }):Play()
+            if useCanvasGroup then
+                TweenService:Create(ListFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    GroupTransparency = 1
+                }):Play()
+            end
+            twFrame.Completed:Connect(function()
                 if not isOpen then
                     ListFrame.Visible = false
                 end
             end)
         end
+    end
+
+    for _, opt in ipairs(options) do
+        local OptBtn = Instance.new("TextButton")
+        OptBtn.Size = UDim2.new(1, 0, 0, 26)
+        OptBtn.BackgroundTransparency = 1
+        OptBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+        OptBtn.BorderSizePixel = 0
+        OptBtn.Text = opt
+        OptBtn.TextColor3 = (opt == currentVal) and (Theme.AccentOn or Color3.fromRGB(0, 255, 136)) or Theme.TextWhite
+        OptBtn.Font = (opt == currentVal) and Theme.FontBold or Theme.Font
+        OptBtn.TextSize = 12
+        OptBtn.Parent = ListFrame
+        Instance.new("UICorner", OptBtn).CornerRadius = UDim.new(0, 4)
+
+        optionButtons[opt] = OptBtn
+
+        OptBtn.MouseEnter:Connect(function()
+            TweenService:Create(OptBtn, TweenInfo.new(0.15), {
+                BackgroundTransparency = 0.6,
+                TextColor3 = Color3.fromRGB(255, 255, 255)
+            }):Play()
+        end)
+        OptBtn.MouseLeave:Connect(function()
+            local isSel = (opt == currentVal)
+            TweenService:Create(OptBtn, TweenInfo.new(0.15), {
+                BackgroundTransparency = 1,
+                TextColor3 = isSel and (Theme.AccentOn or Color3.fromRGB(0, 255, 136)) or Theme.TextWhite
+            }):Play()
+        end)
+
+        OptBtn.MouseButton1Click:Connect(function()
+            currentVal = opt
+            ValLabel.Text = opt
+            UpdateOptionColors()
+            ToggleDropdown(true)
+            if dropCb then dropCb(opt) end
+        end)
+    end
+
+    Dropbox.MouseButton1Click:Connect(function()
+        ToggleDropdown()
     end)
 
     -- Toggle Button on the right
@@ -4036,7 +4116,9 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
 
     UI_Elements[dropKey] = {
         SetValue = function(val)
+            currentVal = val
             ValLabel.Text = val
+            UpdateOptionColors()
             if dropCb then dropCb(val) end
         end
     }
@@ -4242,49 +4324,132 @@ local function CreateDropdown(parent, text, settingKey, options, callback)
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
 
+    local dropWidth = 110
     local Dropbox = Instance.new("TextButton")
-    Dropbox.Size = UDim2.new(0, 100, 0, 24)
-    Dropbox.Position = UDim2.new(1, -100, 0, 5)
-    Dropbox.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+    Dropbox.Size = UDim2.new(0, dropWidth, 0, 24)
+    Dropbox.Position = UDim2.new(1, -dropWidth, 0, 5)
+    Dropbox.BackgroundColor3 = Color3.fromRGB(32, 32, 36)
     Dropbox.Text = ""
     Dropbox.Parent = Frame
     Instance.new("UICorner", Dropbox).CornerRadius = UDim.new(0, 6)
 
+    local DropStroke = Instance.new("UIStroke", Dropbox)
+    DropStroke.Color = Color3.fromRGB(50, 50, 58)
+    DropStroke.Thickness = 1
+
     local ValLabel = Instance.new("TextLabel")
     ValLabel.Size = UDim2.new(1, -25, 1, 0)
-    ValLabel.Position = UDim2.new(0, 10, 0, 0)
+    ValLabel.Position = UDim2.new(0, 8, 0, 0)
     ValLabel.BackgroundTransparency = 1
     ValLabel.Text = currentVal
     ValLabel.TextColor3 = Theme.TextWhite
     ValLabel.Font = Theme.Font
     ValLabel.TextSize = 12
     ValLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ValLabel.TextTruncate = Enum.TextTruncate.AtEnd
     ValLabel.Parent = Dropbox
 
     local Arrow = Instance.new("TextLabel")
     Arrow.Size = UDim2.new(0, 20, 1, 0)
     Arrow.Position = UDim2.new(1, -20, 0, 0)
     Arrow.BackgroundTransparency = 1
-    Arrow.Text = "v"
+    Arrow.Text = "▾"
     Arrow.TextColor3 = Theme.TextDark
-    Arrow.Font = Theme.Font
-    Arrow.TextSize = 12
+    Arrow.Font = Theme.FontBold
+    Arrow.TextSize = 13
     Arrow.Parent = Dropbox
 
-    local ListFrame = Instance.new("Frame")
-    ListFrame.Size = UDim2.new(0, 100, 0, #options * 25)
-    ListFrame.Position = UDim2.new(1, -100, 0, 35)
-    ListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 33)
+    local totalHeight = #options * 26 + 4
+    local ListFrame = Instance.new(useCanvasGroup and "CanvasGroup" or "Frame")
+    ListFrame.Size = UDim2.new(0, dropWidth, 0, 0)
+    ListFrame.Position = UDim2.new(1, -dropWidth, 0, 33)
+    ListFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
     ListFrame.BorderSizePixel = 0
+    ListFrame.ClipsDescendants = true
+    if useCanvasGroup then
+        ListFrame.GroupTransparency = 1
+    end
     ListFrame.Visible = false
     ListFrame.Parent = Frame
     Instance.new("UICorner", ListFrame).CornerRadius = UDim.new(0, 6)
+
+    local ListStroke = Instance.new("UIStroke", ListFrame)
+    ListStroke.Color = Color3.fromRGB(48, 48, 56)
+    ListStroke.Thickness = 1
+
+    local ListPad = Instance.new("UIPadding", ListFrame)
+    ListPad.PaddingTop = UDim.new(0, 2)
+    ListPad.PaddingBottom = UDim.new(0, 2)
 
     local ListLayout = Instance.new("UIListLayout")
     ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
     ListLayout.Parent = ListFrame
 
     local isOpen = false
+    local optionButtons = {}
+
+    local function UpdateOptionColors()
+        for optName, btn in pairs(optionButtons) do
+            local isSel = (optName == currentVal)
+            btn.TextColor3 = isSel and (Theme.AccentOn or Color3.fromRGB(0, 255, 136)) or Theme.TextWhite
+            btn.Font = isSel and Theme.FontBold or Theme.Font
+        end
+    end
+
+    local function ToggleDropdown(forceClose)
+        if forceClose then
+            isOpen = false
+        else
+            isOpen = not isOpen
+        end
+
+        if isOpen then
+            ListFrame.Visible = true
+            TweenService:Create(Arrow, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Rotation = 180,
+                TextColor3 = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+            }):Play()
+            TweenService:Create(DropStroke, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Color = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+            }):Play()
+            TweenService:Create(Frame, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Size = UDim2.new(1, 0, 0, 35 + totalHeight + 4)
+            }):Play()
+            TweenService:Create(ListFrame, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, dropWidth, 0, totalHeight)
+            }):Play()
+            if useCanvasGroup then
+                TweenService:Create(ListFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    GroupTransparency = 0
+                }):Play()
+            end
+        else
+            TweenService:Create(Arrow, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Rotation = 0,
+                TextColor3 = Theme.TextDark
+            }):Play()
+            TweenService:Create(DropStroke, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Color = Color3.fromRGB(50, 50, 58)
+            }):Play()
+            local twFrame = TweenService:Create(Frame, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Size = UDim2.new(1, 0, 0, 35)
+            })
+            twFrame:Play()
+            TweenService:Create(ListFrame, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, dropWidth, 0, 0)
+            }):Play()
+            if useCanvasGroup then
+                TweenService:Create(ListFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    GroupTransparency = 1
+                }):Play()
+            end
+            twFrame.Completed:Connect(function()
+                if not isOpen then
+                    ListFrame.Visible = false
+                end
+            end)
+        end
+    end
 
     local tabName = nil
     for name, tab in pairs(Tabs) do
@@ -4300,7 +4465,9 @@ local function CreateDropdown(parent, text, settingKey, options, callback)
 
     UI_Elements[settingKey] = {
         SetValue = function(val)
+            currentVal = val
             ValLabel.Text = val
+            UpdateOptionColors()
             if callback then callback(val) end
         end
     }
@@ -4310,47 +4477,44 @@ local function CreateDropdown(parent, text, settingKey, options, callback)
 
     for _, opt in ipairs(options) do
         local OptBtn = Instance.new("TextButton")
-        OptBtn.Size = UDim2.new(1, 0, 0, 25)
+        OptBtn.Size = UDim2.new(1, 0, 0, 26)
         OptBtn.BackgroundTransparency = 1
+        OptBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+        OptBtn.BorderSizePixel = 0
         OptBtn.Text = opt
-        OptBtn.TextColor3 = Theme.TextWhite
-        OptBtn.Font = Theme.Font
+        OptBtn.TextColor3 = (opt == currentVal) and (Theme.AccentOn or Color3.fromRGB(0, 255, 136)) or Theme.TextWhite
+        OptBtn.Font = (opt == currentVal) and Theme.FontBold or Theme.Font
         OptBtn.TextSize = 12
         OptBtn.Parent = ListFrame
+        Instance.new("UICorner", OptBtn).CornerRadius = UDim.new(0, 4)
+
+        optionButtons[opt] = OptBtn
+
+        OptBtn.MouseEnter:Connect(function()
+            TweenService:Create(OptBtn, TweenInfo.new(0.15), {
+                BackgroundTransparency = 0.6,
+                TextColor3 = Color3.fromRGB(255, 255, 255)
+            }):Play()
+        end)
+        OptBtn.MouseLeave:Connect(function()
+            local isSel = (opt == currentVal)
+            TweenService:Create(OptBtn, TweenInfo.new(0.15), {
+                BackgroundTransparency = 1,
+                TextColor3 = isSel and (Theme.AccentOn or Color3.fromRGB(0, 255, 136)) or Theme.TextWhite
+            }):Play()
+        end)
 
         OptBtn.MouseButton1Click:Connect(function()
+            currentVal = opt
             ValLabel.Text = opt
-            isOpen = false
-            Arrow.Text = "v"
-            local tw = TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)})
-            tw:Play()
-            tw.Completed:Connect(function()
-                if not isOpen then
-                    ListFrame.Visible = false
-                end
-            end)
+            UpdateOptionColors()
+            ToggleDropdown(true)
             if callback then callback(opt) end
         end)
     end
 
     Dropbox.MouseButton1Click:Connect(function()
-        isOpen = not isOpen
-        if isOpen then
-            ListFrame.Visible = true
-            TweenService:Create(Frame, TweenInfo.new(0.2), {
-                Size = UDim2.new(1, 0, 0, 35 + (#options * 25))
-            }):Play()
-            Arrow.Text = "^"
-        else
-            Arrow.Text = "v"
-            local tw = TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)})
-            tw:Play()
-            tw.Completed:Connect(function()
-                if not isOpen then
-                    ListFrame.Visible = false
-                end
-            end)
-        end
+        ToggleDropdown()
     end)
 end
 

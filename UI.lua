@@ -2082,7 +2082,7 @@ if hideHitboxToggleFrame then
 end
 
 local PanelAimbotSet = CreatePanel(TabAimbot, "Exploits", "", 0.5, 0, 0.5, 1)
-CreateToggle(PanelAimbotSet, "Kill Aura", Theme.DotRed, "AutoFire", function(v) Settings.AutoFire = v end)
+CreateToggleWithKeybind(PanelAimbotSet, "Kill Aura", Theme.DotRed, "AutoFire", "AutoFireHotkey", function(v) Settings.AutoFire = v end, function(v) Settings.AutoFireHotkey = v end)
 CreateToggle(PanelAimbotSet, "Wall Check ", Theme.DotRed, "AutoFireWallCheck", function(v) Settings.AutoFireWallCheck = v end)
 CreateToggle(PanelAimbotSet, 'Slient Aim <font color="#ff3333">[BETA]</font>', Theme.DotRed, "AutoFireHoldM2", function(v) Settings.AutoFireHoldM2 = v end)
 CreateToggleWithKeybind(PanelAimbotSet, 'NO RECOIL <font color="#ff3333">[BETA]</font>', Theme.DotRed, "NoRecoil", "NoRecoilHotkey", function(v) Settings.NoRecoil = v end, function(v) Settings.NoRecoilHotkey = v end)
@@ -2568,7 +2568,7 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         Settings.AutoFire = not Settings.AutoFire
         if UI_Elements.AutoFire then UI_Elements.AutoFire.SetValue(Settings.AutoFire) end
         UpdateTabDots()
-        SendNotification("Hotkey", "Auto Fire: " .. (Settings.AutoFire and "BẬT" or "TẮT"))
+        SendNotification("Hotkey", "Kill Aura: " .. (Settings.AutoFire and "BẬT" or "TẮT"))
     elseif input.KeyCode == Settings.AutoTeleportHotkey and Settings.AutoTeleportHotkey ~= Enum.KeyCode.None then
         if not Settings.AutoTeleport and not CheckAndBypassCharacterAC("Auto Teleport") then
             return

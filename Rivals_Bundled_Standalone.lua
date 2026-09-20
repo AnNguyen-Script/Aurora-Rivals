@@ -4075,6 +4075,7 @@ local function CreateSlider(parent, text, settingKey, min, max, suffix, callback
             updateSlider(currentPos)
         end
     end)
+    return Frame
 end
 
 local function CreateButtonWithConfirm(parent, text, warningText, callback)
@@ -4136,17 +4137,24 @@ end
 -- XÂY DỰNG TABS
 -- ============================================================
 local PanelAimbot = CreatePanel(TabAimbot, "Aimbot", "", 0, 0, 0.5, 1)
+local fovSliderFrame = nil
 CreateToggleWithDropdown(PanelAimbot, "Enable Aimbot", Theme.DotGreen, "AimEnabled", "TargetPart", {"Head", "HumanoidRootPart", "Safe"}, function(v) 
-    Settings.AimEnabled = v 
+    Settings.AimEnabled = v
+    if fovSliderFrame then
+        fovSliderFrame.Visible = (v == true)
+    end
 end, function(v) 
     Settings.TargetPart = v
     Settings.ProAimTargetPart = v
 end)
-CreateSlider(PanelAimbot, "FOV Size", "FOV", 10, 500, " px", function(v)
+fovSliderFrame = CreateSlider(PanelAimbot, "FOV Size", "FOV", 10, 500, " px", function(v)
     Settings.FOV = v
     Settings.ProAimFOV = v
     FOVring.Radius = v
 end)
+if fovSliderFrame then
+    fovSliderFrame.Visible = (Settings.AimEnabled == true)
+end
 CreateToggle(PanelAimbot, "Aim Safe", Theme.DotGreen, "AimSafe", function(v) Settings.AimSafe = v end)
 CreateToggle(PanelAimbot, "Draw FOV", Theme.DotGreen, "FOVVisible", function(v)
     Settings.FOVVisible = v

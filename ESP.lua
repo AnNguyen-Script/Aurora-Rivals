@@ -551,8 +551,8 @@ Players.PlayerRemoving:Connect(removeESP)
                                 if esp.Info.Text ~= esp._cachedInfoText then
                                     esp.Info.Text = esp._cachedInfoText
                                 end
-                                local offsetY = (Settings.ESPName or Settings.ESPDistance) and -32 or -18
-                                esp.Info.Position = Vector2.new(rootPos.X, headPos.Y + offsetY)
+                                -- Hiển thị Lv & Weapon ở dưới đáy Box (legPos.Y + 2) để không bị trùng tên trên đầu
+                                esp.Info.Position = Vector2.new(rootPos.X, legPos.Y + 2)
                                 if not esp.Info.Visible then esp.Info.Visible = true end
                             else
                                 if esp.Info.Visible then esp.Info.Visible = false end

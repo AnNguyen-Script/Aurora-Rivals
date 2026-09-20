@@ -2020,7 +2020,7 @@ end, function(v)
     Settings.ProAimTargetPart = v
 end)
 
-fovSliderFrame = CreateSlider(PanelAimbot, "FOV Size", "FOV", 10, 500, " px", function(v)
+fovSliderFrame = CreateSlider(PanelAimbot, "FOV Size", "FOV", 10, 1000, " px", function(v)
     Settings.FOV = v
     Settings.ProAimFOV = v
     FOVring.Radius = v

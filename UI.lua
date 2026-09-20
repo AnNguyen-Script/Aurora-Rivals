@@ -940,9 +940,10 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
 
     local ListFrame = Instance.new("Frame")
     ListFrame.Size = UDim2.new(0, 75, 0, #options * 25)
-    ListFrame.Position = UDim2.new(1, -125, 0, 32)
+    ListFrame.Position = UDim2.new(1, -125, 0, 35)
     ListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 33)
     ListFrame.BorderSizePixel = 0
+    ListFrame.Visible = false
     ListFrame.Parent = Frame
     Instance.new("UICorner", ListFrame).CornerRadius = UDim.new(0, 6)
 
@@ -965,8 +966,14 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
         OptBtn.MouseButton1Click:Connect(function()
             ValLabel.Text = opt
             isOpen = false
-            TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)}):Play()
             Arrow.Text = "v"
+            local tw = TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)})
+            tw:Play()
+            tw.Completed:Connect(function()
+                if not isOpen then
+                    ListFrame.Visible = false
+                end
+            end)
             if dropCb then dropCb(opt) end
         end)
     end
@@ -974,13 +981,20 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
     Dropbox.MouseButton1Click:Connect(function()
         isOpen = not isOpen
         if isOpen then
+            ListFrame.Visible = true
             TweenService:Create(Frame, TweenInfo.new(0.2), {
                 Size = UDim2.new(1, 0, 0, 35 + (#options * 25))
             }):Play()
             Arrow.Text = "^"
         else
-            TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)}):Play()
             Arrow.Text = "v"
+            local tw = TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)})
+            tw:Play()
+            tw.Completed:Connect(function()
+                if not isOpen then
+                    ListFrame.Visible = false
+                end
+            end)
         end
     end)
 
@@ -1282,9 +1296,10 @@ local function CreateDropdown(parent, text, settingKey, options, callback)
 
     local ListFrame = Instance.new("Frame")
     ListFrame.Size = UDim2.new(0, 100, 0, #options * 25)
-    ListFrame.Position = UDim2.new(1, -100, 0, 32)
+    ListFrame.Position = UDim2.new(1, -100, 0, 35)
     ListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 33)
     ListFrame.BorderSizePixel = 0
+    ListFrame.Visible = false
     ListFrame.Parent = Frame
     Instance.new("UICorner", ListFrame).CornerRadius = UDim.new(0, 6)
 
@@ -1329,8 +1344,14 @@ local function CreateDropdown(parent, text, settingKey, options, callback)
         OptBtn.MouseButton1Click:Connect(function()
             ValLabel.Text = opt
             isOpen = false
-            TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)}):Play()
             Arrow.Text = "v"
+            local tw = TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)})
+            tw:Play()
+            tw.Completed:Connect(function()
+                if not isOpen then
+                    ListFrame.Visible = false
+                end
+            end)
             if callback then callback(opt) end
         end)
     end
@@ -1338,13 +1359,20 @@ local function CreateDropdown(parent, text, settingKey, options, callback)
     Dropbox.MouseButton1Click:Connect(function()
         isOpen = not isOpen
         if isOpen then
+            ListFrame.Visible = true
             TweenService:Create(Frame, TweenInfo.new(0.2), {
                 Size = UDim2.new(1, 0, 0, 35 + (#options * 25))
             }):Play()
             Arrow.Text = "^"
         else
-            TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)}):Play()
             Arrow.Text = "v"
+            local tw = TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 35)})
+            tw:Play()
+            tw.Completed:Connect(function()
+                if not isOpen then
+                    ListFrame.Visible = false
+                end
+            end)
         end
     end)
 end

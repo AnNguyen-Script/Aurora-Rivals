@@ -253,6 +253,7 @@ Shared.Settings = {
 
     ToggleKeybind = Enum.KeyCode.Insert,
     Spectating = false, SpectatePlayer = "",
+    KeybindsOverlay = true,
     ThemeName = "Dark",
     AimHotkey = Enum.KeyCode.N,
     AutoFireHotkey = Enum.KeyCode.M,
@@ -2572,14 +2573,26 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = parentGui
 ProtectInstance(ScreenGui)
 
-MainFrame = Instance.new("Frame")
+local useCanvasGroup = false
+local okCg, testCg = pcall(function() return Instance.new("CanvasGroup") end)
+if okCg and testCg then
+    useCanvasGroup = true
+    pcall(function() testCg:Destroy() end)
+end
+
+MainFrame = Instance.new(useCanvasGroup and "CanvasGroup" or "Frame")
 MainFrame.Name = RandomString(8)
 MainFrame.Size = UDim2.new(0, 650, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -325, 0.5, -210)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.BackgroundColor3 = Theme.MainBg
 MainFrame.BorderSizePixel = 0
 MainFrame.Visible = true
 MainFrame.Parent = ScreenGui
+
+local MainScale = Instance.new("UIScale")
+MainScale.Scale = 1.0
+MainScale.Parent = MainFrame
 
 MainStroke = Instance.new("UIStroke")
 MainStroke.Color = Color3.fromRGB(45, 45, 50)
@@ -2798,7 +2811,7 @@ CloseBtn.TextColor3 = Theme.TextDark
 CloseBtn.Font = Theme.Font
 CloseBtn.TextSize = 14
 CloseBtn.Parent = TopBar
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+CloseBtn.MouseButton1Click:Connect(function() if ToggleMenu then ToggleMenu(false) else MainFrame.Visible = false end end)
 
 -- SIDEBAR & TABS
 local Sidebar = Instance.new("Frame")
@@ -2809,6 +2822,230 @@ Sidebar.Visible = true
 Sidebar.Parent = MainFrame
 
 do local l = Instance.new("Frame", Sidebar); l.Size = UDim2.new(0, 1, 1, 0); l.Position = UDim2.new(1, -1, 0, 0); l.BackgroundColor3 = Color3.fromRGB(35, 35, 40); l.BorderSizePixel = 0 end
+
+-- ============================================================
+-- PROFILE CARD & REAL-TIME MONITOR (GÓC DƯỚI SIDEBAR)
+-- ============================================================
+local ProfileCard = Instance.new("Frame")
+ProfileCard.Name = "ProfileCard"
+ProfileCard.Size = UDim2.new(1, -8, 0, 95)
+ProfileCard.Position = UDim2.new(0, 4, 1, -145)
+ProfileCard.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+ProfileCard.BackgroundTransparency = 0.25
+ProfileCard.BorderSizePixel = 0
+ProfileCard.Parent = Sidebar
+Instance.new("UICorner", ProfileCard).CornerRadius = UDim.new(0, 8)
+
+local PCStroke = Instance.new("UIStroke", ProfileCard)
+PCStroke.Color = Color3.fromRGB(40, 40, 48)
+PCStroke.Thickness = 1
+
+local AvatarImg = Instance.new("ImageLabel")
+AvatarImg.Name = "Avatar"
+AvatarImg.Size = UDim2.new(0, 28, 0, 28)
+AvatarImg.Position = UDim2.new(0.5, -14, 0, 6)
+AvatarImg.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+AvatarImg.BorderSizePixel = 0
+AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(LocalPlayer.UserId) .. "&w=100&h=100"
+AvatarImg.Parent = ProfileCard
+Instance.new("UICorner", AvatarImg).CornerRadius = UDim.new(1, 0)
+
+local OnlineDot = Instance.new("Frame")
+OnlineDot.Size = UDim2.new(0, 7, 0, 7)
+OnlineDot.Position = UDim2.new(1, -6, 1, -6)
+OnlineDot.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+OnlineDot.BorderSizePixel = 0
+OnlineDot.Parent = AvatarImg
+Instance.new("UICorner", OnlineDot).CornerRadius = UDim.new(1, 0)
+
+local ProfileName = Instance.new("TextLabel")
+ProfileName.Name = "Name"
+ProfileName.Size = UDim2.new(1, -4, 0, 14)
+ProfileName.Position = UDim2.new(0, 2, 0, 36)
+ProfileName.BackgroundTransparency = 1
+ProfileName.Font = Theme.FontBold
+ProfileName.TextSize = 8
+ProfileName.TextColor3 = Theme.TextWhite
+ProfileName.TextScaled = true
+ProfileName.Text = LocalPlayer.DisplayName
+ProfileName.Parent = ProfileCard
+
+local PCDivider = Instance.new("Frame")
+PCDivider.Size = UDim2.new(0.8, 0, 0, 1)
+PCDivider.Position = UDim2.new(0.1, 0, 0, 52)
+PCDivider.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+PCDivider.BorderSizePixel = 0
+PCDivider.Parent = ProfileCard
+
+local FPSLabel = Instance.new("TextLabel")
+FPSLabel.Name = "FPS"
+FPSLabel.Size = UDim2.new(1, 0, 0, 16)
+FPSLabel.Position = UDim2.new(0, 0, 0, 55)
+FPSLabel.BackgroundTransparency = 1
+FPSLabel.Font = Theme.Font
+FPSLabel.TextSize = 9
+FPSLabel.RichText = true
+FPSLabel.Text = "<font color=\"#00ff88\"><b>60</b></font><font size=\"7\" color=\"#777788\"> FPS</font>"
+FPSLabel.Parent = ProfileCard
+
+local PingLabel = Instance.new("TextLabel")
+PingLabel.Name = "Ping"
+PingLabel.Size = UDim2.new(1, 0, 0, 16)
+PingLabel.Position = UDim2.new(0, 0, 0, 73)
+PingLabel.BackgroundTransparency = 1
+PingLabel.Font = Theme.Font
+PingLabel.TextSize = 9
+PingLabel.RichText = true
+PingLabel.Text = "<font color=\"#00d8ff\"><b>--</b></font><font size=\"7\" color=\"#777788\"> ms</font>"
+PingLabel.Parent = ProfileCard
+
+-- ============================================================
+-- BẢNG TRẠNG THÁI PHÍM TẮT NỔI (KEYBINDS OVERLAY WIDGET)
+-- ============================================================
+local KeybindsOverlay = Instance.new("Frame")
+KeybindsOverlay.Name = "KeybindsOverlay"
+KeybindsOverlay.Size = UDim2.new(0, 195, 0, 130)
+KeybindsOverlay.Position = UDim2.new(0, 20, 0.45, 0)
+KeybindsOverlay.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+KeybindsOverlay.BackgroundTransparency = 0.2
+KeybindsOverlay.BorderSizePixel = 0
+KeybindsOverlay.Visible = (Settings.KeybindsOverlay ~= false)
+KeybindsOverlay.Parent = ScreenGui
+Instance.new("UICorner", KeybindsOverlay).CornerRadius = UDim.new(0, 8)
+
+local KBStroke = Instance.new("UIStroke", KeybindsOverlay)
+KBStroke.Color = Color3.fromRGB(45, 45, 55)
+KBStroke.Thickness = 1
+
+local KBHeader = Instance.new("Frame", KeybindsOverlay)
+KBHeader.Size = UDim2.new(1, 0, 0, 26)
+KBHeader.BackgroundTransparency = 1
+
+local KBTitle = Instance.new("TextLabel", KBHeader)
+KBTitle.Size = UDim2.new(1, -12, 1, 0)
+KBTitle.Position = UDim2.new(0, 10, 0, 0)
+KBTitle.BackgroundTransparency = 1
+KBTitle.Text = "KEYBINDS"
+KBTitle.TextColor3 = Color3.fromRGB(200, 200, 215)
+KBTitle.Font = Theme.FontBold
+KBTitle.TextSize = 11
+KBTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local KBDivider = Instance.new("Frame", KeybindsOverlay)
+KBDivider.Size = UDim2.new(1, -16, 0, 1)
+KBDivider.Position = UDim2.new(0, 8, 0, 26)
+KBDivider.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+KBDivider.BorderSizePixel = 0
+
+local KBList = Instance.new("Frame", KeybindsOverlay)
+KBList.Size = UDim2.new(1, -16, 1, -32)
+KBList.Position = UDim2.new(0, 8, 0, 30)
+KBList.BackgroundTransparency = 1
+
+local KBLayout = Instance.new("UIListLayout", KBList)
+KBLayout.SortOrder = Enum.SortOrder.LayoutOrder
+KBLayout.Padding = UDim.new(0, 3)
+
+MakeDraggable(KBHeader, KeybindsOverlay)
+
+local kbEntries = {
+    {name = "Aimlock", getActive = function() return Settings.AimEnabled or Settings.ProAimEnabled end, getKey = function() return (Settings.AimHotkey and Settings.AimHotkey ~= Enum.KeyCode.None) and Settings.AimHotkey.Name or "MB2" end},
+    {name = "Hitbox Expander", getActive = function() return Settings.HitboxExpander end, getKey = function() return "H" end},
+    {name = "No Recoil", getActive = function() return Settings.NoRecoil end, getKey = function() return (Settings.NoRecoilHotkey and Settings.NoRecoilHotkey.Name) or "F1" end},
+    {name = "Auto Fire", getActive = function() return Settings.AutoFire end, getKey = function() return (Settings.AutoFireHotkey and Settings.AutoFireHotkey.Name) or "M" end},
+    {name = "Auto Teleport", getActive = function() return Settings.AutoTeleport end, getKey = function() return (Settings.AutoTeleportHotkey and Settings.AutoTeleportHotkey.Name) or "E" end},
+    {name = "Speed Teleport", getActive = function() return Settings.SpeedTele end, getKey = function() return (Settings.SpeedTeleHotkey and Settings.SpeedTeleHotkey.Name) or "T" end},
+    {name = "Underground", getActive = function() return Settings.UndergroundNoclip end, getKey = function() return (Settings.UndergroundHotkey and Settings.UndergroundHotkey.Name) or "Q" end},
+    {name = "Spinbot", getActive = function() return Settings.SpinBot end, getKey = function() return "C" end},
+}
+
+local kbRowPool = {}
+local function UpdateKeybindsOverlay()
+    if not KeybindsOverlay.Visible then return end
+    local count = 0
+    for i, entry in ipairs(kbEntries) do
+        local isActive = entry.getActive()
+        local keyText = entry.getKey()
+        local row = kbRowPool[i]
+        if not row then
+            row = Instance.new("Frame")
+            row.Size = UDim2.new(1, 0, 0, 18)
+            row.BackgroundTransparency = 1
+            row.Parent = KBList
+
+            local nameLbl = Instance.new("TextLabel", row)
+            nameLbl.Name = "NameLbl"
+            nameLbl.Size = UDim2.new(0.62, 0, 1, 0)
+            nameLbl.BackgroundTransparency = 1
+            nameLbl.Font = Theme.Font
+            nameLbl.TextSize = 10
+            nameLbl.TextColor3 = Color3.fromRGB(180, 180, 190)
+            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+            local statusLbl = Instance.new("TextLabel", row)
+            statusLbl.Name = "StatusLbl"
+            statusLbl.Size = UDim2.new(0.38, 0, 1, 0)
+            statusLbl.Position = UDim2.new(0.62, 0, 0, 0)
+            statusLbl.BackgroundTransparency = 1
+            statusLbl.Font = Theme.FontBold
+            statusLbl.TextSize = 10
+            statusLbl.RichText = true
+            statusLbl.TextXAlignment = Enum.TextXAlignment.Right
+
+            kbRowPool[i] = row
+        end
+
+        row.NameLbl.Text = entry.name
+        if isActive then
+            row.StatusLbl.Text = string.format("<font color=\"#00ff88\">[ON]</font> <font color=\"#888899\">(%s)</font>", keyText)
+        else
+            row.StatusLbl.Text = string.format("<font color=\"#ff4455\">[OFF]</font> <font color=\"#888899\">(%s)</font>", keyText)
+        end
+        row.Visible = true
+        count = count + 1
+    end
+    KeybindsOverlay.Size = UDim2.new(0, 195, 0, 36 + count * 21)
+end
+
+-- Monitor FPS & Ping Loop
+task.spawn(function()
+    local RunService = game:GetService("RunService")
+    local StatsService = game:GetService("Stats")
+    local fpsCount = 0
+    local fpsTimer = tick()
+    local lastPingCheck = 0
+    local currentPing = "--"
+
+    RunService.RenderStepped:Connect(function()
+        fpsCount = fpsCount + 1
+        local now = tick()
+        if now - fpsTimer >= 0.5 then
+            local currentFPS = math.floor(fpsCount / math.max(now - fpsTimer, 0.001))
+            fpsCount = 0
+            fpsTimer = now
+
+            if now - lastPingCheck >= 1 then
+                lastPingCheck = now
+                pcall(function()
+                    local pingItem = StatsService.Network.ServerStatsItem["Data Ping"]
+                    if pingItem then
+                        currentPing = tostring(math.floor(pingItem:GetValue()))
+                    end
+                end)
+            end
+
+            local fpsCol = (currentFPS >= 50) and "#00ff88" or ((currentFPS >= 30) and "#ffaa00" or "#ff4455")
+            FPSLabel.Text = string.format("<font color=\"%s\"><b>%d</b></font><font size=\"7\" color=\"#777788\"> FPS</font>", fpsCol, currentFPS)
+
+            local pingNum = tonumber(currentPing) or 0
+            local pingCol = (pingNum <= 70) and "#00d8ff" or ((pingNum <= 150) and "#ffaa00" or "#ff4455")
+            PingLabel.Text = string.format("<font color=\"%s\"><b>%s</b></font><font size=\"7\" color=\"#777788\"> ms</font>", pingCol, currentPing)
+
+            UpdateKeybindsOverlay()
+        end
+    end)
+end)
+
 
 local ContentArea = Instance.new("Frame")
 ContentArea.Size = UDim2.new(1, -60, 1, -50)
@@ -4738,6 +4975,11 @@ end)
 
 local PanelSettings = CreatePanel(TabSecurity, "Bảo Mật", "", 0.5, 0, 0.5, 1)
 CreateKeybind(PanelSettings, "Phím Ẩn/Hiện Menu", "ToggleKeybind", function(key) Settings.ToggleKeybind = key end)
+CreateToggle(PanelSettings, "Bảng Phím Tắt (Keybinds Overlay)", Theme.DotGreen, "KeybindsOverlay", function(v)
+    Settings.KeybindsOverlay = v
+    KeybindsOverlay.Visible = v
+    if v then UpdateKeybindsOverlay() end
+end)
 
 local function RejoinServer()
     SendNotification("🔄 Set Prosers", "Đang kết nối lại Server...")
@@ -4791,21 +5033,60 @@ do
     BtnRejoin.MouseButton1Click:Connect(RejoinServer)
 end
 
--- Toggle UI với slide animation (Chặn mở Menu khi chưa check key/kết nối)
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if not gpe and input.KeyCode == Settings.ToggleKeybind then
+-- ============================================================
+-- TOGGLE MENU VỚI HIỆU ỨNG SCALE & FADE SIÊU MƯỢT (0.95 -> 1.0)
+-- ============================================================
+local isMenuOpen = true
+local isMenuAnimating = false
 
+local function ToggleMenu(forceState)
+    if isMenuAnimating then return end
+    local targetState = (forceState ~= nil) and forceState or (not isMenuOpen)
+    if targetState == isMenuOpen then return end
 
-        if MainFrame.Visible then
-            TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
-                {Position = UDim2.new(0.5, -325, 1.5, 0)}):Play()
-            task.delay(0.3, function() MainFrame.Visible = false end)
-        else
-            MainFrame.Position = UDim2.new(0.5, -325, 1.5, 0)
-            MainFrame.Visible = true
-            TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
-                {Position = UDim2.new(0.5, -325, 0.5, -210)}):Play()
+    isMenuAnimating = true
+    isMenuOpen = targetState
+
+    if isMenuOpen then
+        MainFrame.Visible = true
+        MainScale.Scale = 0.95
+        if useCanvasGroup then
+            MainFrame.GroupTransparency = 1
+            TweenService:Create(MainFrame, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                GroupTransparency = 0
+            }):Play()
         end
+        TweenService:Create(MainScale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Scale = 1.0
+        }):Play()
+
+        task.delay(0.28, function()
+            isMenuAnimating = false
+        end)
+    else
+        if useCanvasGroup then
+            TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                GroupTransparency = 1
+            }):Play()
+        end
+        TweenService:Create(MainScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Scale = 0.95
+        }):Play()
+
+        task.delay(0.2, function()
+            MainFrame.Visible = false
+            MainScale.Scale = 1.0
+            if useCanvasGroup then
+                MainFrame.GroupTransparency = 0
+            end
+            isMenuAnimating = false
+        end)
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and (input.KeyCode == Settings.ToggleKeybind or input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.Insert) then
+        ToggleMenu()
     end
 end)
 

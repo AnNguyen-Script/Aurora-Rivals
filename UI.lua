@@ -396,11 +396,13 @@ AFL_Layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 AFL_Layout.VerticalAlignment = Enum.VerticalAlignment.Top
 
 local featureConfigs = {
-    {name = "Aimbot Mouse", get = function() return Settings.AimEnabled end},
-    {name = "Aimbot Safe", get = function() return Settings.ProAimEnabled end},
+    {name = "Aimbot", get = function() return Settings.AimEnabled end},
+    {name = "Aimlock", get = function() return Settings.ProAimEnabled end},
+    {name = "Aim Safe", get = function() return Settings.AimSafe end},
     {name = "Hitbox Expander", get = function() return Settings.HitboxExpander end},
     {name = "No Recoil", get = function() return Settings.NoRecoil end},
-    {name = "Auto Fire", get = function() return Settings.AutoFire end},
+    {name = "Kill Aura", get = function() return Settings.AutoFire end},
+    {name = "Silent Aim", get = function() return Settings.AutoFireHoldM2 end},
     {name = "Auto Teleport", get = function() return Settings.AutoTeleport end},
     {name = "Speed Teleport", get = function() return Settings.SpeedTele end},
     {name = "Underground", get = function() return Settings.UndergroundNoclip end},
@@ -425,22 +427,21 @@ for idx, feat in ipairs(featureConfigs) do
     badge.Parent = ActiveFeaturesList
     Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 2)
 
-    local leftBar = Instance.new("Frame", badge)
+    -- Vạch trắng mép trái cố định X = 2, không bị UIPadding đẩy lệch
+    local leftBar = Instance.new("Frame")
+    leftBar.Name = "LeftBar"
     leftBar.Size = UDim2.new(0, 3, 1, -4)
     leftBar.Position = UDim2.new(0, 2, 0, 2)
     leftBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     leftBar.BorderSizePixel = 0
+    leftBar.Parent = badge
 
-    local pad = Instance.new("UIPadding", badge)
-    pad.PaddingLeft = UDim.new(0, 11)
-    pad.PaddingRight = UDim.new(0, 10)
-    pad.PaddingTop = UDim.new(0, 0)
-    pad.PaddingBottom = UDim.new(0, 0)
-
-    local txt = Instance.new("TextLabel", badge)
+    -- Text chữ bắt đầu từ X = 12 (cách vạch trắng 7px), hoàn toàn không bị che khuất chữ đầu tiên
+    local txt = Instance.new("TextLabel")
     txt.Name = "Title"
     txt.AutomaticSize = Enum.AutomaticSize.X
     txt.Size = UDim2.new(0, 0, 1, 0)
+    txt.Position = UDim2.new(0, 12, 0, 0)
     txt.BackgroundTransparency = 1
     txt.Font = Enum.Font.Code
     txt.TextSize = 13
@@ -448,6 +449,11 @@ for idx, feat in ipairs(featureConfigs) do
     txt.Text = feat.name
     txt.TextXAlignment = Enum.TextXAlignment.Left
     txt.TextYAlignment = Enum.TextYAlignment.Center
+    txt.Parent = badge
+
+    -- Padding phải để khung không bị cộc ở đuôi chữ
+    local textPad = Instance.new("UIPadding", txt)
+    textPad.PaddingRight = UDim.new(0, 10)
 
     featureBadges[idx] = {badge = badge, feat = feat}
 end

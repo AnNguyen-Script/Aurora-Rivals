@@ -1375,6 +1375,7 @@ local ESPTable = {}
     local cachedClosestValid = 0
     local ProAimLockedTarget = nil
     local ProAimLockedChar = nil
+    local ProAimLastVisibleTime = 0
     local ProAimAccumX = 0
     local ProAimAccumY = 0
     local lastTargetSwitch = 0
@@ -1475,8 +1476,8 @@ local ESPTable = {}
         end
     end
 
-    -- Helper kiểm tra mục tiêu đã khóa còn sống và hợp lệ không
-    local function isLockedTargetValid(part, char)
+    -- Helper kiểm tra mục tiêu đã khóa còn sống và hợp lệ không (kèm 0.2s Grace Period chống mất dấu)
+    local function isLockedTargetValid(part, char, currentTime)
         if not part or not part.Parent or not char or not char.Parent then
             return false
         end
@@ -1506,19 +1507,33 @@ local ESPTable = {}
         local mousePos = UserInputService:GetMouseLocation()
         local dx = screenPos.X - mousePos.X
         local dy = screenPos.Y - mousePos.Y
-        local fov = (Settings.FOV or Settings.ProAimFOV or 120) * 1.6
+        local fov = (Settings.FOV or Settings.ProAimFOV or 120) * 1.8
         if (dx * dx + dy * dy) > (fov * fov) then
             return false
         end
+
+        -- WallCheck với Bộ đệm duy trì mục tiêu 0.2s (Sticky Grace Period)
         if Settings.WallCheck and WallCheck then
             if not WallCheck(part) then
-                return false
+                -- Nếu vừa bị khuất sau vật cản mỏng/người khác: cho phép duy trì tối đa 0.2 giây
+                if (currentTime - ProAimLastVisibleTime) > 0.2 then
+                    return false
+                end
+            else
+                ProAimLastVisibleTime = currentTime
             end
+        else
+            ProAimLastVisibleTime = currentTime
         end
         return true
     end
 
-    -- 2.5 PRO AIM (Aimlock using mousemoverel & Smoothness - Khử giật, dính mượt, ổn định xương & đón đầu vận tốc)
+    -- 2.5 PRO AIM (Aimlock using mousemoverel - Siêu Dính & Siêu Mượt)
+    -- [1] Lực hút Nam châm thích ứng (Adaptive Magnetism)
+    -- [2] Bám vận tốc góc màn hình (Angular Velocity Feed-Forward)
+    -- [3] Bù trừ độ nhạy chuột Roblox (Sensitivity-Aware Scaling)
+    -- [4] Bộ đệm duy trì mục tiêu 0.2s (Sticky Grace Period)
+    -- [5] Nội suy Hermite / Smoothstep tự nhiên, không giật khựng
     local isHolding = isProAimHolding
     if not isHolding and typeof(Settings.ProAimHoldMouse) == "EnumItem" then
         local bind = Settings.ProAimHoldMouse
@@ -1532,8 +1547,8 @@ local ESPTable = {}
     end
 
     if Settings.ProAimEnabled and isHolding then
-        -- 1. Giữ khóa dính mục tiêu (Sticky Lock): Chỉ đổi mục tiêu khi mục tiêu cũ chết/khuất/ra ngoài tầm
-        if ProAimLockedTarget and not isLockedTargetValid(ProAimLockedTarget, ProAimLockedChar) then
+        -- 1. Giữ khóa dính mục tiêu (Sticky Lock): Kiểm tra mục tiêu kèm Grace Period
+        if ProAimLockedTarget and not isLockedTargetValid(ProAimLockedTarget, ProAimLockedChar, now) then
             ProAimLockedTarget = nil
             ProAimLockedChar = nil
             ProAimAccumX = 0
@@ -1547,12 +1562,13 @@ local ESPTable = {}
             if targetPart and targetScreenPos then
                 ProAimLockedTarget = targetPart
                 ProAimLockedChar = targetPart.Parent
+                ProAimLastVisibleTime = now
                 ProAimAccumX = 0
                 ProAimAccumY = 0
             end
         end
 
-        -- 3. Xử lý bám mục tiêu siêu mượt bằng mousemoverel
+        -- 3. Xử lý bám mục tiêu siêu dính & siêu mượt bằng mousemoverel
         if ProAimLockedTarget then
             local char = ProAimLockedChar or ProAimLockedTarget.Parent
             local rootPart = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
@@ -1563,13 +1579,15 @@ local ESPTable = {}
                 aimWorldPos = Vector3.new(rootPart.Position.X, ProAimLockedTarget.Position.Y, rootPart.Position.Z)
             end
 
-            -- Dự đoán chuyển động theo vận tốc (Velocity Prediction / Lead Aim)
+            -- Vận tốc mục tiêu (Velocity)
             local targetVel = (rootPart and rootPart.AssemblyLinearVelocity) or ProAimLockedTarget.AssemblyLinearVelocity or Vector3.zero
             if targetVel.Magnitude > 120 then
                 targetVel = targetVel.Unit * 120
             end
 
             local dt = math.clamp(step or 0.016, 0.001, 0.05)
+
+            -- Dự đoán trước vị trí mục tiêu (dt + bù trễ đầu vào ~0.02s)
             local predictedWorldPos = aimWorldPos + (targetVel * (dt + 0.02))
 
             local targetScreenPos, onScreen = Camera:WorldToViewportPoint(predictedWorldPos)
@@ -1586,21 +1604,53 @@ local ESPTable = {}
                 local distSq = deltaX * deltaX + deltaY * deltaY
                 local dist = math.sqrt(distSq)
 
-                -- Deadzone: Nếu khoảng cách < 1.2 pixel -> đã trúng tâm, ngưng kéo để triệt tiêu micro-jitter
-                if dist >= 1.2 then
+                -- [BÙ TRỪ ĐỘ NHẠY CHUỘT ROBLOX] Tự động cân bằng lực kéo theo MouseSensitivity
+                local sensCompensation = 1.0
+                pcall(function()
+                    local ugs = UserSettings():GetService("UserGameSettings")
+                    local sens = ugs.MouseSensitivity
+                    if sens and sens > 0.01 then
+                        sensCompensation = math.clamp(0.45 / sens, 0.35, 2.5)
+                    end
+                end)
+
+                -- [BÁM VẬN TỐC GÓC MÀN HÌNH - FEED-FORWARD] Bám sát theo từng pixel mục tiêu dạt ngang
+                local feedForwardX = 0
+                local feedForwardY = 0
+                if targetVel.Magnitude > 1 then
+                    local curScr = Camera:WorldToViewportPoint(aimWorldPos)
+                    local nextScr = Camera:WorldToViewportPoint(aimWorldPos + targetVel * dt)
+                    feedForwardX = (nextScr.X - curScr.X) * 0.85
+                    feedForwardY = (nextScr.Y - curScr.Y) * 0.85
+                end
+
+                -- [ĐƯỜNG CONG TỪ TÍNH & SMOOTHSTEP]
+                -- Deadzone: nếu khoảng cách < 0.8 pixel -> đã trúng tâm, giữ nguyên
+                if dist >= 0.8 then
                     local smoothFactor = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1)
-                    -- Exponential decay: tốc độ bám mục tiêu độc lập với FPS (Frame-Independent)
-                    local decayRate = 12 + (smoothFactor * 36)
-                    local alpha = 1 - math.exp(-decayRate * dt)
-                    alpha = math.clamp(alpha, 0.03, 0.85)
 
-                    -- Proximity Ease-Out: khi tâm gần mục tiêu (< 16px), giảm tốc êm ái chống văng lố (overshoot)
-                    local proximityEase = math.clamp(dist / 14, 0.35, 1.0)
+                    -- Tốc độ suy hao cơ bản độc lập với FPS
+                    local baseDecay = 16 + (smoothFactor * 40) -- range [16, 56]
+                    local alpha = 1 - math.exp(-baseDecay * dt)
+                    alpha = math.clamp(alpha, 0.04, 0.90)
 
-                    local stepMoveX = deltaX * alpha * proximityEase
-                    local stepMoveY = deltaY * alpha * proximityEase
+                    -- Lực hút nam châm thích ứng (Adaptive Magnetism):
+                    -- Khi khoảng cách <= 25px (chạm vào người đối thủ), tăng lực hút lên để dính chặt
+                    local magnetMult = 1.0
+                    if dist <= 25 then
+                        magnetMult = 1.0 + (1.0 - (dist / 25)) * 0.45 -- tăng tới 1.45x
+                    end
 
-                    -- Bộ tích lũy điểm ảnh phụ (Subpixel Accumulator) cho chuyển động chuột mượt mà tuyệt đối
+                    -- Nội suy Hermite / Smoothstep cho chuyển động tự nhiên
+                    local normDist = math.clamp(dist / 60, 0, 1)
+                    local smoothstepEase = normDist * normDist * (3 - 2 * normDist)
+                    local blendFactor = math.clamp(0.4 + smoothstepEase * 0.6, 0.4, 1.0)
+
+                    -- Tổng hợp lực kéo chuột
+                    local stepMoveX = ((deltaX * alpha * magnetMult * blendFactor) + (feedForwardX * magnetMult)) * sensCompensation
+                    local stepMoveY = ((deltaY * alpha * magnetMult * blendFactor) + (feedForwardY * magnetMult)) * sensCompensation
+
+                    -- Bộ tích lũy điểm ảnh phụ (Subpixel Accumulator) cho chuyển động mượt tuyệt đối
                     ProAimAccumX = ProAimAccumX + stepMoveX
                     ProAimAccumY = ProAimAccumY + stepMoveY
 

@@ -4177,17 +4177,28 @@ end
 if drawFovToggleFrame then
     drawFovToggleFrame.Visible = (Settings.AimEnabled == true)
 end
+local hitboxSizeSliderFrame = nil
+local hideHitboxToggleFrame = nil
+
 CreateToggleWithDropdown(PanelAimbot, "Hitbox Expander", Theme.DotGreen, "HitboxExpander", "HitboxPart", {"Head", "Torso"}, function(v)
     Settings.HitboxExpander = v
     if not v then ResetHitboxes() end
+    if hitboxSizeSliderFrame then
+        hitboxSizeSliderFrame.Visible = (v == true)
+    end
+    if hideHitboxToggleFrame then
+        hideHitboxToggleFrame.Visible = (v == true)
+    end
 end, function(v)
     Settings.HitboxPart = v
     ResetHitboxes()
 end)
-CreateSlider(PanelAimbot, "Hitbox Size", "HitboxSize", 2, 500, " studs", function(v)
+
+hitboxSizeSliderFrame = CreateSlider(PanelAimbot, "Hitbox Size", "HitboxSize", 2, 500, " studs", function(v)
     Settings.HitboxSize = v
 end)
-CreateToggle(PanelAimbot, "Hide Hitbox (Ẩn Khung)", Theme.DotGreen, "HitboxInvisible", function(v)
+
+hideHitboxToggleFrame = CreateToggle(PanelAimbot, "Hide Hitbox (Ẩn Khung)", Theme.DotGreen, "HitboxInvisible", function(v)
     Settings.HitboxInvisible = v
     for part, orig in pairs(originalHitboxes) do
         if part and part.Parent then
@@ -4198,16 +4209,35 @@ CreateToggle(PanelAimbot, "Hide Hitbox (Ẩn Khung)", Theme.DotGreen, "HitboxInv
     end
 end)
 
+if hitboxSizeSliderFrame then
+    hitboxSizeSliderFrame.Visible = (Settings.HitboxExpander == true)
+end
+if hideHitboxToggleFrame then
+    hideHitboxToggleFrame.Visible = (Settings.HitboxExpander == true)
+end
+
 local PanelAimbotSet = CreatePanel(TabAimbot, "Exploits", "", 0.5, 0, 0.5, 1)
 CreateToggle(PanelAimbotSet, "Kill Aura", Theme.DotRed, "AutoFire", function(v) Settings.AutoFire = v end)
 CreateToggle(PanelAimbotSet, "Wall Check ", Theme.DotRed, "AutoFireWallCheck", function(v) Settings.AutoFireWallCheck = v end)
 CreateToggle(PanelAimbotSet, 'Slient Aim <font color="#ff3333">[BETA]</font>', Theme.DotRed, "AutoFireHoldM2", function(v) Settings.AutoFireHoldM2 = v end)
 CreateToggleWithKeybind(PanelAimbotSet, 'NO RECOIL <font color="#ff3333">[BETA]</font>', Theme.DotRed, "NoRecoil", "NoRecoilHotkey", function(v) Settings.NoRecoil = v end, function(v) Settings.NoRecoilHotkey = v end)
-CreateToggleWithKeybind(PanelAimbotSet, "Aimlock", Theme.DotRed, "ProAimEnabled", "ProAimHoldMouse", function(v) Settings.ProAimEnabled = v end, function(v) Settings.ProAimHoldMouse = v end)
-CreateSlider(PanelAimbotSet, "Aimlock Smooth", "ProAimSmoothness", 0.01, 1, "", function(v)
+
+local aimlockSmoothSliderFrame = nil
+CreateToggleWithKeybind(PanelAimbotSet, "Aimlock", Theme.DotRed, "ProAimEnabled", "ProAimHoldMouse", function(v)
+    Settings.ProAimEnabled = v
+    if aimlockSmoothSliderFrame then
+        aimlockSmoothSliderFrame.Visible = (v == true)
+    end
+end, function(v) Settings.ProAimHoldMouse = v end)
+
+aimlockSmoothSliderFrame = CreateSlider(PanelAimbotSet, "Aimlock Smooth", "ProAimSmoothness", 0.01, 1, "", function(v)
     Settings.ProAimSmoothness = v
     Settings.AimSmoothness = v
 end)
+
+if aimlockSmoothSliderFrame then
+    aimlockSmoothSliderFrame.Visible = (Settings.ProAimEnabled == true)
+end
 
 local PanelESP = CreatePanel(TabESP, "ESP", "", 0, 0, 0.5, 1)
 CreateToggle(PanelESP, "Enable ESP", Theme.DotGreen, "ESPEnabled", function(v)

@@ -303,10 +303,24 @@ do local l = Instance.new("Frame", Sidebar); l.Size = UDim2.new(0, 1, 1, 0); l.P
 -- ============================================================
 -- PROFILE CARD & REAL-TIME MONITOR (GÓC PHẢI TRÊN TOPBAR, CẠNH NÚT X)
 -- ============================================================
+local TextService = game:GetService("TextService")
+local nameBounds = Vector2.new(200, 14)
+local nameW = 60
+pcall(function()
+    nameW = TextService:GetTextSize(LocalPlayer.DisplayName, 10, Theme.FontBold, nameBounds).X
+end)
+local monitorW = 75
+pcall(function()
+    monitorW = TextService:GetTextSize("999 FPS  999 ms", 9, Theme.Font, nameBounds).X
+end)
+local textWidth = math.max(nameW, monitorW)
+local cardWidth = math.clamp(4 + 22 + 5 + textWidth + 8, 95, 170)
+
 local ProfileCard = Instance.new("Frame")
 ProfileCard.Name = "ProfileCard"
-ProfileCard.Size = UDim2.new(0, 160, 0, 28)
-ProfileCard.Position = UDim2.new(1, -210, 0.5, -14)
+ProfileCard.AnchorPoint = Vector2.new(1, 0.5)
+ProfileCard.Size = UDim2.new(0, cardWidth, 0, 28)
+ProfileCard.Position = UDim2.new(1, -48, 0.5, 0)
 ProfileCard.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 ProfileCard.BackgroundTransparency = 0.25
 ProfileCard.BorderSizePixel = 0
@@ -337,20 +351,21 @@ Instance.new("UICorner", OnlineDot).CornerRadius = UDim.new(1, 0)
 
 local ProfileName = Instance.new("TextLabel")
 ProfileName.Name = "Name"
-ProfileName.Size = UDim2.new(1, -34, 0, 12)
-ProfileName.Position = UDim2.new(0, 30, 0, 2)
+ProfileName.Size = UDim2.new(0, textWidth, 0, 12)
+ProfileName.Position = UDim2.new(0, 31, 0, 2)
 ProfileName.BackgroundTransparency = 1
 ProfileName.Font = Theme.FontBold
 ProfileName.TextSize = 10
 ProfileName.TextColor3 = Theme.TextWhite
 ProfileName.TextXAlignment = Enum.TextXAlignment.Left
+ProfileName.TextTruncate = Enum.TextTruncate.AtEnd
 ProfileName.Text = LocalPlayer.DisplayName
 ProfileName.Parent = ProfileCard
 
 local MonitorLabel = Instance.new("TextLabel")
 MonitorLabel.Name = "Monitor"
-MonitorLabel.Size = UDim2.new(1, -34, 0, 12)
-MonitorLabel.Position = UDim2.new(0, 30, 0, 14)
+MonitorLabel.Size = UDim2.new(0, textWidth, 0, 12)
+MonitorLabel.Position = UDim2.new(0, 31, 0, 14)
 MonitorLabel.BackgroundTransparency = 1
 MonitorLabel.Font = Theme.Font
 MonitorLabel.TextSize = 9

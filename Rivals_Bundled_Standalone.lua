@@ -749,32 +749,56 @@ local function forEachEnemy(callback)
     end
 end
 
+local lastRaycastTick = 0
+local raycastCache = {}
+
 local function isVisible(targetPart)
     if not Settings.WallCheck then return true end
     if not targetPart or not targetPart.Parent then return false end
+    local now = tick()
+    if (now - lastRaycastTick) > 0.025 then
+        table.clear(raycastCache)
+        lastRaycastTick = now
+    else
+        local cached = raycastCache[targetPart]
+        if cached ~= nil then return cached end
+    end
     local origin = Camera.CFrame.Position
     local direction = targetPart.Position - origin
     Const.STATIC_RAY_FILTER[1] = LocalPlayer.Character
     Const.STATIC_RAY_FILTER[2] = targetPart.Parent
     WallCheckRayParams.FilterDescendantsInstances = Const.STATIC_RAY_FILTER
     local result = Workspace:Raycast(origin, direction, WallCheckRayParams)
-    return not result
+    local vis = (not result)
+    raycastCache[targetPart] = vis
+    return vis
 end
 
 local function isAutoFireVisible(targetPart)
     if not Settings.AutoFireWallCheck then return true end
     if not targetPart or not targetPart.Parent then return false end
+    local now = tick()
+    if (now - lastRaycastTick) > 0.025 then
+        table.clear(raycastCache)
+        lastRaycastTick = now
+    else
+        local cached = raycastCache[targetPart]
+        if cached ~= nil then return cached end
+    end
     local origin = Camera.CFrame.Position
     local direction = targetPart.Position - origin
     Const.STATIC_RAY_FILTER[1] = LocalPlayer.Character
     Const.STATIC_RAY_FILTER[2] = targetPart.Parent
     WallCheckRayParams.FilterDescendantsInstances = Const.STATIC_RAY_FILTER
     local result = Workspace:Raycast(origin, direction, WallCheckRayParams)
-    return not result
+    local vis = (not result)
+    raycastCache[targetPart] = vis
+    return vis
 end
 
 local function getClosestPlayer()
-    local target, shortestDist = nil, Settings.FOV
+    local target = nil
+    local shortestDistSq = Settings.FOV * Settings.FOV
     local origin = Camera.CFrame.Position
     local fovPos = (Shared.FOVring and Shared.FOVring.Position) or UserInputService:GetMouseLocation()
 
@@ -807,10 +831,10 @@ local function getClosestPlayer()
                     local dx = pos.X - fovPos.X
                     local dy = pos.Y - fovPos.Y
                     local distSq = dx * dx + dy * dy
-                    if distSq < (shortestDist * shortestDist) then
+                    if distSq < shortestDistSq then
                         if isVisible(head) or isVisible(hrp) then
                             target = source
-                            shortestDist = math.sqrt(distSq)
+                            shortestDistSq = distSq
                         end
                     end
                 end
@@ -1171,9 +1195,15 @@ return function(Shared, Targeting)
                                 CanCollide = part.CanCollide
                             }
                         end
-                        part.Size = sizeVal
-                        part.Transparency = targetTransparency
-                        part.CanCollide = false
+                        if part.Size ~= sizeVal then
+                            part.Size = sizeVal
+                        end
+                        if part.Transparency ~= targetTransparency then
+                            part.Transparency = targetTransparency
+                        end
+                        if part.CanCollide then
+                            part.CanCollide = false
+                        end
                     end
                 end
             end)
@@ -1339,7 +1369,9 @@ return function(Shared, Targeting)
 
             -- SpeedHack: Bật thì áp dụng, tắt thì lập tức khôi phục về default
             if Settings.SpeedHack then
-                humanoid.WalkSpeed = Settings.WalkSpeed
+                if humanoid.WalkSpeed ~= Settings.WalkSpeed then
+                    humanoid.WalkSpeed = Settings.WalkSpeed
+                end
                 wasSpeedHack = true
             elseif wasSpeedHack then
                 ResetSpeed()
@@ -1347,8 +1379,10 @@ return function(Shared, Targeting)
 
             -- JumpHack: Bật thì áp dụng, tắt thì lập tức khôi phục về default
             if Settings.JumpHack then
-                humanoid.UseJumpPower = true
-                humanoid.JumpPower = Settings.JumpPower
+                if not humanoid.UseJumpPower then humanoid.UseJumpPower = true end
+                if humanoid.JumpPower ~= Settings.JumpPower then
+                    humanoid.JumpPower = Settings.JumpPower
+                end
                 wasJumpHack = true
             elseif wasJumpHack then
                 ResetJump()
@@ -1356,7 +1390,9 @@ return function(Shared, Targeting)
 
             -- GravityHack: Bật thì áp dụng, tắt thì khôi phục trọng lực Roblox 196.2
             if Settings.GravityHack then
-                Workspace.Gravity = Settings.Gravity
+                if Workspace.Gravity ~= Settings.Gravity then
+                    Workspace.Gravity = Settings.Gravity
+                end
                 wasGravityHack = true
             elseif wasGravityHack then
                 ResetGravity()
@@ -1434,7 +1470,7 @@ return function(Shared, Targeting)
             else
                 if wasFly then
                     ResetFly()
-                else
+                elseif humanoid.PlatformStand then
                     humanoid.PlatformStand = false
                 end
                 if Settings.SlowFall then
@@ -1570,13 +1606,20 @@ local ESPTable = {}
     end
 
     local function UpdateAim(step, center)
-        local now = tick()
+        local needTarget = Settings.AimEnabled or Settings.ProAimEnabled or Settings.AimSnapline or Settings.AutoFire or Settings.TriggerBot or Settings.FOVVisible
+        if not needTarget then
+            if FOVring.Visible then FOVring.Visible = false end
+            if AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = false end
+            cachedClosest = nil
+            return
+        end
 
+        local now = tick()
         if now - cachedClosestValid > 0.05 then
-        cachedClosest = getClosestPlayer()
-        cachedClosestValid = now
-    end
-    local closestTarget = cachedClosest
+            cachedClosest = getClosestPlayer()
+            cachedClosestValid = now
+        end
+        local closestTarget = cachedClosest
 
     -- 1. FOV & SNAPLINE (1 VÒNG TRÒN DUY NHẤT ĐỒNG BỘ - CHỐNG PROPERTY THRASHING)
     if FOVring.Visible ~= Settings.FOVVisible then
@@ -2087,7 +2130,9 @@ return function(Shared, Targeting)
     Shared.ESPTable = ESPTable
     ESP.ESPTable = ESPTable
 
-    local boneScreenCache = {}
+    local bonePosCache = {}
+    local boneVisCache = {}
+    local espActive = false
     local VEC3_UP_HEAD = Vector3.new(0, 0.5, 0)
     local VEC3_DOWN_LEG = Vector3.new(0, 3, 0)
 
@@ -2395,12 +2440,25 @@ Players.PlayerRemoving:Connect(removeESP)
     local espTotalOnScreen = 0
 
     local function UpdateESP(camPos, center, ESPCounterBox, ESPCounterLabel)
-        table.clear(boneScreenCache)
-        espTotalInRange = 0
-        espTotalOnScreen = 0
-
         ESPCounterBox = ESPCounterBox or (Shared.UI_Elements and Shared.UI_Elements.ESPCounterBox)
         ESPCounterLabel = ESPCounterLabel or (Shared.UI_Elements and Shared.UI_Elements.ESPCounterLabel)
+
+        if not Settings.ESPEnabled then
+            if ESPCounterBox and ESPCounterBox.Visible then ESPCounterBox.Visible = false end
+            if espActive then
+                for _, esp in pairs(ESPTable) do
+                    hideAllESP(esp)
+                end
+                espActive = false
+            end
+            return
+        end
+        espActive = true
+
+        table.clear(bonePosCache)
+        table.clear(boneVisCache)
+        espTotalInRange = 0
+        espTotalOnScreen = 0
 
         for target, esp in pairs(ESPTable) do
             local isVisibleNow = false
@@ -2490,9 +2548,12 @@ Players.PlayerRemoving:Connect(removeESP)
                 local passTeamCheck = not isSameTeam(target)
 
                 if passTeamCheck then
-                    local dist = (hrp.Position - camPos).Magnitude
+                    local diff = hrp.Position - camPos
+                    local distSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                    local maxDist = Settings.ESPDist or 1000
 
-                    if dist <= Settings.ESPDist then
+                    if distSq <= (maxDist * maxDist) then
+                        local dist = math.sqrt(distSq)
                         espTotalInRange = espTotalInRange + 1
 
                         local rootPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
@@ -2656,7 +2717,6 @@ Players.PlayerRemoving:Connect(removeESP)
                             -- [SKELETON LOD]: Tự động ẩn Skeleton khi địch > 150m (quá xa, nhìn rối mắt và tốn FPS)
                             if Settings.ESPSkeleton and dist <= 150 then
                                 esp._skeletonVisible = true
-                                table.clear(boneScreenCache)
                                 local isR15 = char:FindFirstChild("UpperTorso") ~= nil
                                 local connections = isR15 and Const.R15_BONES or Const.R6_BONES
                                 for i = 1, 14 do
@@ -2666,22 +2726,20 @@ Players.PlayerRemoving:Connect(removeESP)
                                         local partA = char:FindFirstChild(conn[1])
                                         local partB = char:FindFirstChild(conn[2])
                                         if partA and partB then
-                                            local ca = boneScreenCache[partA]
-                                            local posA, visA
-                                            if ca then
-                                                posA, visA = ca[1], ca[2]
-                                            else
+                                            local posA = bonePosCache[partA]
+                                            local visA = boneVisCache[partA]
+                                            if not posA then
                                                 posA, visA = Camera:WorldToViewportPoint(partA.Position)
-                                                boneScreenCache[partA] = {posA, visA}
+                                                bonePosCache[partA] = posA
+                                                boneVisCache[partA] = visA
                                             end
 
-                                            local cb = boneScreenCache[partB]
-                                            local posB, visB
-                                            if cb then
-                                                posB, visB = cb[1], cb[2]
-                                            else
+                                            local posB = bonePosCache[partB]
+                                            local visB = boneVisCache[partB]
+                                            if not posB then
                                                 posB, visB = Camera:WorldToViewportPoint(partB.Position)
-                                                boneScreenCache[partB] = {posB, visB}
+                                                bonePosCache[partB] = posB
+                                                boneVisCache[partB] = visB
                                             end
 
                                             if visA or visB then

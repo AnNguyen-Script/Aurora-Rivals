@@ -350,46 +350,9 @@ local function isAutoFireVisible(targetPart)
     return vis
 end
 
--- [TARGET SCORING MATRIX]: Hệ thống tính điểm ưu tiên đa tiêu chí
--- Điểm số tổng hợp = 45% FOV + 25% Cự ly 3D + 20% Máu thấp (Kill Confirm) + 10% Đe dọa trực diện
-local function CalculateTargetScore(char, hum, targetPart, screenPos, fovPos, origin, maxFOV, maxPhysicalDist)
-    local dx = screenPos.X - fovPos.X
-    local dy = screenPos.Y - fovPos.Y
-    local dist2D = math.sqrt(dx * dx + dy * dy)
-    if dist2D > maxFOV then return -math.huge end
-
-    -- 1. Điểm FOV (45%): Càng gần tâm ngắm điểm càng cao
-    local fovRatio = math.clamp(1 - (dist2D / math.max(maxFOV, 1)), 0, 1)
-    local fovScore = fovRatio * fovRatio
-
-    -- 2. Điểm khoảng cách 3D (25%): Địch ở gần nguy hiểm hơn, ưu tiên hơn
-    local diff = targetPart.Position - origin
-    local dist3D = diff.Magnitude
-    local distScore = math.clamp(1 - (dist3D / math.max(maxPhysicalDist, 1)), 0, 1)
-
-    -- 3. Điểm máu thấp (20%): Kẻ địch sắp chết ưu tiên dứt điểm trước
-    local currentHp = hum and hum.Health or 100
-    local maxHp = hum and math.max(hum.MaxHealth, 1) or 100
-    local hpScore = math.clamp(1 - (currentHp / maxHp), 0, 1)
-
-    -- 4. Điểm đe dọa trực diện (10%): Kẻ địch đang quay mặt nhìn thẳng vào người chơi
-    local facingScore = 0.5
-    local rootPart = char:FindFirstChild("HumanoidRootPart") or targetPart
-    if rootPart then
-        local enemyLook = rootPart.CFrame.LookVector
-        local toUs = (origin - rootPart.Position).Unit
-        local dot = enemyLook:Dot(toUs)
-        facingScore = math.clamp((dot + 1) * 0.5, 0, 1)
-    end
-
-    return (fovScore * 0.45) + (distScore * 0.25) + (hpScore * 0.20) + (facingScore * 0.10)
-end
-
 local function getClosestPlayer()
     local target = nil
-    local bestScore = -math.huge
-    local maxFOV = Settings.FOV or 120
-    local maxPhysicalDist = Settings.AimDist or 1000
+    local shortestDistSq = Settings.FOV * Settings.FOV
     local origin = Camera.CFrame.Position
     local fovPos = (Shared.FOVring and Shared.FOVring.Position) or UserInputService:GetMouseLocation()
 
@@ -414,15 +377,18 @@ local function getClosestPlayer()
         if isAlive and head and hrp then
             local diff = head.Position - origin
             local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+            local maxDist = Settings.AimDist or 1000
 
-            if physicalDistSq <= (maxPhysicalDist * maxPhysicalDist) then
+            if physicalDistSq <= (maxDist * maxDist) then
                 local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
                 if onScreen then
-                    local score = CalculateTargetScore(char, hum, head, pos, fovPos, origin, maxFOV, maxPhysicalDist)
-                    if score > bestScore then
+                    local dx = pos.X - fovPos.X
+                    local dy = pos.Y - fovPos.Y
+                    local distSq = dx * dx + dy * dy
+                    if distSq < shortestDistSq then
                         if isVisible(head) or isVisible(hrp) then
-                            bestScore = score
                             target = source
+                            shortestDistSq = distSq
                         end
                     end
                 end
@@ -462,9 +428,9 @@ local function getTargetPart(character)
 end
 
 local function getClosestPlayerToCursor(mousePos)
-    local maxFOV = Settings.FOV or Settings.ProAimFOV or 120
-    local maxPhysicalDist = Settings.AimDist or Settings.ProAimDist or 1000
-    local bestScore = -math.huge
+    local maxDist = Settings.FOV or Settings.ProAimFOV or 120
+    local maxDistSq = maxDist * maxDist
+    local closestDistSq = maxDistSq
     local closestTarget = nil
     local closestPart = nil
     local closestScreenPos = nil
@@ -497,13 +463,16 @@ local function getClosestPlayerToCursor(mousePos)
             if part then
                 local diff = part.Position - origin
                 local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                local maxPhysicalDist = Settings.AimDist or Settings.ProAimDist or 1000
                 if physicalDistSq <= (maxPhysicalDist * maxPhysicalDist) then
                     local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
                     if onScreen then
-                        local score = CalculateTargetScore(char, hum, part, screenPos, mousePos, origin, maxFOV, maxPhysicalDist)
-                        if score > bestScore then
+                        local dx = screenPos.X - mousePos.X
+                        local dy = screenPos.Y - mousePos.Y
+                        local distSq = dx * dx + dy * dy
+                        if distSq < closestDistSq then
                             if isVisible(part) then
-                                bestScore = score
+                                closestDistSq = distSq
                                 closestTarget = source
                                 closestPart = part
                                 closestScreenPos = screenPos

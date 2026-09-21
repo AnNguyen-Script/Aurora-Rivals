@@ -394,8 +394,6 @@ AFL_Layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 AFL_Layout.VerticalAlignment = Enum.VerticalAlignment.Top
 
 local featureConfigs = {
-    {name = "Enable", get = function() return Settings.AimEnabled end},
-    {name = "Aim Safe", get = function() return Settings.AimSafe end},
     {name = "Aimbot Safe", get = function() return Settings.ProAimEnabled end},
     {name = "Hitbox Expander", get = function() return Settings.HitboxExpander end},
     {name = "No Recoil", get = function() return Settings.NoRecoil end},

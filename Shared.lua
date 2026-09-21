@@ -119,7 +119,7 @@ Shared.Const = {
     },
     SAFE_PARTS = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"},
     TELE_TYPES = {"Sau Lưng", "Trên Đầu", "Trái", "Phải"},
-    BOT_TAGS = {"Entity", "NPCCharacter", "Dummy", "BotLookAt", "NPCAnimationPVPBot", "NPCPathfindingPVPBot", "NPCWeaponPVPBot"},
+    BOT_TAGS = {"Bot", "Target", "Entity", "NPCCharacter", "Dummy", "BotLookAt", "NPCAnimationPVPBot", "NPCPathfindingPVPBot", "NPCWeaponPVPBot", "PVPBot", "AI", "Enemy", "NPC"},
     STATIC_RAY_FILTER = {nil, nil},
     -- Tương thích thêm
     SkeletonPairsR15 = {

@@ -3357,9 +3357,9 @@ AFL_Layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 AFL_Layout.VerticalAlignment = Enum.VerticalAlignment.Top
 
 local featureConfigs = {
-    {name = "Aimbot", get = function() return Settings.AimEnabled end},
-    {name = "Aimlock", get = function() return Settings.ProAimEnabled end},
+    {name = "Enable", get = function() return Settings.AimEnabled end},
     {name = "Aim Safe", get = function() return Settings.AimSafe end},
+    {name = "Aimbot Safe", get = function() return Settings.ProAimEnabled end},
     {name = "Hitbox Expander", get = function() return Settings.HitboxExpander end},
     {name = "No Recoil", get = function() return Settings.NoRecoil end},
     {name = "Kill Aura", get = function() return Settings.AutoFire end},
@@ -5190,7 +5190,7 @@ local PanelAimbot = CreatePanel(TabAimbot, "Aimbot", "", 0, 0, 0.5, 1)
 local fovSliderFrame = nil
 local drawFovToggleFrame = nil
 
-CreateToggleWithDropdown(PanelAimbot, "Enable Aimbot", Theme.DotGreen, "AimEnabled", "TargetPart", {"Head", "HumanoidRootPart", "Safe"}, function(v) 
+CreateToggleWithDropdown(PanelAimbot, "Enable", Theme.DotGreen, "AimEnabled", "TargetPart", {"Head", "HumanoidRootPart", "Safe"}, function(v) 
     Settings.AimEnabled = v
     if fovSliderFrame then
         fovSliderFrame.Visible = (v == true)
@@ -5225,10 +5225,34 @@ end
 if drawFovToggleFrame then
     drawFovToggleFrame.Visible = (Settings.AimEnabled == true)
 end
+
+local aimlockSmoothSliderFrame = nil
+CreateToggleWithKeybind(PanelAimbot, "Aimbot Safe", Theme.DotGreen, "ProAimEnabled", "ProAimHoldMouse", function(v)
+    Settings.ProAimEnabled = v
+    if aimlockSmoothSliderFrame then
+        aimlockSmoothSliderFrame.Visible = (v == true)
+    end
+end, function(v) Settings.ProAimHoldMouse = v end)
+
+aimlockSmoothSliderFrame = CreateSlider(PanelAimbot, "Smooth", "ProAimSmoothness", 0.01, 1, "", function(v)
+    Settings.ProAimSmoothness = v
+    Settings.AimSmoothness = v
+end)
+
+if aimlockSmoothSliderFrame then
+    aimlockSmoothSliderFrame.Visible = (Settings.ProAimEnabled == true)
+end
+
+local PanelAimbotSet = CreatePanel(TabAimbot, "Exploits", "", 0.5, 0, 0.5, 1)
+CreateToggleWithKeybind(PanelAimbotSet, "Kill Aura", Theme.DotRed, "AutoFire", "AutoFireHotkey", function(v) Settings.AutoFire = v end, function(v) Settings.AutoFireHotkey = v end)
+CreateToggle(PanelAimbotSet, "Wall Check ", Theme.DotRed, "AutoFireWallCheck", function(v) Settings.AutoFireWallCheck = v end)
+CreateToggle(PanelAimbotSet, 'Slient Aim <font color="#ff3333">[BETA]</font>', Theme.DotRed, "AutoFireHoldM2", function(v) Settings.AutoFireHoldM2 = v end)
+CreateToggleWithKeybind(PanelAimbotSet, 'NO RECOIL <font color="#ff3333">[BETA]</font>', Theme.DotRed, "NoRecoil", "NoRecoilHotkey", function(v) Settings.NoRecoil = v end, function(v) Settings.NoRecoilHotkey = v end)
+
 local hitboxSizeSliderFrame = nil
 local hideHitboxToggleFrame = nil
 
-CreateToggleWithDropdown(PanelAimbot, "Hitbox", Theme.DotGreen, "HitboxExpander", "HitboxPart", {"Head", "Torso"}, function(v)
+CreateToggleWithDropdown(PanelAimbotSet, "Hitbox", Theme.DotRed, "HitboxExpander", "HitboxPart", {"Head", "Torso"}, function(v)
     Settings.HitboxExpander = v
     if not v then ResetHitboxes() end
     if hitboxSizeSliderFrame then
@@ -5242,11 +5266,11 @@ end, function(v)
     ResetHitboxes()
 end)
 
-hitboxSizeSliderFrame = CreateSlider(PanelAimbot, "Size", "HitboxSize", 2, 500, " studs", function(v)
+hitboxSizeSliderFrame = CreateSlider(PanelAimbotSet, "Size", "HitboxSize", 2, 500, " studs", function(v)
     Settings.HitboxSize = v
 end)
 
-hideHitboxToggleFrame = CreateToggle(PanelAimbot, "Hide", Theme.DotGreen, "HitboxInvisible", function(v)
+hideHitboxToggleFrame = CreateToggle(PanelAimbotSet, "Hide", Theme.DotRed, "HitboxInvisible", function(v)
     Settings.HitboxInvisible = v
     for part, orig in pairs(originalHitboxes) do
         if part and part.Parent then
@@ -5262,29 +5286,6 @@ if hitboxSizeSliderFrame then
 end
 if hideHitboxToggleFrame then
     hideHitboxToggleFrame.Visible = (Settings.HitboxExpander == true)
-end
-
-local PanelAimbotSet = CreatePanel(TabAimbot, "Exploits", "", 0.5, 0, 0.5, 1)
-CreateToggleWithKeybind(PanelAimbotSet, "Kill Aura", Theme.DotRed, "AutoFire", "AutoFireHotkey", function(v) Settings.AutoFire = v end, function(v) Settings.AutoFireHotkey = v end)
-CreateToggle(PanelAimbotSet, "Wall Check ", Theme.DotRed, "AutoFireWallCheck", function(v) Settings.AutoFireWallCheck = v end)
-CreateToggle(PanelAimbotSet, 'Slient Aim <font color="#ff3333">[BETA]</font>', Theme.DotRed, "AutoFireHoldM2", function(v) Settings.AutoFireHoldM2 = v end)
-CreateToggleWithKeybind(PanelAimbotSet, 'NO RECOIL <font color="#ff3333">[BETA]</font>', Theme.DotRed, "NoRecoil", "NoRecoilHotkey", function(v) Settings.NoRecoil = v end, function(v) Settings.NoRecoilHotkey = v end)
-
-local aimlockSmoothSliderFrame = nil
-CreateToggleWithKeybind(PanelAimbotSet, "Aimlock", Theme.DotRed, "ProAimEnabled", "ProAimHoldMouse", function(v)
-    Settings.ProAimEnabled = v
-    if aimlockSmoothSliderFrame then
-        aimlockSmoothSliderFrame.Visible = (v == true)
-    end
-end, function(v) Settings.ProAimHoldMouse = v end)
-
-aimlockSmoothSliderFrame = CreateSlider(PanelAimbotSet, "Smooth", "ProAimSmoothness", 0.01, 1, "", function(v)
-    Settings.ProAimSmoothness = v
-    Settings.AimSmoothness = v
-end)
-
-if aimlockSmoothSliderFrame then
-    aimlockSmoothSliderFrame.Visible = (Settings.ProAimEnabled == true)
 end
 
 local PanelESP = CreatePanel(TabESP, "ESP", "", 0, 0, 0.5, 1)

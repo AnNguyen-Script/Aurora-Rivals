@@ -207,7 +207,7 @@ end
 -- CẤU HÌNH GỐC (SETTINGS)
 Shared.Settings = {
     AimEnabled = false, AimHoldMode = false, AimSafe = false, AimDist = 1000,
-    TargetPart = "Head", WallCheck = false, TeamCheck = true, TargetNPC = false, SafeShieldCheck = false,
+    TargetPart = "Head", WallCheck = false, TeamCheck = true, SafeShieldCheck = false,
     FOV = 170, FOVVisible = false, AimSnapline = false,
     AimSmoothness = 0.75, AimJitter = 0, ReactionDelay = 0,
 

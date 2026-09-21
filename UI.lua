@@ -2372,23 +2372,6 @@ CreateToggle(PanelESPSet, "Team Check", Theme.DotGreen, "TeamCheck", function(v)
     Settings.ESPTeamCheck = v
     Settings.ProAimTeamCheck = v
 end)
-CreateToggle(PanelESPSet, "Bot [BETA]", Theme.DotGreen, "TargetNPC", function(v)
-    Settings.TargetNPC = v
-    if not v then
-        if Shared.NPCCache then table.clear(Shared.NPCCache) end
-        if Shared.ESPTable then
-            for target, esp in pairs(Shared.ESPTable) do
-                if typeof(target) == "Instance" and not target:IsA("Player") then
-                    if Shared.removeESP then
-                        Shared.removeESP(target)
-                    elseif ESP and ESP.removeESP then
-                        ESP.removeESP(target)
-                    end
-                end
-            end
-        end
-    end
-end)
 CreateSlider(PanelESPSet, "Max Aim Dist", "AimDist", 1, 2000, " m", function(v) 
     Settings.AimDist = v
     Settings.ProAimDist = v

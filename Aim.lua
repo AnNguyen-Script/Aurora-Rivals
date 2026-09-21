@@ -91,13 +91,20 @@ local ESPTable = {}
     end
 
     local function UpdateAim(step, center)
-        local now = tick()
+        local needTarget = Settings.AimEnabled or Settings.ProAimEnabled or Settings.AimSnapline or Settings.AutoFire or Settings.TriggerBot or Settings.FOVVisible
+        if not needTarget then
+            if FOVring.Visible then FOVring.Visible = false end
+            if AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = false end
+            cachedClosest = nil
+            return
+        end
 
+        local now = tick()
         if now - cachedClosestValid > 0.05 then
-        cachedClosest = getClosestPlayer()
-        cachedClosestValid = now
-    end
-    local closestTarget = cachedClosest
+            cachedClosest = getClosestPlayer()
+            cachedClosestValid = now
+        end
+        local closestTarget = cachedClosest
 
     -- 1. FOV & SNAPLINE (1 VÒNG TRÒN DUY NHẤT ĐỒNG BỘ - CHỐNG PROPERTY THRASHING)
     if FOVring.Visible ~= Settings.FOVVisible then

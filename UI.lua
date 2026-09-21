@@ -2397,6 +2397,8 @@ end)
 CreateSlider(PanelESPSet, "Max ESP Dist", "ESPDist", 1, 2000, " m", function(v) Settings.ESPDist = v end)
 
 local PanelPlayer = CreatePanel(TabPlayer, "Exploits", "", 0, 0, 0.5, 1)
+local PanelPlayerSet = CreatePanel(TabPlayer, "Settings", "", 0.5, 0, 0.5, 1)
+
 local function CheckAndBypassCharacterAC(featureName)
     if not Settings.BypassACMove then
         SendNotification("⚠️ NGUY HIỂM ⚠️", "Nguy cơ BAN khi dùng " .. featureName .. ". Bật lại an toàn!")
@@ -2437,7 +2439,568 @@ local function CheckAndBypassCharacterAC(featureName)
     return true
 end
 
-CreateToggle(PanelPlayer, "Speed Buff", Theme.DotGreen, "SpeedHack", function(v)
+-- ============================================================
+-- GEAR / POPOVER SETTINGS SYSTEM (HỆ THỐNG TINH CHỈNH THÔNG MINH)
+-- ============================================================
+local currentActiveGearId = "Fly"
+local currentActiveSetter = nil
+local gearSetters = {}
+local settingGroups = {}
+local isViewAllMode = false
+
+-- Toolbar on top of PanelPlayerSet
+local Toolbar = Instance.new("Frame")
+Toolbar.Size = UDim2.new(1, 0, 0, 26)
+Toolbar.BackgroundTransparency = 1
+Toolbar.Parent = PanelPlayerSet
+
+local HeaderTitle = Instance.new("TextLabel")
+HeaderTitle.Size = UDim2.new(1, -110, 1, 0)
+HeaderTitle.Position = UDim2.new(0, 0, 0, 0)
+HeaderTitle.BackgroundTransparency = 1
+HeaderTitle.Text = "⚙️ Cài Đặt: Fly (Bay 3D)"
+HeaderTitle.TextColor3 = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+HeaderTitle.Font = Theme.FontBold
+HeaderTitle.TextSize = 12
+HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
+HeaderTitle.Parent = Toolbar
+
+local ModeBtn = Instance.new("TextButton")
+ModeBtn.Size = UDim2.new(0, 100, 0, 22)
+ModeBtn.Position = UDim2.new(1, -100, 0.5, -11)
+ModeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+ModeBtn.Text = "⚙️ Chi Tiết"
+ModeBtn.TextColor3 = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+ModeBtn.Font = Theme.FontBold
+ModeBtn.TextSize = 11
+ModeBtn.AutoButtonColor = false
+ModeBtn.Parent = Toolbar
+Instance.new("UICorner", ModeBtn).CornerRadius = UDim.new(0, 6)
+
+local ModeStroke = Instance.new("UIStroke")
+ModeStroke.Color = Color3.fromRGB(50, 50, 60)
+ModeStroke.Thickness = 1
+ModeStroke.Parent = ModeBtn
+
+local function UpdateSettingsVisibility()
+    if isViewAllMode then
+        HeaderTitle.Text = "📋 Toàn Bộ Cài Đặt"
+        HeaderTitle.TextColor3 = Color3.fromRGB(255, 205, 85)
+        for _, grp in pairs(settingGroups) do
+            grp.Visible = true
+        end
+    else
+        local titleMap = {
+            Speed = "⚙️ Cài Đặt: Speed Buff",
+            Jump = "⚙️ Cài Đặt: Jump Buff",
+            Fly = "⚙️ Cài Đặt: Fly (Bay 3D)",
+            Gravity = "⚙️ Cài Đặt: Trọng Lực",
+            SlowFall = "⚙️ Cài Đặt: Rơi Chậm",
+            Underground = "⚙️ Cài Đặt: Chui Đất",
+            Tele = "⚙️ Cài Đặt: Dịch Chuyển",
+            SpeedTele = "⚙️ Cài Đặt: Speed Tele",
+            SpinBot = "⚙️ Cài Đặt: SpinBot",
+        }
+        HeaderTitle.Text = titleMap[currentActiveGearId] or ("⚙️ Cài Đặt: " .. tostring(currentActiveGearId))
+        HeaderTitle.TextColor3 = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+        for id, grp in pairs(settingGroups) do
+            grp.Visible = (id == currentActiveGearId)
+        end
+    end
+end
+
+local function SelectGear(gearId, setter)
+    if currentActiveSetter and currentActiveSetter ~= setter then
+        currentActiveSetter(false)
+    end
+    currentActiveSetter = setter
+    if setter then setter(true) end
+    currentActiveGearId = gearId
+
+    if isViewAllMode then
+        isViewAllMode = false
+        ModeBtn.Text = "⚙️ Chi Tiết"
+        ModeBtn.TextColor3 = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+        ModeStroke.Color = Color3.fromRGB(50, 50, 60)
+    end
+    UpdateSettingsVisibility()
+end
+
+ModeBtn.MouseButton1Click:Connect(function()
+    isViewAllMode = not isViewAllMode
+    if isViewAllMode then
+        ModeBtn.Text = "📋 Xem Tất Cả"
+        ModeBtn.TextColor3 = Color3.fromRGB(255, 205, 85)
+        ModeStroke.Color = Color3.fromRGB(255, 175, 45)
+    else
+        ModeBtn.Text = "⚙️ Chi Tiết"
+        ModeBtn.TextColor3 = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+        ModeStroke.Color = Color3.fromRGB(50, 50, 60)
+    end
+    UpdateSettingsVisibility()
+end)
+
+local function CreateSettingGroup(id, icon, title, desc)
+    local grp = Instance.new("Frame")
+    grp.Name = "Group_" .. id
+    grp.Size = UDim2.new(1, 0, 0, 0)
+    grp.AutomaticSize = Enum.AutomaticSize.Y
+    grp.BackgroundTransparency = 1
+    grp.Visible = (id == currentActiveGearId)
+    grp.Parent = PanelPlayerSet
+
+    local list = Instance.new("UIListLayout")
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0, 4)
+    list.Parent = grp
+
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 0, 32)
+    card.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+    card.Parent = grp
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(42, 42, 48)
+    stroke.Thickness = 1
+    stroke.Parent = card
+
+    local iconLbl = Instance.new("TextLabel")
+    iconLbl.Size = UDim2.new(0, 26, 1, 0)
+    iconLbl.Position = UDim2.new(0, 6, 0, 0)
+    iconLbl.BackgroundTransparency = 1
+    iconLbl.Text = icon
+    iconLbl.TextSize = 14
+    iconLbl.Font = Enum.Font.GothamBold
+    iconLbl.Parent = card
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Size = UDim2.new(1, -36, 0, 16)
+    titleLbl.Position = UDim2.new(0, 34, 0, 2)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text = title
+    titleLbl.TextColor3 = Theme.TextWhite
+    titleLbl.Font = Theme.FontBold
+    titleLbl.TextSize = 11
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    titleLbl.Parent = card
+
+    local descLbl = Instance.new("TextLabel")
+    descLbl.Size = UDim2.new(1, -36, 0, 14)
+    descLbl.Position = UDim2.new(0, 34, 0, 16)
+    descLbl.BackgroundTransparency = 1
+    descLbl.Text = desc
+    descLbl.TextColor3 = Theme.TextDark
+    descLbl.Font = Theme.Font
+    descLbl.TextSize = 10
+    descLbl.TextXAlignment = Enum.TextXAlignment.Left
+    descLbl.Parent = card
+
+    settingGroups[id] = grp
+    return grp
+end
+
+local function CreateToggleWithGear(parent, text, dotColor, settingKey, onGearClick, callback)
+    local isToggled = Settings[settingKey]
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 35)
+    Frame.BackgroundTransparency = 1
+    Frame.Parent = parent
+
+    if dotColor then
+        local Dot = Instance.new("Frame")
+        Dot.Size = UDim2.new(0, 6, 0, 6)
+        Dot.Position = UDim2.new(0, 0, 0.5, -3)
+        Dot.BackgroundColor3 = dotColor
+        Dot.Parent = Frame
+        Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
+    end
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -95, 1, 0)
+    Label.Position = UDim2.new(0, dotColor and 15 or 0, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.RichText = true
+    Label.Text = text
+    Label.TextColor3 = Theme.TextWhite
+    Label.Font = Theme.Font
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+
+    local GearBtn = Instance.new("TextButton")
+    GearBtn.Size = UDim2.new(0, 26, 0, 22)
+    GearBtn.Position = UDim2.new(1, -74, 0.5, -11)
+    GearBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    GearBtn.Text = "⚙"
+    GearBtn.TextColor3 = Theme.TextDark
+    GearBtn.Font = Theme.FontBold
+    GearBtn.TextSize = 13
+    GearBtn.AutoButtonColor = false
+    GearBtn.Parent = Frame
+    Instance.new("UICorner", GearBtn).CornerRadius = UDim.new(0, 6)
+
+    local GearStroke = Instance.new("UIStroke")
+    GearStroke.Color = Color3.fromRGB(48, 48, 55)
+    GearStroke.Thickness = 1
+    GearStroke.Parent = GearBtn
+
+    local isGearActive = false
+    local function SetGearActive(active)
+        isGearActive = active
+        if active then
+            TweenService:Create(GearBtn, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(22, 44, 38),
+                TextColor3 = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+            }):Play()
+            TweenService:Create(GearStroke, TweenInfo.new(0.2), {
+                Color = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+            }):Play()
+        else
+            TweenService:Create(GearBtn, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(30, 30, 35),
+                TextColor3 = Theme.TextDark
+            }):Play()
+            TweenService:Create(GearStroke, TweenInfo.new(0.2), {
+                Color = Color3.fromRGB(48, 48, 55)
+            }):Play()
+        end
+    end
+
+    GearBtn.MouseEnter:Connect(function()
+        if not isGearActive then
+            TweenService:Create(GearBtn, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(42, 42, 50),
+                TextColor3 = Theme.TextWhite
+            }):Play()
+            TweenService:Create(GearStroke, TweenInfo.new(0.15), {
+                Color = Color3.fromRGB(70, 70, 80)
+            }):Play()
+        end
+        ShowTooltip("Cài đặt nhanh: " .. text)
+    end)
+    GearBtn.MouseLeave:Connect(function()
+        if not isGearActive then
+            TweenService:Create(GearBtn, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(30, 30, 35),
+                TextColor3 = Theme.TextDark
+            }):Play()
+            TweenService:Create(GearStroke, TweenInfo.new(0.15), {
+                Color = Color3.fromRGB(48, 48, 55)
+            }):Play()
+        end
+        ShowTooltip(nil)
+    end)
+
+    GearBtn.MouseButton1Click:Connect(function()
+        if onGearClick then
+            onGearClick(SetGearActive)
+        end
+    end)
+
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0, 40, 0, 20)
+    ToggleBtn.Position = UDim2.new(1, -42, 0.5, -10)
+    ToggleBtn.BackgroundColor3 = isToggled and Theme.AccentOn or Theme.AccentOff
+    ToggleBtn.Text = ""
+    ToggleBtn.Parent = Frame
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+
+    local Knob = Instance.new("Frame")
+    Knob.Size = UDim2.new(0, 16, 0, 16)
+    Knob.Position = isToggled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    Knob.BackgroundColor3 = isToggled and Theme.KnobOn or Theme.KnobOff
+    Knob.Parent = ToggleBtn
+    Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
+
+    local state = isToggled
+
+    local function SetVisual(val)
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = val and Theme.AccentOn or Theme.AccentOff
+        }):Play()
+        TweenService:Create(Knob, TweenInfo.new(0.2), {
+            Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
+            BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
+        }):Play()
+    end
+
+    local tabName = nil
+    for name, tab in pairs(Tabs) do
+        if tab == parent then
+            tabName = name
+            break
+        end
+    end
+    if tabName then
+        if not TabActiveKeys[tabName] then TabActiveKeys[tabName] = {} end
+        TabActiveKeys[tabName][settingKey] = true
+        SearchIndex[settingKey] = { Label = text, Frame = Frame, Tab = tabName }
+    end
+
+    local reg = { State = isToggled }
+    table.insert(ThemeObjects.Toggles, {
+        Btn = ToggleBtn, Knob = Knob,
+        State = isToggled
+    })
+    reg = ThemeObjects.Toggles[#ThemeObjects.Toggles]
+
+    UI_Elements[settingKey] = {
+        SetValue = function(val)
+            state = val
+            reg.State = val
+            SetVisual(val)
+            UpdateTabDots()
+            if callback then callback(val) end
+        end
+    }
+
+    Frame.MouseEnter:Connect(function() ShowTooltip(text) end)
+    Frame.MouseLeave:Connect(function() ShowTooltip(nil) end)
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        reg.State = state
+        SetVisual(state)
+        if state then
+            SendNotification("Đã Bật", text)
+        else
+            SendNotification("Đã Tắt", text)
+        end
+        UpdateTabDots()
+        if callback then callback(state) end
+    end)
+
+    return Frame, SetGearActive
+end
+
+local function CreateToggleWithKeybindAndGear(parent, toggleText, dotColor, toggleKey, keyKey, onGearClick, toggleCb, keyCb)
+    local isToggled = Settings[toggleKey]
+    local currentVal = Settings[keyKey]
+    
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 35)
+    Frame.BackgroundTransparency = 1
+    Frame.Parent = parent
+
+    if dotColor then
+        local Dot = Instance.new("Frame")
+        Dot.Size = UDim2.new(0, 6, 0, 6)
+        Dot.Position = UDim2.new(0, 0, 0.5, -3)
+        Dot.BackgroundColor3 = dotColor
+        Dot.Parent = Frame
+        Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
+    end
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -145, 0, 35)
+    Label.Position = UDim2.new(0, dotColor and 15 or 0, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.RichText = true
+    Label.Text = toggleText
+    Label.TextColor3 = Theme.TextWhite
+    Label.Font = Theme.Font
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+
+    local GearBtn = Instance.new("TextButton")
+    GearBtn.Size = UDim2.new(0, 24, 0, 22)
+    GearBtn.Position = UDim2.new(1, -134, 0.5, -11)
+    GearBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    GearBtn.Text = "⚙"
+    GearBtn.TextColor3 = Theme.TextDark
+    GearBtn.Font = Theme.FontBold
+    GearBtn.TextSize = 13
+    GearBtn.AutoButtonColor = false
+    GearBtn.Parent = Frame
+    Instance.new("UICorner", GearBtn).CornerRadius = UDim.new(0, 6)
+
+    local GearStroke = Instance.new("UIStroke")
+    GearStroke.Color = Color3.fromRGB(48, 48, 55)
+    GearStroke.Thickness = 1
+    GearStroke.Parent = GearBtn
+
+    local isGearActive = false
+    local function SetGearActive(active)
+        isGearActive = active
+        if active then
+            TweenService:Create(GearBtn, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(22, 44, 38),
+                TextColor3 = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+            }):Play()
+            TweenService:Create(GearStroke, TweenInfo.new(0.2), {
+                Color = Theme.AccentOn or Color3.fromRGB(0, 255, 136)
+            }):Play()
+        else
+            TweenService:Create(GearBtn, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(30, 30, 35),
+                TextColor3 = Theme.TextDark
+            }):Play()
+            TweenService:Create(GearStroke, TweenInfo.new(0.2), {
+                Color = Color3.fromRGB(48, 48, 55)
+            }):Play()
+        end
+    end
+
+    GearBtn.MouseEnter:Connect(function()
+        if not isGearActive then
+            TweenService:Create(GearBtn, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(42, 42, 50),
+                TextColor3 = Theme.TextWhite
+            }):Play()
+            TweenService:Create(GearStroke, TweenInfo.new(0.15), {
+                Color = Color3.fromRGB(70, 70, 80)
+            }):Play()
+        end
+        ShowTooltip("Cài đặt nhanh: " .. toggleText)
+    end)
+    GearBtn.MouseLeave:Connect(function()
+        if not isGearActive then
+            TweenService:Create(GearBtn, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(30, 30, 35),
+                TextColor3 = Theme.TextDark
+            }):Play()
+            TweenService:Create(GearStroke, TweenInfo.new(0.15), {
+                Color = Color3.fromRGB(48, 48, 55)
+            }):Play()
+        end
+        ShowTooltip(nil)
+    end)
+
+    GearBtn.MouseButton1Click:Connect(function()
+        if onGearClick then
+            onGearClick(SetGearActive)
+        end
+    end)
+
+    local KeyBtn = Instance.new("TextButton")
+    KeyBtn.Size = UDim2.new(0, 58, 0, 22)
+    KeyBtn.Position = UDim2.new(1, -104, 0.5, -11)
+    KeyBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+
+    local function FormatKeyName(key)
+        if not key then return "None" end
+        local name = (typeof(key) == "EnumItem") and key.Name or tostring(key)
+        if name == "MouseButton1" then return "LClick" end
+        if name == "MouseButton2" then return "RClick" end
+        if name == "MouseButton3" then return "MClick" end
+        return name
+    end
+
+    KeyBtn.Text = FormatKeyName(currentVal)
+    KeyBtn.TextColor3 = Theme.TextWhite
+    KeyBtn.Font = Theme.Font
+    KeyBtn.TextSize = 11
+    KeyBtn.Parent = Frame
+    Instance.new("UICorner", KeyBtn).CornerRadius = UDim.new(0, 6)
+
+    local isBinding = false
+    local connection
+
+    KeyBtn.MouseButton1Click:Connect(function()
+        if isBinding then return end
+        KeyBtn.Text = "..."
+        task.wait(0.1)
+        isBinding = true
+
+        connection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Keyboard
+                or input.UserInputType.Name:match("MouseButton") then
+                local newKey = (input.KeyCode == Enum.KeyCode.Unknown)
+                    and input.UserInputType or input.KeyCode
+                if newKey.Name == "Unknown" then return end
+
+                isBinding = false
+                connection:Disconnect()
+
+                Settings[keyKey] = newKey
+                KeyBtn.Text = FormatKeyName(newKey)
+                if keyCb then keyCb(newKey) end
+            end
+        end)
+    end)
+
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0, 38, 0, 20)
+    ToggleBtn.Position = UDim2.new(1, -40, 0.5, -10)
+    ToggleBtn.BackgroundColor3 = isToggled and Theme.AccentOn or Theme.AccentOff
+    ToggleBtn.Text = ""
+    ToggleBtn.Parent = Frame
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+
+    local Knob = Instance.new("Frame")
+    Knob.Size = UDim2.new(0, 16, 0, 16)
+    Knob.Position = isToggled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    Knob.BackgroundColor3 = isToggled and Theme.KnobOn or Theme.KnobOff
+    Knob.Parent = ToggleBtn
+    Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
+
+    local state = isToggled
+
+    local function SetVisual(val)
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = val and Theme.AccentOn or Theme.AccentOff
+        }):Play()
+        TweenService:Create(Knob, TweenInfo.new(0.2), {
+            Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
+            BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
+        }):Play()
+    end
+
+    local tabName = nil
+    for name, tab in pairs(Tabs) do
+        if tab == parent then
+            tabName = name
+            break
+        end
+    end
+    if tabName then
+        if not TabActiveKeys[tabName] then TabActiveKeys[tabName] = {} end
+        TabActiveKeys[tabName][toggleKey] = true
+        SearchIndex[toggleKey] = { Label = toggleText, Frame = Frame, Tab = tabName }
+    end
+
+    table.insert(ThemeObjects.Toggles, {
+        Btn = ToggleBtn, Knob = Knob,
+        State = isToggled
+    })
+    local reg = ThemeObjects.Toggles[#ThemeObjects.Toggles]
+    table.insert(ThemeObjects.Dropbox, { Box = KeyBtn })
+
+    UI_Elements[toggleKey] = {
+        SetValue = function(val)
+            state = val
+            reg.State = val
+            SetVisual(val)
+            UpdateTabDots()
+            if toggleCb then toggleCb(val) end
+        end
+    }
+
+    Frame.MouseEnter:Connect(function() ShowTooltip(toggleText) end)
+    Frame.MouseLeave:Connect(function() ShowTooltip(nil) end)
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        reg.State = state
+        SetVisual(state)
+        if state then
+            SendNotification("Đã Bật", toggleText)
+        else
+            SendNotification("Đã Tắt", toggleText)
+        end
+        UpdateTabDots()
+        if toggleCb then toggleCb(state) end
+    end)
+
+    return Frame, SetGearActive
+end
+
+-- 1. TẠO CÁC NÚT TÍNH NĂNG Ở PANELPLAYER (CÓ GEAR BUTTON)
+local _, setGearSpeed = CreateToggleWithGear(PanelPlayer, "Speed Buff", Theme.DotGreen, "SpeedHack", function(setter)
+    SelectGear("Speed", setter)
+end, function(v)
     if v and not CheckAndBypassCharacterAC("SpeedHack") then
         Settings.SpeedHack = false
         if UI_Elements.SpeedHack then UI_Elements.SpeedHack.SetValue(false) end
@@ -2448,7 +3011,11 @@ CreateToggle(PanelPlayer, "Speed Buff", Theme.DotGreen, "SpeedHack", function(v)
         Player.ResetSpeed()
     end
 end)
-CreateToggle(PanelPlayer, "Jump Buff", Theme.DotGreen, "JumpHack", function(v)
+gearSetters["Speed"] = setGearSpeed
+
+local _, setGearJump = CreateToggleWithGear(PanelPlayer, "Jump Buff", Theme.DotGreen, "JumpHack", function(setter)
+    SelectGear("Jump", setter)
+end, function(v)
     if v and not CheckAndBypassCharacterAC("JumpHack") then
         Settings.JumpHack = false
         if UI_Elements.JumpHack then UI_Elements.JumpHack.SetValue(false) end
@@ -2459,6 +3026,8 @@ CreateToggle(PanelPlayer, "Jump Buff", Theme.DotGreen, "JumpHack", function(v)
         Player.ResetJump()
     end
 end)
+gearSetters["Jump"] = setGearJump
+
 CreateToggle(PanelPlayer, "Inf Jump", Theme.DotGreen, "InfJump", function(v)
     if v and not CheckAndBypassCharacterAC("Inf Jump") then
         Settings.InfJump = false
@@ -2467,7 +3036,10 @@ CreateToggle(PanelPlayer, "Inf Jump", Theme.DotGreen, "InfJump", function(v)
     end
     Settings.InfJump = v
 end)
-CreateToggle(PanelPlayer, "Fly", Theme.DotGreen, "Fly", function(v)
+
+local _, setGearFly = CreateToggleWithGear(PanelPlayer, "Fly", Theme.DotGreen, "Fly", function(setter)
+    SelectGear("Fly", setter)
+end, function(v)
     if v and not CheckAndBypassCharacterAC("Fly") then
         Settings.Fly = false
         if UI_Elements.Fly then UI_Elements.Fly.SetValue(false) end
@@ -2478,6 +3050,8 @@ CreateToggle(PanelPlayer, "Fly", Theme.DotGreen, "Fly", function(v)
         Player.ResetFly()
     end
 end)
+gearSetters["Fly"] = setGearFly
+
 CreateToggle(PanelPlayer, "Noclip", Theme.DotGreen, "Noclip", function(v)
     if v and not CheckAndBypassCharacterAC("Noclip") then
         Settings.Noclip = false
@@ -2489,7 +3063,10 @@ CreateToggle(PanelPlayer, "Noclip", Theme.DotGreen, "Noclip", function(v)
         Player.ResetNoclip()
     end
 end)
-CreateToggle(PanelPlayer, "Gravity", Theme.DotGreen, "GravityHack", function(v)
+
+local _, setGearGravity = CreateToggleWithGear(PanelPlayer, "Gravity", Theme.DotGreen, "GravityHack", function(setter)
+    SelectGear("Gravity", setter)
+end, function(v)
     if v and not CheckAndBypassCharacterAC("Gravity") then
         Settings.GravityHack = false
         if UI_Elements.GravityHack then UI_Elements.GravityHack.SetValue(false) end
@@ -2506,7 +3083,11 @@ CreateToggle(PanelPlayer, "Gravity", Theme.DotGreen, "GravityHack", function(v)
         end
     end
 end)
-CreateToggle(PanelPlayer, "Slow Fall", Theme.DotGreen, "SlowFall", function(v)
+gearSetters["Gravity"] = setGearGravity
+
+local _, setGearSlowFall = CreateToggleWithGear(PanelPlayer, "Slow Fall", Theme.DotGreen, "SlowFall", function(setter)
+    SelectGear("SlowFall", setter)
+end, function(v)
     if v and not CheckAndBypassCharacterAC("Slow Fall") then
         Settings.SlowFall = false
         if UI_Elements.SlowFall then UI_Elements.SlowFall.SetValue(false) end
@@ -2514,8 +3095,11 @@ CreateToggle(PanelPlayer, "Slow Fall", Theme.DotGreen, "SlowFall", function(v)
     end
     Settings.SlowFall = v
 end)
+gearSetters["SlowFall"] = setGearSlowFall
 
-CreateToggleWithKeybind(PanelPlayer, "Chui Đất", Theme.DotGreen, "UndergroundNoclip", "UndergroundHotkey", function(v)
+local _, setGearUG = CreateToggleWithKeybindAndGear(PanelPlayer, "Chui Đất", Theme.DotGreen, "UndergroundNoclip", "UndergroundHotkey", function(setter)
+    SelectGear("Underground", setter)
+end, function(v)
     Settings.UndergroundNoclip = v
     if v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         Shared.undergroundSurfaceY = LocalPlayer.Character.HumanoidRootPart.Position.Y
@@ -2530,8 +3114,11 @@ CreateToggleWithKeybind(PanelPlayer, "Chui Đất", Theme.DotGreen, "Underground
 end, function(v)
     Settings.UndergroundHotkey = v
 end)
+gearSetters["Underground"] = setGearUG
 
-CreateToggleWithKeybind(PanelPlayer, "Tele", Theme.DotGreen, "AutoTeleport", "AutoTeleportHotkey", function(v)
+local _, setGearTele = CreateToggleWithKeybindAndGear(PanelPlayer, "Tele", Theme.DotGreen, "AutoTeleport", "AutoTeleportHotkey", function(setter)
+    SelectGear("Tele", setter)
+end, function(v)
     if v and not CheckAndBypassCharacterAC("Auto Teleport") then
         Settings.AutoTeleport = false
         if UI_Elements.AutoTeleport then UI_Elements.AutoTeleport.SetValue(false) end
@@ -2549,7 +3136,11 @@ CreateToggleWithKeybind(PanelPlayer, "Tele", Theme.DotGreen, "AutoTeleport", "Au
 end, function(v)
     Settings.AutoTeleportHotkey = v
 end)
-CreateToggleWithKeybind(PanelPlayer, 'Speed Tele <font color="#ff3333">[BETA]</font>', Theme.DotGreen, "SpeedTele", "SpeedTeleHotkey", function(v)
+gearSetters["Tele"] = setGearTele
+
+local _, setGearSpeedTele = CreateToggleWithKeybindAndGear(PanelPlayer, 'Speed Tele <font color="#ff3333">[BETA]</font>', Theme.DotGreen, "SpeedTele", "SpeedTeleHotkey", function(setter)
+    SelectGear("SpeedTele", setter)
+end, function(v)
     if v and not CheckAndBypassCharacterAC("Speed Tele") then
         Settings.SpeedTele = false
         if UI_Elements.SpeedTele then UI_Elements.SpeedTele.SetValue(false) end
@@ -2567,7 +3158,11 @@ CreateToggleWithKeybind(PanelPlayer, 'Speed Tele <font color="#ff3333">[BETA]</f
 end, function(v)
     Settings.SpeedTeleHotkey = v
 end)
-CreateToggle(PanelPlayer, 'SpinBot <font color="#ff3333">[BETA]</font>', Theme.DotGreen, "SpinBot", function(v)
+gearSetters["SpeedTele"] = setGearSpeedTele
+
+local _, setGearSpin = CreateToggleWithGear(PanelPlayer, 'SpinBot <font color="#ff3333">[BETA]</font>', Theme.DotGreen, "SpinBot", function(setter)
+    SelectGear("SpinBot", setter)
+end, function(v)
     Settings.SpinBot = v
     if not v then
         if Player and Player.ResetSpinBot then
@@ -2577,28 +3172,51 @@ CreateToggle(PanelPlayer, 'SpinBot <font color="#ff3333">[BETA]</font>', Theme.D
         end
     end
 end)
+gearSetters["SpinBot"] = setGearSpin
 
-local PanelPlayerSet = CreatePanel(TabPlayer, "Settings", "", 0.5, 0, 0.5, 1)
-CreateSlider(PanelPlayerSet, "Tốc Độ", "WalkSpeed", 16, 300, "", function(v) Settings.WalkSpeed = v end)
-CreateSlider(PanelPlayerSet, "Lực Nhảy", "JumpPower", 50, 500, "", function(v) Settings.JumpPower = v end)
-CreateSlider(PanelPlayerSet, "Tốc Độ Bay", "FlySpeed", 10, 300, "", function(v) Settings.FlySpeed = v end)
-CreateSlider(PanelPlayerSet, "Trọng Lực (Gravity)", "Gravity", 0, 500, "", function(v)
+-- 2. TẠO CÁC NHÓM CÀI ĐẶT RIÊNG BIỆT TRONG PANELPLAYERSET
+local grpSpeed = CreateSettingGroup("Speed", "🏃", "CÀI ĐẶT TỐC ĐỘ", "Điều chỉnh tốc độ di chuyển trên mặt đất")
+CreateSlider(grpSpeed, "Tốc Độ", "WalkSpeed", 16, 300, "", function(v) Settings.WalkSpeed = v end)
+
+local grpJump = CreateSettingGroup("Jump", "🦘", "CÀI ĐẶT NHẢY", "Điều chỉnh lực bật nhảy của nhân vật")
+CreateSlider(grpJump, "Lực Nhảy", "JumpPower", 50, 500, "", function(v) Settings.JumpPower = v end)
+
+local grpFly = CreateSettingGroup("Fly", "✈️", "CÀI ĐẶT FLY (BAY 3D)", "Tốc độ bay tự do không trọng lực")
+CreateSlider(grpFly, "Tốc Độ Bay", "FlySpeed", 10, 300, "", function(v) Settings.FlySpeed = v end)
+
+local grpGravity = CreateSettingGroup("Gravity", "🪐", "CÀI ĐẶT TRỌNG LỰC", "Thay đổi lực hấp dẫn không gian")
+CreateSlider(grpGravity, "Trọng Lực (Gravity)", "Gravity", 0, 500, "", function(v)
     Settings.Gravity = v
     if Settings.GravityHack then
         Workspace.Gravity = v
     end
 end)
-CreateSlider(PanelPlayerSet, "Tốc Độ Rơi (Slow Fall)", "SlowFallSpeed", 1, 50, "", function(v)
+
+local grpSlowFall = CreateSettingGroup("SlowFall", "🪂", "CÀI ĐẶT RƠI CHẬM", "Hãm tốc độ rơi tự do mượt mà")
+CreateSlider(grpSlowFall, "Tốc Độ Rơi (Slow Fall)", "SlowFallSpeed", 1, 50, "", function(v)
     Settings.SlowFallSpeed = v
 end)
-CreateSlider(PanelPlayerSet, "Độ Sâu Chui", "UndergroundDistance", 1, 50, " m", function(v) Settings.UndergroundDistance = v end)
-CreateSlider(PanelPlayerSet, "Phạm Vi Tele", "TeleportRange", 10, 2000, " m", function(v) Settings.TeleportRange = v end)
-CreateSlider(PanelPlayerSet, "Cự Ly Bám Địch", "AutoTeleportDistance", 0, 100, " m", function(v) Settings.AutoTeleportDistance = v end)
-CreateDropdown(PanelPlayerSet, "Vị Trí Tele", "AutoTeleportPosition", {"Sau Lưng", "Trên Đầu", "Random"}, function(v) Settings.AutoTeleportPosition = v end)
-CreateToggle(PanelPlayerSet, "Tự Tele Về", Theme.DotGreen, "AutoTeleportReturn", function(v) Settings.AutoTeleportReturn = v end)
-CreateToggle(PanelPlayerSet, "Kiểm Tra Khiên An Toàn", Theme.DotGreen, "SafeShieldCheck", function(v) Settings.SafeShieldCheck = v end)
-CreateSlider(PanelPlayerSet, "Tốc Độ Speed Tele", "SpeedTeleSpeed", 10, 300, "", function(v) Settings.SpeedTeleSpeed = v end)
-CreateSlider(PanelPlayerSet, "Tốc Độ Xoay", "SpinSpeed", 10, 100, "", function(v) Settings.SpinSpeed = v end)
+
+local grpUnderground = CreateSettingGroup("Underground", "⛏️", "CÀI ĐẶT CHUI ĐẤT", "Độ sâu ẩn nấp dưới lòng đất")
+CreateSlider(grpUnderground, "Độ Sâu Chui", "UndergroundDistance", 1, 50, " m", function(v) Settings.UndergroundDistance = v end)
+
+local grpTele = CreateSettingGroup("Tele", "⚡", "CÀI ĐẶT DỊCH CHUYỂN", "Cấu hình lướt tức thời đến kẻ địch")
+CreateSlider(grpTele, "Phạm Vi Tele", "TeleportRange", 10, 2000, " m", function(v) Settings.TeleportRange = v end)
+CreateSlider(grpTele, "Cự Ly Bám Địch", "AutoTeleportDistance", 0, 100, " m", function(v) Settings.AutoTeleportDistance = v end)
+CreateDropdown(grpTele, "Vị Trí Tele", "AutoTeleportPosition", {"Sau Lưng", "Trên Đầu", "Random"}, function(v) Settings.AutoTeleportPosition = v end)
+CreateToggle(grpTele, "Tự Tele Về", Theme.DotGreen, "AutoTeleportReturn", function(v) Settings.AutoTeleportReturn = v end)
+CreateToggle(grpTele, "Kiểm Tra Khiên An Toàn", Theme.DotGreen, "SafeShieldCheck", function(v) Settings.SafeShieldCheck = v end)
+
+local grpSpeedTele = CreateSettingGroup("SpeedTele", "⏩", "CÀI ĐẶT SPEED TELE", "Tốc độ bay lướt khi dịch chuyển")
+CreateSlider(grpSpeedTele, "Tốc Độ Speed Tele", "SpeedTeleSpeed", 10, 300, "", function(v) Settings.SpeedTeleSpeed = v end)
+
+local grpSpinBot = CreateSettingGroup("SpinBot", "🌀", "CÀI ĐẶT SPINBOT", "Tốc độ xoay tròn nhân vật chống ngắm")
+CreateSlider(grpSpinBot, "Tốc Độ Xoay", "SpinSpeed", 10, 100, "", function(v) Settings.SpinSpeed = v end)
+
+-- Kích hoạt sẵn bánh răng Fly khi mở giao diện
+if gearSetters["Fly"] then
+    SelectGear("Fly", gearSetters["Fly"])
+end
 
 local PanelOptim = CreatePanel(TabSecurity, "Tối Ưu Hóa Máy Yếu", "", 0, 0, 0.5, 1)
 CreateToggle(PanelOptim, "Tắt Đổ Bóng", Theme.DotGreen, "OptimShadows", function(v)

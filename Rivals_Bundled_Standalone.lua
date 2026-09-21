@@ -145,12 +145,15 @@ Shared.Const = {
     },
     HitboxCandidateNames = {
         "Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso",
+        "HitboxHead", "PhysicalHitboxHead", "HitboxHeadSmall",
+        "HitboxBody", "PhysicalHitbox", "HitboxBodySmall", "HeadHitbox", "BodyHitbox",
         "LeftArm", "RightArm", "LeftLeg", "RightLeg",
         "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
         "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
         "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot"
     },
     BotContainerNames = {
+        "ShootingRangeEntities", "shootingrangeentities",
         "Dummies", "Bots", "NPCs", "Enemies", "Zombies", "Monsters",
         "AI", "Targets", "Spawns", "Units", "Minions", "Mobs", "Creatures",
         "BadGuys", "Guards", "Soldiers", "ShootingRange"
@@ -603,17 +606,19 @@ local function RefreshNPCCache()
         if npcAddedSet[model] then return end
         if model:GetAttribute("Dead") == true then return end
         
-        local hum = model:FindFirstChildOfClass("Humanoid")
+        local hum = model:FindFirstChildOfClass("Humanoid") or model:FindFirstChild("EnemyHumanoid") or model:FindFirstChild("Humanoid")
         local hrp = model:FindFirstChild("HumanoidRootPart") 
             or model:FindFirstChild("PhysicalHitbox")
             or model:FindFirstChild("HitboxBody") 
             or model:FindFirstChild("BodyHitbox") 
+            or model:FindFirstChild("HitboxBodySmall")
             or model:FindFirstChild("UpperTorso") 
             or model:FindFirstChild("Torso") 
             or model:FindFirstChild("Head") 
             or model:FindFirstChild("HeadHitbox")
             or model:FindFirstChild("HitboxHead")
             or model:FindFirstChild("PhysicalHitboxHead")
+            or model:FindFirstChild("HitboxHeadSmall")
             or model.PrimaryPart
         
         local isAlive = false
@@ -687,8 +692,19 @@ local function RefreshNPCCache()
         end
     end
 
-    -- 1. Quét thư mục Workspace.ShootingRangeEntities (DPS Dummy phòng tập)
-    local shootingFolder = Workspace:FindFirstChild("ShootingRangeEntities") or Workspace:FindFirstChild("shootingrangeentities")
+    -- 1. Quét thư mục Workspace.ShootingRangeEntities (DPS Dummy phòng tập - hỗ trợ tên có khoảng trắng hoặc viết thường)
+    local shootingFolder = Workspace:FindFirstChild("ShootingRangeEntities")
+        or Workspace:FindFirstChild("shootingrangeentities")
+        or Workspace:FindFirstChild("ShootingRangeEntities ")
+    if not shootingFolder then
+        for _, child in ipairs(Workspace:GetChildren()) do
+            local cName = string.lower(child.Name):gsub("%s+", "")
+            if cName == "shootingrangeentities" or string.find(cName, "shootingrange", 1, true) then
+                shootingFolder = child
+                break
+            end
+        end
+    end
     if shootingFolder then
         for _, child in ipairs(shootingFolder:GetChildren()) do
             checkAndAddBot(child)
@@ -820,8 +836,8 @@ local function getClosestPlayer()
 
     forEachEnemy(function(char, source)
         local hum = char:FindFirstChildOfClass("Humanoid")
-        local head = char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("PhysicalHitboxHead") or char:FindFirstChild("HeadHitbox")
-        local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("Torso") or char.PrimaryPart
+        local head = char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("PhysicalHitboxHead") or char:FindFirstChild("HeadHitbox") or char:FindFirstChild("HitboxHeadSmall")
+        local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("HitboxBodySmall") or char:FindFirstChild("Torso") or char.PrimaryPart
         head = head or hrp
 
         local isAlive = false
@@ -1204,30 +1220,42 @@ return function(Shared, Targeting)
             local sizeVal = cachedHitboxSizeVec
             local targetTransparency = Settings.HitboxInvisible and 1 or 0.55
 
+            local function expandPart(p)
+                if p and p:IsA("BasePart") then
+                    if not originalHitboxes[p] then
+                        originalHitboxes[p] = {
+                            Size = p.Size,
+                            Transparency = p.Transparency,
+                            CanCollide = p.CanCollide
+                        }
+                    end
+                    if p.Size ~= sizeVal then
+                        p.Size = sizeVal
+                    end
+                    if p.Transparency ~= targetTransparency then
+                        p.Transparency = targetTransparency
+                    end
+                    if p.CanCollide then
+                        p.CanCollide = false
+                    end
+                end
+            end
+
             forEachEnemy(function(char, source)
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
-                    local part = char:FindFirstChild(targetName)
-                    if not part and not isHead then
-                        part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char.PrimaryPart
-                    end
-                    if part and part:IsA("BasePart") then
-                        if not originalHitboxes[part] then
-                            originalHitboxes[part] = {
-                                Size = part.Size,
-                                Transparency = part.Transparency,
-                                CanCollide = part.CanCollide
-                            }
-                        end
-                        if part.Size ~= sizeVal then
-                            part.Size = sizeVal
-                        end
-                        if part.Transparency ~= targetTransparency then
-                            part.Transparency = targetTransparency
-                        end
-                        if part.CanCollide then
-                            part.CanCollide = false
-                        end
+                    if isHead then
+                        expandPart(char:FindFirstChild("Head"))
+                        expandPart(char:FindFirstChild("HitboxHead"))
+                        expandPart(char:FindFirstChild("PhysicalHitboxHead"))
+                        expandPart(char:FindFirstChild("HitboxHeadSmall"))
+                    else
+                        expandPart(char:FindFirstChild("HumanoidRootPart"))
+                        expandPart(char:FindFirstChild("UpperTorso"))
+                        expandPart(char:FindFirstChild("Torso"))
+                        expandPart(char:FindFirstChild("HitboxBody"))
+                        expandPart(char:FindFirstChild("PhysicalHitbox"))
+                        expandPart(char:FindFirstChild("HitboxBodySmall"))
                     end
                 end
             end)

@@ -1401,6 +1401,13 @@ local ESPTable = {}
 
 
 
+    -- =========================================================================
+    -- [THUẬT TOÁN 1: SNAP-ON-FIRE (HÚT TÂM KHI ĐÈ M1 KHÔNG XUNG ĐỘT CLICK)]
+    -- true: Thuật toán 1 (Đè M1 tự bắn tự nhiên + Hút tâm siêu tốc không kẹt đạn)
+    -- false: Logic cũ (Đè M2 gửi click ảo FireShot)
+    -- =========================================================================
+    local USE_ALGO_1_SNAP_ON_FIRE = true
+
     local aimSafeCounter = 0
     local isAiming = false
     local cachedClosest = nil
@@ -1441,7 +1448,7 @@ local ESPTable = {}
     end
 
     local function UpdateAim(step, center)
-        local needTarget = Settings.AimEnabled or Settings.ProAimEnabled or Settings.AimSnapline or Settings.AutoFire or Settings.TriggerBot or Settings.FOVVisible
+        local needTarget = Settings.AimEnabled or Settings.ProAimEnabled or Settings.AimSnapline or Settings.AutoFire or Settings.AutoFireHoldM2 or Settings.TriggerBot or Settings.FOVVisible
         if not needTarget then
             if FOVring.Visible then FOVring.Visible = false end
             if AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = false end
@@ -1735,33 +1742,130 @@ local ESPTable = {}
         ProAimAccumY = 0
     end
 
-    -- 2.6 AUTO FIRE & AUTO FIRE (HOLD M2) + WALL CHECK
-    local shouldAutoFire = Settings.AutoFire or (Settings.AutoFireHoldM2 and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
-    if shouldAutoFire then
-        local targetPart = ProAimLockedTarget
-        if not targetPart then
-            if closestTarget then
+    -- 2.6 AUTO FIRE & SILENT AIM (SNAP-ON-FIRE M1 / BACKUP M2 AUTOCLICK)
+    if USE_ALGO_1_SNAP_ON_FIRE then
+        local isHoldingM1 = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+
+        -- [A] THUẬT TOÁN 1: SNAP-ON-FIRE (SILENT AIM KHI ĐÈ CHUỘT TRÁI M1)
+        -- Cơ chế: Người chơi đè M1 tự xả đạn bằng ngón tay -> Game bắn tự nhiên 100% không bị kẹt đạn.
+        -- Script: Khi đè M1 và có địch trong FOV (kèm WallCheck nếu bật), tự động hút tâm (mousemoverel)
+        -- dính thẳng vào mục tiêu mà KHÔNG gọi FireShot() -> Tuyệt đối không xung đột tín hiệu chuột!
+        if Settings.AutoFireHoldM2 and isHoldingM1 then
+            -- Nếu ProAim (Aimbot Safe) đang trực tiếp khóa mục tiêu này thì nhường ProAim kéo để tránh xung đột
+            local isProAimHandling = Settings.ProAimEnabled and isHolding and (ProAimLockedTarget ~= nil)
+            if not isProAimHandling then
+                local targetPart = ProAimLockedTarget
+                if not targetPart and closestTarget then
+                    local targetChar = closestTarget:IsA("Player") and closestTarget.Character or closestTarget
+                    if targetChar then
+                        targetPart = getTargetPart(targetChar)
+                    end
+                end
+                if not targetPart then
+                    targetPart = getProAimTargetCached()
+                end
+
+                if targetPart then
+                    local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                    if onScreen then
+                        local canSnap = true
+                        if Settings.AutoFireWallCheck and isAutoFireVisible then
+                            canSnap = isAutoFireVisible(targetPart)
+                        end
+
+                        if canSnap then
+                            local maxFov = Settings.AutoFireFOV or Settings.FOV or 100
+                            local mousePos = (UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter) and center or UserInputService:GetMouseLocation()
+                            local deltaX = pos.X - mousePos.X
+                            local deltaY = pos.Y - mousePos.Y
+                            local distSq = deltaX * deltaX + deltaY * deltaY
+
+                            if distSq <= (maxFov * maxFov) then
+                                local dist = math.sqrt(distSq)
+                                -- Bù trừ độ nhạy chuột Roblox
+                                local sensCompensation = 1.0
+                                pcall(function()
+                                    local ugs = UserSettings():GetService("UserGameSettings")
+                                    local sens = ugs.MouseSensitivity
+                                    if sens and sens > 0.01 then
+                                        sensCompensation = math.clamp(0.45 / sens, 0.35, 2.5)
+                                    end
+                                end)
+
+                                -- Deadzone: Nếu khoảng cách < 1 pixel thì giữ nguyên
+                                if dist >= 1 then
+                                    -- Lực hút Snap nhạy: 0.55 ở tầm xa, 0.85 khi sát người để dính chặt
+                                    local snapFactor = (dist <= 25) and 0.85 or 0.55
+                                    local moveX = math.round(deltaX * snapFactor * sensCompensation)
+                                    local moveY = math.round(deltaY * snapFactor * sensCompensation)
+                                    if moveX ~= 0 or moveY ~= 0 then
+                                        mousemoverel(moveX, moveY)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        -- [B] AUTO FIRE (KILL AURA - Hands-free Auto Clicker)
+        -- Chỉ kích hoạt FireShot() khi người chơi KHÔNG đè M1 (tránh xung đột với ngón tay)
+        if Settings.AutoFire and not isHoldingM1 then
+            local targetPart = ProAimLockedTarget
+            if not targetPart and closestTarget then
                 local targetChar = closestTarget:IsA("Player") and closestTarget.Character or closestTarget
                 if targetChar then
                     targetPart = getTargetPart(targetChar)
                 end
             end
-        end
-        if not targetPart then
-            targetPart = getProAimTargetCached()
-        end
+            if not targetPart then
+                targetPart = getProAimTargetCached()
+            end
 
-        if targetPart then
-            local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-            if onScreen then
-                local maxFov = Settings.FOV or 100
-                local dx = pos.X - center.X
-                local dy = pos.Y - center.Y
-                local delayTime = math.max(Settings.AutoFireDelay or 0, 0.05)
-                if (dx * dx + dy * dy) <= (maxFov * maxFov) and (now - lastShotTime) >= delayTime then
-                    if isAutoFireVisible(targetPart) then
-                        lastShotTime = now
-                        FireShot()
+            if targetPart then
+                local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    local maxFov = Settings.AutoFireFOV or Settings.FOV or 100
+                    local dx = pos.X - center.X
+                    local dy = pos.Y - center.Y
+                    local delayTime = math.max(Settings.AutoFireDelay or 0, 0.05)
+                    if (dx * dx + dy * dy) <= (maxFov * maxFov) and (now - lastShotTime) >= delayTime then
+                        if isAutoFireVisible(targetPart) then
+                            lastShotTime = now
+                            FireShot()
+                        end
+                    end
+                end
+            end
+        end
+    else
+        -- [LOGIC CŨ BACKUP: ĐÈ M2 GỬI CLICK ẢO FIRESHOT]
+        local shouldAutoFire = Settings.AutoFire or (Settings.AutoFireHoldM2 and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
+        if shouldAutoFire then
+            local targetPart = ProAimLockedTarget
+            if not targetPart and closestTarget then
+                local targetChar = closestTarget:IsA("Player") and closestTarget.Character or closestTarget
+                if targetChar then
+                    targetPart = getTargetPart(targetChar)
+                end
+            end
+            if not targetPart then
+                targetPart = getProAimTargetCached()
+            end
+
+            if targetPart then
+                local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    local maxFov = Settings.FOV or 100
+                    local dx = pos.X - center.X
+                    local dy = pos.Y - center.Y
+                    local delayTime = math.max(Settings.AutoFireDelay or 0, 0.05)
+                    if (dx * dx + dy * dy) <= (maxFov * maxFov) and (now - lastShotTime) >= delayTime then
+                        if isAutoFireVisible(targetPart) then
+                            lastShotTime = now
+                            FireShot()
+                        end
                     end
                 end
             end
@@ -1769,7 +1873,18 @@ local ESPTable = {}
     end
 
     -- 2.7 NO RECOIL (MOUSE AIMLOCK-BASED RECOIL STABILIZATION)
-    if Settings.NoRecoil and (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or (Settings.AutoFire and not Settings.AutoFireHoldM2) or (Settings.AutoFireHoldM2 and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))) then
+    local isNoRecoilActive = false
+    if Settings.NoRecoil then
+        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+            isNoRecoilActive = true
+        elseif Settings.AutoFire then
+            isNoRecoilActive = true
+        elseif not USE_ALGO_1_SNAP_ON_FIRE and Settings.AutoFireHoldM2 and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+            isNoRecoilActive = true
+        end
+    end
+
+    if isNoRecoilActive then
         -- NẾU ĐANG AIMLOCK KHÓA VÀO MỤC TIÊU:
         -- Aimlock đã tự động ghim chuột bám chặt mục tiêu, không can thiệp đè lên để tránh xung đột chuột gây giật rung
         if not (Settings.ProAimEnabled and isHolding and ProAimLockedTarget) then

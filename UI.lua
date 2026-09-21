@@ -934,12 +934,11 @@ local function CreateToggle(parent, text, dotColor, settingKey, callback)
     Frame.BackgroundTransparency = 1
     Frame.Parent = parent
 
-    local Dot = nil
     if dotColor then
-        Dot = Instance.new("Frame")
+        local Dot = Instance.new("Frame")
         Dot.Size = UDim2.new(0, 6, 0, 6)
         Dot.Position = UDim2.new(0, 0, 0.5, -3)
-        Dot.BackgroundColor3 = isToggled and dotColor or Color3.fromRGB(60, 60, 65)
+        Dot.BackgroundColor3 = dotColor
         Dot.Parent = Frame
         Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
     end
@@ -981,11 +980,6 @@ local function CreateToggle(parent, text, dotColor, settingKey, callback)
             Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
             BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
         }):Play()
-        if Dot then
-            TweenService:Create(Dot, TweenInfo.new(0.2), {
-                BackgroundColor3 = val and dotColor or Color3.fromRGB(60, 60, 65)
-            }):Play()
-        end
     end
 
     local tabName = nil
@@ -1043,12 +1037,11 @@ local function CreateSafeToggle(parent, text, dotColor, settingKey, callback)
     Frame.BackgroundTransparency = 1
     Frame.Parent = parent
 
-    local Dot = nil
     if dotColor then
-        Dot = Instance.new("Frame")
+        local Dot = Instance.new("Frame")
         Dot.Size = UDim2.new(0, 6, 0, 6)
         Dot.Position = UDim2.new(0, 0, 0.5, -3)
-        Dot.BackgroundColor3 = isToggled and dotColor or Color3.fromRGB(60, 60, 65)
+        Dot.BackgroundColor3 = dotColor
         Dot.Parent = Frame
         Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
     end
@@ -1090,11 +1083,6 @@ local function CreateSafeToggle(parent, text, dotColor, settingKey, callback)
             Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
             BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
         }):Play()
-        if Dot then
-            TweenService:Create(Dot, TweenInfo.new(0.2), {
-                BackgroundColor3 = val and dotColor or Color3.fromRGB(60, 60, 65)
-            }):Play()
-        end
     end
 
     local tabName = nil
@@ -1172,12 +1160,11 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
     Frame.Parent = parent
 
     -- Dot
-    local Dot = nil
     if dotColor then
-        Dot = Instance.new("Frame")
+        local Dot = Instance.new("Frame")
         Dot.Size = UDim2.new(0, 6, 0, 6)
         Dot.Position = UDim2.new(0, 0, 0.5, -3)
-        Dot.BackgroundColor3 = isToggled and dotColor or Color3.fromRGB(60, 60, 65)
+        Dot.BackgroundColor3 = dotColor
         Dot.Parent = Frame
         Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
     end
@@ -1391,11 +1378,6 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
             Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
             BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
         }):Play()
-        if Dot then
-            TweenService:Create(Dot, TweenInfo.new(0.2), {
-                BackgroundColor3 = val and dotColor or Color3.fromRGB(60, 60, 65)
-            }):Play()
-        end
     end
 
     local tabName = nil
@@ -1465,12 +1447,11 @@ local function CreateToggleWithKeybind(parent, toggleText, dotColor, toggleKey, 
     Frame.Parent = parent
 
     -- Dot
-    local Dot = nil
     if dotColor then
-        Dot = Instance.new("Frame")
+        local Dot = Instance.new("Frame")
         Dot.Size = UDim2.new(0, 6, 0, 6)
         Dot.Position = UDim2.new(0, 0, 0.5, -3)
-        Dot.BackgroundColor3 = isToggled and dotColor or Color3.fromRGB(60, 60, 65)
+        Dot.BackgroundColor3 = dotColor
         Dot.Parent = Frame
         Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
     end
@@ -1565,11 +1546,6 @@ local function CreateToggleWithKeybind(parent, toggleText, dotColor, toggleKey, 
             Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
             BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
         }):Play()
-        if Dot then
-            TweenService:Create(Dot, TweenInfo.new(0.2), {
-                BackgroundColor3 = val and dotColor or Color3.fromRGB(60, 60, 65)
-            }):Play()
-        end
     end
 
     local tabName = nil

@@ -350,6 +350,8 @@ local function isAutoFireVisible(targetPart)
     return vis
 end
 
+local lastLockedAimbotTarget = nil
+
 local function getClosestPlayer()
     local target = nil
     local shortestDistSq = Settings.FOV * Settings.FOV
@@ -385,16 +387,19 @@ local function getClosestPlayer()
                     local dx = pos.X - fovPos.X
                     local dy = pos.Y - fovPos.Y
                     local distSq = dx * dx + dy * dy
-                    if distSq < shortestDistSq then
+                    -- [STICKY HYSTERESIS]: Ưu tiên 30% cho mục tiêu đã khóa để chống rung lắc đảo mục tiêu
+                    local effectiveDistSq = (lastLockedAimbotTarget and (source == lastLockedAimbotTarget or char == lastLockedAimbotTarget)) and (distSq * 0.70) or distSq
+                    if effectiveDistSq < shortestDistSq then
                         if isVisible(head) or isVisible(hrp) then
                             target = source
-                            shortestDistSq = distSq
+                            shortestDistSq = effectiveDistSq
                         end
                     end
                 end
             end
         end
     end)
+    lastLockedAimbotTarget = target
     return target
 end
 
@@ -426,6 +431,8 @@ local function getTargetPart(character)
         or character:FindFirstChild("Torso") 
         or character.PrimaryPart
 end
+
+local lastLockedProAimTarget = nil
 
 local function getClosestPlayerToCursor(mousePos)
     local maxDist = Settings.FOV or Settings.ProAimFOV or 120
@@ -470,9 +477,11 @@ local function getClosestPlayerToCursor(mousePos)
                         local dx = screenPos.X - mousePos.X
                         local dy = screenPos.Y - mousePos.Y
                         local distSq = dx * dx + dy * dy
-                        if distSq < closestDistSq then
+                        -- [STICKY HYSTERESIS]: Ưu tiên 30% cho mục tiêu đã khóa để chống đảo mục tiêu
+                        local effectiveDistSq = (lastLockedProAimTarget and (source == lastLockedProAimTarget or char == lastLockedProAimTarget)) and (distSq * 0.70) or distSq
+                        if effectiveDistSq < closestDistSq then
                             if isVisible(part) then
-                                closestDistSq = distSq
+                                closestDistSq = effectiveDistSq
                                 closestTarget = source
                                 closestPart = part
                                 closestScreenPos = screenPos
@@ -484,6 +493,7 @@ local function getClosestPlayerToCursor(mousePos)
         end
     end)
 
+    lastLockedProAimTarget = closestTarget
     return closestTarget, closestPart, closestScreenPos
 end
 

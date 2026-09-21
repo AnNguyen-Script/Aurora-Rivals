@@ -934,11 +934,12 @@ local function CreateToggle(parent, text, dotColor, settingKey, callback)
     Frame.BackgroundTransparency = 1
     Frame.Parent = parent
 
+    local Dot = nil
     if dotColor then
-        local Dot = Instance.new("Frame")
+        Dot = Instance.new("Frame")
         Dot.Size = UDim2.new(0, 6, 0, 6)
         Dot.Position = UDim2.new(0, 0, 0.5, -3)
-        Dot.BackgroundColor3 = dotColor
+        Dot.BackgroundColor3 = isToggled and dotColor or Color3.fromRGB(60, 60, 65)
         Dot.Parent = Frame
         Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
     end
@@ -980,6 +981,11 @@ local function CreateToggle(parent, text, dotColor, settingKey, callback)
             Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
             BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
         }):Play()
+        if Dot then
+            TweenService:Create(Dot, TweenInfo.new(0.2), {
+                BackgroundColor3 = val and dotColor or Color3.fromRGB(60, 60, 65)
+            }):Play()
+        end
     end
 
     local tabName = nil
@@ -1037,11 +1043,12 @@ local function CreateSafeToggle(parent, text, dotColor, settingKey, callback)
     Frame.BackgroundTransparency = 1
     Frame.Parent = parent
 
+    local Dot = nil
     if dotColor then
-        local Dot = Instance.new("Frame")
+        Dot = Instance.new("Frame")
         Dot.Size = UDim2.new(0, 6, 0, 6)
         Dot.Position = UDim2.new(0, 0, 0.5, -3)
-        Dot.BackgroundColor3 = dotColor
+        Dot.BackgroundColor3 = isToggled and dotColor or Color3.fromRGB(60, 60, 65)
         Dot.Parent = Frame
         Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
     end
@@ -1083,6 +1090,11 @@ local function CreateSafeToggle(parent, text, dotColor, settingKey, callback)
             Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
             BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
         }):Play()
+        if Dot then
+            TweenService:Create(Dot, TweenInfo.new(0.2), {
+                BackgroundColor3 = val and dotColor or Color3.fromRGB(60, 60, 65)
+            }):Play()
+        end
     end
 
     local tabName = nil
@@ -1160,11 +1172,12 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
     Frame.Parent = parent
 
     -- Dot
+    local Dot = nil
     if dotColor then
-        local Dot = Instance.new("Frame")
+        Dot = Instance.new("Frame")
         Dot.Size = UDim2.new(0, 6, 0, 6)
         Dot.Position = UDim2.new(0, 0, 0.5, -3)
-        Dot.BackgroundColor3 = dotColor
+        Dot.BackgroundColor3 = isToggled and dotColor or Color3.fromRGB(60, 60, 65)
         Dot.Parent = Frame
         Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
     end
@@ -1378,6 +1391,11 @@ local function CreateToggleWithDropdown(parent, toggleText, dotColor, toggleKey,
             Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
             BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
         }):Play()
+        if Dot then
+            TweenService:Create(Dot, TweenInfo.new(0.2), {
+                BackgroundColor3 = val and dotColor or Color3.fromRGB(60, 60, 65)
+            }):Play()
+        end
     end
 
     local tabName = nil
@@ -1447,11 +1465,12 @@ local function CreateToggleWithKeybind(parent, toggleText, dotColor, toggleKey, 
     Frame.Parent = parent
 
     -- Dot
+    local Dot = nil
     if dotColor then
-        local Dot = Instance.new("Frame")
+        Dot = Instance.new("Frame")
         Dot.Size = UDim2.new(0, 6, 0, 6)
         Dot.Position = UDim2.new(0, 0, 0.5, -3)
-        Dot.BackgroundColor3 = dotColor
+        Dot.BackgroundColor3 = isToggled and dotColor or Color3.fromRGB(60, 60, 65)
         Dot.Parent = Frame
         Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
     end
@@ -1546,6 +1565,11 @@ local function CreateToggleWithKeybind(parent, toggleText, dotColor, toggleKey, 
             Position = val and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
             BackgroundColor3 = val and Theme.KnobOn or Theme.KnobOff
         }):Play()
+        if Dot then
+            TweenService:Create(Dot, TweenInfo.new(0.2), {
+                BackgroundColor3 = val and dotColor or Color3.fromRGB(60, 60, 65)
+            }):Play()
+        end
     end
 
     local tabName = nil
@@ -2444,6 +2468,9 @@ CreateToggle(PanelPlayer, "Speed Buff", Theme.DotGreen, "SpeedHack", function(v)
         return
     end
     Settings.SpeedHack = v
+    if not v and Player and Player.ResetSpeed then
+        Player.ResetSpeed()
+    end
 end)
 CreateToggle(PanelPlayer, "Jump Buff", Theme.DotGreen, "JumpHack", function(v)
     if v and not CheckAndBypassCharacterAC("JumpHack") then
@@ -2452,6 +2479,9 @@ CreateToggle(PanelPlayer, "Jump Buff", Theme.DotGreen, "JumpHack", function(v)
         return
     end
     Settings.JumpHack = v
+    if not v and Player and Player.ResetJump then
+        Player.ResetJump()
+    end
 end)
 CreateToggle(PanelPlayer, "Inf Jump", Theme.DotGreen, "InfJump", function(v)
     if v and not CheckAndBypassCharacterAC("Inf Jump") then
@@ -2468,6 +2498,9 @@ CreateToggle(PanelPlayer, "Fly", Theme.DotGreen, "Fly", function(v)
         return
     end
     Settings.Fly = v
+    if not v and Player and Player.ResetFly then
+        Player.ResetFly()
+    end
 end)
 CreateToggle(PanelPlayer, "Noclip", Theme.DotGreen, "Noclip", function(v)
     if v and not CheckAndBypassCharacterAC("Noclip") then
@@ -2476,6 +2509,9 @@ CreateToggle(PanelPlayer, "Noclip", Theme.DotGreen, "Noclip", function(v)
         return
     end
     Settings.Noclip = v
+    if not v and Player and Player.ResetNoclip then
+        Player.ResetNoclip()
+    end
 end)
 CreateToggle(PanelPlayer, "Gravity", Theme.DotGreen, "GravityHack", function(v)
     if v and not CheckAndBypassCharacterAC("Gravity") then
@@ -2487,7 +2523,11 @@ CreateToggle(PanelPlayer, "Gravity", Theme.DotGreen, "GravityHack", function(v)
     if v then
         Workspace.Gravity = Settings.Gravity
     else
-        Workspace.Gravity = 196.2
+        if Player and Player.ResetGravity then
+            Player.ResetGravity()
+        else
+            Workspace.Gravity = 196.2
+        end
     end
 end)
 CreateToggle(PanelPlayer, "Slow Fall", Theme.DotGreen, "SlowFall", function(v)
@@ -2507,6 +2547,9 @@ CreateToggleWithKeybind(PanelPlayer, "Chui Đất", Theme.DotGreen, "Underground
         local hrp = LocalPlayer.Character.HumanoidRootPart
         hrp.CFrame = hrp.CFrame + Vector3.new(0, Shared.undergroundSurfaceY - hrp.Position.Y, 0)
         Shared.undergroundSurfaceY = nil
+        if Player and Player.RestoreCollisions then
+            Player.RestoreCollisions()
+        end
     end
 end, function(v)
     Settings.UndergroundHotkey = v
@@ -2550,8 +2593,12 @@ end, function(v)
 end)
 CreateToggle(PanelPlayer, 'SpinBot <font color="#ff3333">[BETA]</font>', Theme.DotGreen, "SpinBot", function(v)
     Settings.SpinBot = v
-    if not v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.AutoRotate = true
+    if not v then
+        if Player and Player.ResetSpinBot then
+            Player.ResetSpinBot()
+        elseif LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.AutoRotate = true
+        end
     end
 end)
 

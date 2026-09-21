@@ -62,6 +62,33 @@ local ESPTable = {}
     local ProAimLastVisibleTime = 0
     local ProAimAccumX = 0
     local ProAimAccumY = 0
+
+    -- PID Controller States (X & Y Axis)
+    local pidPrevErrX = 0
+    local pidPrevErrY = 0
+    local pidIntegralX = 0
+    local pidIntegralY = 0
+
+    -- Kalman Filter / Kinematic State Estimator (3D Position, Velocity, Acceleration)
+    local kalmanFilteredPos = nil
+    local kalmanFilteredVel = Vector3.zero
+    local kalmanFilteredAcc = Vector3.zero
+    local kalmanLastTarget = nil
+    local kalmanLastTime = 0
+
+    local function ResetAimlockStates()
+        pidPrevErrX = 0
+        pidPrevErrY = 0
+        pidIntegralX = 0
+        pidIntegralY = 0
+        kalmanFilteredPos = nil
+        kalmanFilteredVel = Vector3.zero
+        kalmanFilteredAcc = Vector3.zero
+        kalmanLastTarget = nil
+        kalmanLastTime = 0
+        ProAimAccumX = 0
+        ProAimAccumY = 0
+    end
     local lastTargetSwitch = 0
     local aimAcquireTime = 0
     local lastShotTime = 0
@@ -242,8 +269,7 @@ local ESPTable = {}
         if ProAimLockedTarget and not isLockedTargetValid(ProAimLockedTarget, ProAimLockedChar, now) then
             ProAimLockedTarget = nil
             ProAimLockedChar = nil
-            ProAimAccumX = 0
-            ProAimAccumY = 0
+            ResetAimlockStates()
         end
 
         -- 2. Tìm mục tiêu mới nếu chưa khóa
@@ -251,11 +277,10 @@ local ESPTable = {}
             local mousePos = UserInputService:GetMouseLocation()
             local targetSource, targetPart, targetScreenPos = getClosestPlayerToCursor(mousePos)
             if targetPart and targetScreenPos then
+                ResetAimlockStates()
                 ProAimLockedTarget = targetPart
                 ProAimLockedChar = targetPart.Parent
                 ProAimLastVisibleTime = now
-                ProAimAccumX = 0
-                ProAimAccumY = 0
             end
         end
 
@@ -270,80 +295,114 @@ local ESPTable = {}
                 aimWorldPos = Vector3.new(rootPart.Position.X, ProAimLockedTarget.Position.Y, rootPart.Position.Z)
             end
 
-            -- Vận tốc mục tiêu (Velocity)
-            local targetVel = (rootPart and rootPart.AssemblyLinearVelocity) or ProAimLockedTarget.AssemblyLinearVelocity or Vector3.zero
-            if targetVel.Magnitude > 120 then
-                targetVel = targetVel.Unit * 120
+            -- [THUẬT TOÁN 1: BỘ LỌC KALMAN / EMA GIA TỐC (KALMAN FILTER 3D KINEMATICS)]
+            local rawVel = (rootPart and rootPart.AssemblyLinearVelocity) or ProAimLockedTarget.AssemblyLinearVelocity or Vector3.zero
+            if rawVel.Magnitude > 120 then
+                rawVel = rawVel.Unit * 120
             end
 
             local dt = math.clamp(step or 0.016, 0.001, 0.05)
 
-            -- Dự đoán trước vị trí mục tiêu (dt + bù trễ đầu vào ~0.02s)
-            local predictedWorldPos = aimWorldPos + (targetVel * (dt + 0.02))
+            if kalmanFilteredPos == nil or kalmanLastTarget ~= ProAimLockedTarget or (now - kalmanLastTime) > 0.2 then
+                kalmanFilteredPos = aimWorldPos
+                kalmanFilteredVel = rawVel
+                kalmanFilteredAcc = Vector3.zero
+                kalmanLastTarget = ProAimLockedTarget
+                kalmanLastTime = now
+            else
+                -- 1. Dự đoán trạng thái động học bậc 2
+                local predPos = kalmanFilteredPos + (kalmanFilteredVel * dt) + (kalmanFilteredAcc * 0.5 * dt * dt)
+                local predVel = kalmanFilteredVel + (kalmanFilteredAcc * dt)
+
+                -- 2. Hệ số tăng ích Kalman thích ứng theo mức biến thiên vận tốc (Lọc nhiễu A-D spam)
+                local velChange = (rawVel - kalmanFilteredVel).Magnitude
+                local kalmanGainPos = 0.65
+                local kalmanGainVel = math.clamp(0.50 + (velChange / 60) * 0.35, 0.50, 0.85)
+                local kalmanGainAcc = 0.40
+
+                -- 3. Cập nhật vị trí & vận tốc đã lọc sạch desync/jitter
+                kalmanFilteredPos = predPos:Lerp(aimWorldPos, kalmanGainPos)
+                local newVel = predVel:Lerp(rawVel, kalmanGainVel)
+                local newAcc = (newVel - kalmanFilteredVel) / dt
+                if newAcc.Magnitude > 250 then
+                    newAcc = newAcc.Unit * 250
+                end
+                kalmanFilteredAcc = kalmanFilteredAcc:Lerp(newAcc, kalmanGainAcc)
+                kalmanFilteredVel = newVel
+                kalmanLastTime = now
+            end
+
+            -- Dự đoán vị trí tương lai bậc 2 (Bù trễ frame + độ trễ đầu vào ~20ms)
+            local leadTime = dt + 0.02
+            local predictedWorldPos = kalmanFilteredPos + (kalmanFilteredVel * leadTime) + (kalmanFilteredAcc * 0.5 * leadTime * leadTime)
 
             local targetScreenPos, onScreen = Camera:WorldToViewportPoint(predictedWorldPos)
             if not onScreen then
-                targetScreenPos, onScreen = Camera:WorldToViewportPoint(aimWorldPos)
+                targetScreenPos, onScreen = Camera:WorldToViewportPoint(kalmanFilteredPos)
             end
 
             if onScreen then
                 local mousePos = UserInputService:GetMouseLocation()
                 local xOffset = Settings.ProAimXOffset or 0
                 local yOffset = Settings.ProAimYOffset or 0
-                local deltaX = targetScreenPos.X - mousePos.X + xOffset
-                local deltaY = targetScreenPos.Y - mousePos.Y + yOffset
-                local distSq = deltaX * deltaX + deltaY * deltaY
+                local errorX = targetScreenPos.X - mousePos.X + xOffset
+                local errorY = targetScreenPos.Y - mousePos.Y + yOffset
+                local distSq = errorX * errorX + errorY * errorY
                 local dist = math.sqrt(distSq)
 
-                -- [BÙ TRỪ ĐỘ NHẠY CHUỘT ROBLOX] Tự động cân bằng lực kéo theo MouseSensitivity
-                local sensCompensation = 1.0
-                pcall(function()
-                    local ugs = UserSettings():GetService("UserGameSettings")
-                    local sens = ugs.MouseSensitivity
-                    if sens and sens > 0.01 then
-                        sensCompensation = math.clamp(0.45 / sens, 0.35, 2.5)
+                -- [THUẬT TOÁN 2: BỘ ĐIỀU KHIỂN PID (PROPORTIONAL - INTEGRAL - DERIVATIVE CONTROLLER)]
+                -- Deadzone: nếu sai số < 0.75 pixel -> đã hoàn toàn trúng tâm
+                if dist >= 0.75 then
+                    local userSmooth = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1.0)
+
+                    -- Bù trừ độ nhạy chuột Roblox (Sensitivity-Aware Scaling)
+                    local sensCompensation = 1.0
+                    pcall(function()
+                        local ugs = UserSettings():GetService("UserGameSettings")
+                        local sens = ugs.MouseSensitivity
+                        if sens and sens > 0.01 then
+                            sensCompensation = math.clamp(0.45 / sens, 0.35, 2.5)
+                        end
+                    end)
+
+                    -- Hệ số PID tự thích ứng theo thanh trượt Smooth
+                    -- Kp: Lực kéo tỷ lệ chính (Smooth cao -> kéo đầm tay, Smooth thấp -> khóa tức thì)
+                    local Kp = 15 + (1 - userSmooth) * 25
+
+                    -- Ki: Tích phân sai số (Triệt tiêu 100% độ trễ bám khi địch chạy ngang liên tục)
+                    local Ki = 0.5 + (1 - userSmooth) * 1.5
+
+                    -- Kd: Vi phân giảm chấn (Tự động phanh hãm khi tâm sắp chạm đích, dập tắt rung lắc)
+                    local Kd = 0.28 + (userSmooth * 0.32)
+
+                    -- Tích lũy Integral kèm chốt chặn Anti-Windup
+                    if dist <= 80 then
+                        pidIntegralX = math.clamp(pidIntegralX + (errorX * dt), -120, 120)
+                        pidIntegralY = math.clamp(pidIntegralY + (errorY * dt), -120, 120)
+                    else
+                        pidIntegralX = pidIntegralX * 0.7
+                        pidIntegralY = pidIntegralY * 0.7
                     end
-                end)
 
-                -- [BÁM VẬN TỐC GÓC MÀN HÌNH - FEED-FORWARD] Bám sát theo từng pixel mục tiêu dạt ngang
-                local feedForwardX = 0
-                local feedForwardY = 0
-                if targetVel.Magnitude > 1 then
-                    local curScr = Camera:WorldToViewportPoint(aimWorldPos)
-                    local nextScr = Camera:WorldToViewportPoint(aimWorldPos + targetVel * dt)
-                    feedForwardX = (nextScr.X - curScr.X) * 0.85
-                    feedForwardY = (nextScr.Y - curScr.Y) * 0.85
-                end
+                    -- Tính đạo hàm sai số Derivative (dError / dt)
+                    local derivX = (errorX - pidPrevErrX) / dt
+                    local derivY = (errorY - pidPrevErrY) / dt
+                    pidPrevErrX = errorX
+                    pidPrevErrY = errorY
 
-                -- [ĐƯỜNG CONG TỪ TÍNH & SMOOTHSTEP]
-                -- Deadzone: nếu khoảng cách < 0.8 pixel -> đã trúng tâm, giữ nguyên
-                if dist >= 0.8 then
-                    local smoothFactor = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1)
-
-                    -- Tốc độ suy hao cơ bản độc lập với FPS
-                    local baseDecay = 16 + (smoothFactor * 40) -- range [16, 56]
-                    local alpha = 1 - math.exp(-baseDecay * dt)
-                    alpha = math.clamp(alpha, 0.04, 0.90)
-
-                    -- Lực hút nam châm thích ứng (Adaptive Magnetism):
-                    -- Khi khoảng cách <= 25px (chạm vào người đối thủ), tăng lực hút lên để dính chặt
+                    -- Lực hút nam châm thích ứng (Adaptive Magnetism): Tăng nhẹ lực khi chạm người đối thủ (<= 25px)
                     local magnetMult = 1.0
                     if dist <= 25 then
-                        magnetMult = 1.0 + (1.0 - (dist / 25)) * 0.45 -- tăng tới 1.45x
+                        magnetMult = 1.0 + (1.0 - (dist / 25)) * 0.35
                     end
 
-                    -- Nội suy Hermite / Smoothstep cho chuyển động tự nhiên
-                    local normDist = math.clamp(dist / 60, 0, 1)
-                    local smoothstepEase = normDist * normDist * (3 - 2 * normDist)
-                    local blendFactor = math.clamp(0.4 + smoothstepEase * 0.6, 0.4, 1.0)
+                    -- Tổng hợp xung lực điều khiển PID
+                    local pidOutputX = ((Kp * errorX) + (Ki * pidIntegralX) + (Kd * derivX)) * magnetMult * dt * sensCompensation
+                    local pidOutputY = ((Kp * errorY) + (Ki * pidIntegralY) + (Kd * derivY)) * magnetMult * dt * sensCompensation
 
-                    -- Tổng hợp lực kéo chuột
-                    local stepMoveX = ((deltaX * alpha * magnetMult * blendFactor) + (feedForwardX * magnetMult)) * sensCompensation
-                    local stepMoveY = ((deltaY * alpha * magnetMult * blendFactor) + (feedForwardY * magnetMult)) * sensCompensation
-
-                    -- Bộ tích lũy điểm ảnh phụ (Subpixel Accumulator) cho chuyển động mượt tuyệt đối
-                    ProAimAccumX = ProAimAccumX + stepMoveX
-                    ProAimAccumY = ProAimAccumY + stepMoveY
+                    -- Bộ tích lũy điểm ảnh phụ (Subpixel Accumulator) cho chuyển động siêu mượt 144Hz
+                    ProAimAccumX = ProAimAccumX + pidOutputX
+                    ProAimAccumY = ProAimAccumY + pidOutputY
 
                     local moveX = math.round(ProAimAccumX)
                     local moveY = math.round(ProAimAccumY)
@@ -354,14 +413,17 @@ local ESPTable = {}
                         mousemoverel(moveX, moveY)
                     end
                 else
+                    pidPrevErrX = errorX
+                    pidPrevErrY = errorY
+                    pidIntegralX = pidIntegralX * 0.85
+                    pidIntegralY = pidIntegralY * 0.85
                     ProAimAccumX = 0
                     ProAimAccumY = 0
                 end
             else
                 ProAimLockedTarget = nil
                 ProAimLockedChar = nil
-                ProAimAccumX = 0
-                ProAimAccumY = 0
+                ResetAimlockStates()
             end
         end
     else

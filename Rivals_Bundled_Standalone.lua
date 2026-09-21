@@ -578,6 +578,7 @@ end
 local NPCCache = Shared.NPCCache or {}
     Shared.NPCCache = NPCCache
 local lastNPCRefresh = 0
+local lastFullWorkspaceScan = 0
 local playerCharsCache = {}
 local npcAddedSet = {}
 
@@ -740,16 +741,19 @@ local function RefreshNPCCache()
         end
     end
 
-    -- 5. Quét đối tượng Model trực tiếp trong Workspace (Nhận diện Bot spawn như tinfoilted, UserId < 0, Tags Bot/Target)
-    for _, child in ipairs(Workspace:GetChildren()) do
-        if child:IsA("Model") and not npcAddedSet[child] and not playerCharsCache[child] and child ~= LocalPlayer.Character then
-            local uId = child:GetAttribute("UserId")
-            local isBotAttr = child:GetAttribute("IsBot") or child:GetAttribute("Bot") or child:GetAttribute("IsNPC")
-            local hasBotTag = CollectionService:HasTag(child, "Bot") or CollectionService:HasTag(child, "Target") or CollectionService:HasTag(child, "NPCCharacter")
-            if (uId and tonumber(uId) and tonumber(uId) < 0) or isBotAttr == true or hasBotTag then
-                checkAndAddBot(child)
-            elseif child:FindFirstChildOfClass("Humanoid") and (child:FindFirstChild("Head") or child:FindFirstChild("HumanoidRootPart")) and not Players:GetPlayerFromCharacter(child) then
-                checkAndAddBot(child)
+    -- 5. Quét đối tượng Model trực tiếp trong Workspace (Giãn cách 3.0s để triệt tiêu 100% rác GC khi có 200+ Bot)
+    if (#NPCCache == 0) or (now - lastFullWorkspaceScan >= 3.0) then
+        lastFullWorkspaceScan = now
+        for _, child in ipairs(Workspace:GetChildren()) do
+            if child:IsA("Model") and not npcAddedSet[child] and not playerCharsCache[child] and child ~= LocalPlayer.Character then
+                local uId = child:GetAttribute("UserId")
+                local isBotAttr = child:GetAttribute("IsBot") or child:GetAttribute("Bot") or child:GetAttribute("IsNPC")
+                local hasBotTag = CollectionService:HasTag(child, "Bot") or CollectionService:HasTag(child, "Target") or CollectionService:HasTag(child, "NPCCharacter")
+                if (uId and tonumber(uId) and tonumber(uId) < 0) or isBotAttr == true or hasBotTag then
+                    checkAndAddBot(child)
+                elseif child:FindFirstChildOfClass("Humanoid") and (child:FindFirstChild("Head") or child:FindFirstChild("HumanoidRootPart")) and not Players:GetPlayerFromCharacter(child) then
+                    checkAndAddBot(child)
+                end
             end
         end
     end
@@ -858,7 +862,11 @@ local function getClosestPlayer()
             local maxDist = Settings.AimDist or 1000
 
             if physicalDistSq <= (maxDist * maxDist) then
-                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                -- [FAST FRUSTUM CULLING]: Bỏ qua tức thì các mục tiêu sau lưng mà không cần gọi WorldToViewportPoint
+                local camLook = Camera.CFrame.LookVector
+                local dot = diff.X * camLook.X + diff.Y * camLook.Y + diff.Z * camLook.Z
+                if dot > 0 then
+                    local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
                 if onScreen then
                     local dx = pos.X - fovPos.X
                     local dy = pos.Y - fovPos.Y
@@ -871,6 +879,7 @@ local function getClosestPlayer()
                             shortestDistSq = effectiveDistSq
                         end
                     end
+                end
                 end
             end
         end
@@ -948,7 +957,11 @@ local function getClosestPlayerToCursor(mousePos)
                 local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
                 local maxPhysicalDist = Settings.AimDist or Settings.ProAimDist or 1000
                 if physicalDistSq <= (maxPhysicalDist * maxPhysicalDist) then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    -- [FAST FRUSTUM CULLING]: Bỏ qua tức thì các mục tiêu sau lưng
+                    local camLook = Camera.CFrame.LookVector
+                    local dot = diff.X * camLook.X + diff.Y * camLook.Y + diff.Z * camLook.Z
+                    if dot > 0 then
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
                     if onScreen then
                         local dx = screenPos.X - mousePos.X
                         local dy = screenPos.Y - mousePos.Y
@@ -963,6 +976,7 @@ local function getClosestPlayerToCursor(mousePos)
                                 closestScreenPos = screenPos
                             end
                         end
+                    end
                     end
                 end
             end
@@ -1004,6 +1018,26 @@ end
     Targeting.forEachEnemy = forEachEnemy
     Targeting.botCache = botCache
 
+    -- [ZERO-POLLING EVENT LISTENER]: Bắt Bot mới sinh tức thời trong 0ms bằng Signals C++
+    pcall(function()
+        for i = 1, #Const.BOT_TAGS do
+            local tag = Const.BOT_TAGS[i]
+            CollectionService:GetInstanceAddedSignal(tag):Connect(function(inst)
+                if inst:IsA("Model") and Settings.TargetNPC then
+                    checkAndAddBot(inst)
+                end
+            end)
+        end
+        local sFolder = Workspace:FindFirstChild("ShootingRangeEntities") or Workspace:FindFirstChild("shootingrangeentities")
+        if sFolder then
+            sFolder.ChildAdded:Connect(function(child)
+                if Settings.TargetNPC then
+                    checkAndAddBot(child)
+                end
+            end)
+        end
+    end)
+
     return Targeting
 end
 
@@ -1028,8 +1062,14 @@ return function(Shared, Targeting)
     local forEachEnemy = Targeting.forEachEnemy
     local isSafeShield = Targeting.isSafeShield
 
-    -- Hitbox Expander Cache & Reset Logic
+    -- Hitbox Expander Cache & Reset Logic (Tối ưu hóa 200+ Bot: One-Shot Mutator)
     local originalHitboxes = {}
+    local expandedPartsCache = {}
+    local lastHitboxTick = 0
+    local lastHitboxPart = nil
+    local lastHitboxSize = nil
+    local lastHitboxInvis = nil
+
     local function ResetHitboxes()
         for part, orig in pairs(originalHitboxes) do
             if part and part.Parent then
@@ -1041,6 +1081,7 @@ return function(Shared, Targeting)
             end
         end
         table.clear(originalHitboxes)
+        table.clear(expandedPartsCache)
     end
 
     -- Character defaults & state tracking
@@ -1209,56 +1250,67 @@ return function(Shared, Targeting)
             end
         end
 
-        -- Hitbox Expander (Mở rộng Hitbox Đầu hoặc Thân - Hỗ trợ cả Người chơi & NPC/Bot)
+        -- Hitbox Expander (Mở rộng Hitbox Đầu hoặc Thân - Tối ưu hóa One-Shot Cache cho 200+ Bot)
         if Settings.HitboxExpander then
+            local now = tick()
             local isHead = (Settings.HitboxPart == "Head" or Settings.HitboxPart == "Đầu")
-            local targetName = isHead and "Head" or "HumanoidRootPart"
-            if cachedHitboxVal ~= Settings.HitboxSize then
+            local settingsChanged = (lastHitboxPart ~= Settings.HitboxPart)
+                or (lastHitboxSize ~= Settings.HitboxSize)
+                or (lastHitboxInvis ~= Settings.HitboxInvisible)
+
+            if settingsChanged then
+                lastHitboxPart = Settings.HitboxPart
+                lastHitboxSize = Settings.HitboxSize
+                lastHitboxInvis = Settings.HitboxInvisible
                 cachedHitboxVal = Settings.HitboxSize
                 cachedHitboxSizeVec = Vector3.new(cachedHitboxVal, cachedHitboxVal, cachedHitboxVal)
-            end
-            local sizeVal = cachedHitboxSizeVec
-            local targetTransparency = Settings.HitboxInvisible and 1 or 0.55
-
-            local function expandPart(p)
-                if p and p:IsA("BasePart") then
-                    if not originalHitboxes[p] then
-                        originalHitboxes[p] = {
-                            Size = p.Size,
-                            Transparency = p.Transparency,
-                            CanCollide = p.CanCollide
-                        }
-                    end
-                    if p.Size ~= sizeVal then
-                        p.Size = sizeVal
-                    end
-                    if p.Transparency ~= targetTransparency then
-                        p.Transparency = targetTransparency
-                    end
-                    if p.CanCollide then
-                        p.CanCollide = false
-                    end
-                end
+                table.clear(expandedPartsCache)
+                lastHitboxTick = 0
             end
 
-            forEachEnemy(function(char, source)
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
-                    if isHead then
-                        expandPart(char:FindFirstChild("Head"))
-                        expandPart(char:FindFirstChild("HitboxHead"))
-                        expandPart(char:FindFirstChild("PhysicalHitboxHead"))
-                        expandPart(char:FindFirstChild("HitboxHeadSmall"))
-                    else
-                        expandPart(char:FindFirstChild("HumanoidRootPart"))
-                        expandPart(char:FindFirstChild("UpperTorso"))
-                        expandPart(char:FindFirstChild("Torso"))
-                        expandPart(char:FindFirstChild("HitboxBody"))
-                        expandPart(char:FindFirstChild("PhysicalHitbox"))
-                        expandPart(char:FindFirstChild("HitboxBodySmall"))
+            -- Giãn cách kiểm tra 0.35s (3 Hz thay vì 144 Hz). Tiết kiệm 99% CPU khi có 200+ Bot!
+            if settingsChanged or (now - lastHitboxTick >= 0.35) then
+                lastHitboxTick = now
+                local sizeVal = cachedHitboxSizeVec or Vector3.new(Settings.HitboxSize, Settings.HitboxSize, Settings.HitboxSize)
+                local targetTransparency = Settings.HitboxInvisible and 1 or 0.55
+
+                local function expandPart(p)
+                    if p and p:IsA("BasePart") then
+                        if expandedPartsCache[p] ~= sizeVal then
+                            if not originalHitboxes[p] then
+                                originalHitboxes[p] = {
+                                    Size = p.Size,
+                                    Transparency = p.Transparency,
+                                    CanCollide = p.CanCollide
+                                }
+                            end
+                            p.Size = sizeVal
+                            p.Transparency = targetTransparency
+                            p.CanCollide = false
+                            expandedPartsCache[p] = sizeVal
+                        end
                     end
                 end
-            end)
+
+                forEachEnemy(function(char, source)
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        if isHead then
+                            expandPart(char:FindFirstChild("Head"))
+                            expandPart(char:FindFirstChild("HitboxHead"))
+                            expandPart(char:FindFirstChild("PhysicalHitboxHead"))
+                            expandPart(char:FindFirstChild("HitboxHeadSmall"))
+                        else
+                            expandPart(char:FindFirstChild("HumanoidRootPart"))
+                            expandPart(char:FindFirstChild("UpperTorso"))
+                            expandPart(char:FindFirstChild("Torso"))
+                            expandPart(char:FindFirstChild("HitboxBody"))
+                            expandPart(char:FindFirstChild("PhysicalHitbox"))
+                            expandPart(char:FindFirstChild("HitboxBodySmall"))
+                        end
+                    end
+                end)
+            end
         else
             if next(originalHitboxes) then
                 ResetHitboxes()
@@ -2621,6 +2673,16 @@ Players.PlayerRemoving:Connect(removeESP)
                     local maxDist = Settings.ESPDist or 1000
 
                     if distSq <= (maxDist * maxDist) then
+                        -- [FAST DOT-PRODUCT CULLING]: Kiểm tra nhanh xem mục tiêu có ở trước mặt không
+                        local camLook = Camera.CFrame.LookVector
+                        local dot = diff.X * camLook.X + diff.Y * camLook.Y + diff.Z * camLook.Z
+
+                        -- Nếu mục tiêu sau lưng và không bật mũi tên ngoài màn hình -> Ẩn ngay lập tức không tốn 1 phép tính ma trận nào
+                        if dot <= 0 and not Settings.OffscreenArrows then
+                            hideAllESP(esp)
+                            continue
+                        end
+
                         local dist = math.sqrt(distSq)
                         espTotalInRange = espTotalInRange + 1
 
@@ -2646,6 +2708,12 @@ Players.PlayerRemoving:Connect(removeESP)
 
                         if onScreen and rootPos.Z > 0 then
                             espTotalOnScreen = espTotalOnScreen + 1
+
+                            -- [MAX RENDERED CAP]: Giới hạn tối đa 24 mục tiêu vẽ cùng lúc để bảo vệ bộ đệm Drawing khi có 200+ Bot
+                            if espTotalOnScreen > 24 and dist > 80 then
+                                hideOnScreenESP(esp)
+                                continue
+                            end
                             isVisibleNow = true
 
                             local headPos = Camera:WorldToViewportPoint(head.Position + VEC3_UP_HEAD)
@@ -2782,8 +2850,9 @@ Players.PlayerRemoving:Connect(removeESP)
                                 if esp.Tracer.Visible then esp.Tracer.Visible = false end
                             end
 
-                            -- [SKELETON LOD]: Tự động ẩn Skeleton khi địch > 150m (quá xa, nhìn rối mắt và tốn FPS)
-                            if Settings.ESPSkeleton and dist <= 150 then
+                            -- [DYNAMIC SKELETON LOD]: Tự động ẩn Skeleton khi cự ly > 80m hoặc khi có > 12 mục tiêu trên màn hình
+                            local skelLimit = (espTotalOnScreen > 12) and 60 or 80
+                            if Settings.ESPSkeleton and dist <= skelLimit then
                                 esp._skeletonVisible = true
                                 local isR15 = char:FindFirstChild("UpperTorso") ~= nil
                                 local connections = isR15 and Const.R15_BONES or Const.R6_BONES

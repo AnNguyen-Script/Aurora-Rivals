@@ -796,6 +796,8 @@ local function isAutoFireVisible(targetPart)
     return vis
 end
 
+local lastLockedAimbotTarget = nil
+
 local function getClosestPlayer()
     local target = nil
     local shortestDistSq = Settings.FOV * Settings.FOV
@@ -831,16 +833,19 @@ local function getClosestPlayer()
                     local dx = pos.X - fovPos.X
                     local dy = pos.Y - fovPos.Y
                     local distSq = dx * dx + dy * dy
-                    if distSq < shortestDistSq then
+                    -- [STICKY HYSTERESIS]: Ưu tiên 30% cho mục tiêu đã khóa để chống rung lắc đảo mục tiêu
+                    local effectiveDistSq = (lastLockedAimbotTarget and (source == lastLockedAimbotTarget or char == lastLockedAimbotTarget)) and (distSq * 0.70) or distSq
+                    if effectiveDistSq < shortestDistSq then
                         if isVisible(head) or isVisible(hrp) then
                             target = source
-                            shortestDistSq = distSq
+                            shortestDistSq = effectiveDistSq
                         end
                     end
                 end
             end
         end
     end)
+    lastLockedAimbotTarget = target
     return target
 end
 
@@ -872,6 +877,8 @@ local function getTargetPart(character)
         or character:FindFirstChild("Torso") 
         or character.PrimaryPart
 end
+
+local lastLockedProAimTarget = nil
 
 local function getClosestPlayerToCursor(mousePos)
     local maxDist = Settings.FOV or Settings.ProAimFOV or 120
@@ -916,9 +923,11 @@ local function getClosestPlayerToCursor(mousePos)
                         local dx = screenPos.X - mousePos.X
                         local dy = screenPos.Y - mousePos.Y
                         local distSq = dx * dx + dy * dy
-                        if distSq < closestDistSq then
+                        -- [STICKY HYSTERESIS]: Ưu tiên 30% cho mục tiêu đã khóa để chống đảo mục tiêu
+                        local effectiveDistSq = (lastLockedProAimTarget and (source == lastLockedProAimTarget or char == lastLockedProAimTarget)) and (distSq * 0.70) or distSq
+                        if effectiveDistSq < closestDistSq then
                             if isVisible(part) then
-                                closestDistSq = distSq
+                                closestDistSq = effectiveDistSq
                                 closestTarget = source
                                 closestPart = part
                                 closestScreenPos = screenPos
@@ -930,6 +939,7 @@ local function getClosestPlayerToCursor(mousePos)
         end
     end)
 
+    lastLockedProAimTarget = closestTarget
     return closestTarget, closestPart, closestScreenPos
 end
 
@@ -1577,6 +1587,8 @@ local ESPTable = {}
     local ProAimLastVisibleTime = 0
     local ProAimAccumX = 0
     local ProAimAccumY = 0
+    local emaVel = Vector3.zero
+    local emaLastTarget = nil
     local lastTargetSwitch = 0
     local aimAcquireTime = 0
     local lastShotTime = 0
@@ -1708,7 +1720,9 @@ local ESPTable = {}
         end
         local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
         if not onScreen then
-            return false
+            if (currentTime - ProAimLastVisibleTime) > 0.15 then
+                return false
+            end
         end
         local mousePos = UserInputService:GetMouseLocation()
         local dx = screenPos.X - mousePos.X
@@ -1785,11 +1799,20 @@ local ESPTable = {}
                 aimWorldPos = Vector3.new(rootPart.Position.X, ProAimLockedTarget.Position.Y, rootPart.Position.Z)
             end
 
-            -- Vận tốc mục tiêu (Velocity)
-            local targetVel = (rootPart and rootPart.AssemblyLinearVelocity) or ProAimLockedTarget.AssemblyLinearVelocity or Vector3.zero
-            if targetVel.Magnitude > 120 then
-                targetVel = targetVel.Unit * 120
+            -- [THUẬT TOÁN 1: BỘ LỌC VẬN TỐC EMA 2 TẦNG (EXPONENTIAL MOVING AVERAGE)]
+            local rawVel = (rootPart and rootPart.AssemblyLinearVelocity) or ProAimLockedTarget.AssemblyLinearVelocity or Vector3.zero
+            if rawVel.Magnitude > 120 then
+                rawVel = rawVel.Unit * 120
             end
+
+            if emaLastTarget ~= ProAimLockedTarget then
+                emaVel = rawVel
+                emaLastTarget = ProAimLockedTarget
+            else
+                -- Lọc sạch 65% xung giật do A-D spam / desync ping
+                emaVel = emaVel:Lerp(rawVel, 0.35)
+            end
+            local targetVel = emaVel
 
             local dt = math.clamp(step or 0.016, 0.001, 0.05)
 
@@ -1802,7 +1825,10 @@ local ESPTable = {}
             end
 
             if onScreen then
-                local mousePos = UserInputService:GetMouseLocation()
+                -- [THUẬT TOÁN 2: TỌA ĐỘ TÂM CHUẨN XÁC ROBLOX (LOCKCENTER AWARE)]
+                local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                local mousePos = (UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter) and center or UserInputService:GetMouseLocation()
+
                 local xOffset = Settings.ProAimXOffset or 0
                 local yOffset = Settings.ProAimYOffset or 0
                 local deltaX = targetScreenPos.X - mousePos.X + xOffset
@@ -1830,31 +1856,28 @@ local ESPTable = {}
                     feedForwardY = (nextScr.Y - curScr.Y) * 0.85
                 end
 
-                -- [ĐƯỜNG CONG TỪ TÍNH & SMOOTHSTEP]
-                -- Deadzone: nếu khoảng cách < 0.8 pixel -> đã trúng tâm, giữ nguyên
-                if dist >= 0.8 then
-                    local smoothFactor = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1)
+                -- Deadzone: nếu khoảng cách < 0.75 pixel -> đã trúng tâm, giữ nguyên
+                if dist >= 0.75 then
+                    local userSmooth = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1.0)
 
-                    -- Tốc độ suy hao cơ bản độc lập với FPS
-                    local baseDecay = 16 + (smoothFactor * 40) -- range [16, 56]
-                    local alpha = 1 - math.exp(-baseDecay * dt)
-                    alpha = math.clamp(alpha, 0.04, 0.90)
+                    -- [THUẬT TOÁN 3: LÒ XO GIẢM CHẤN TỚI HẠN (CRITICALLY DAMPED SPRING-DAMPER PHYSICS)]
+                    -- Tần số góc lò xo omega: Smooth cao -> kéo đầm tay, Smooth thấp -> bám tức thì
+                    local omega = 18 + (1 - userSmooth) * 24 -- range [18, 42] rad/s
 
-                    -- Lực hút nam châm thích ứng (Adaptive Magnetism):
-                    -- Khi khoảng cách <= 25px (chạm vào người đối thủ), tăng lực hút lên để dính chặt
+                    -- Hàm phân rã giảm chấn bậc 2 chuẩn vật lý: Không bao giờ văng lố (Zero Overshoot), không rung giật
+                    local w_dt = omega * dt
+                    local decay = 1 / (1 + w_dt + 0.48 * w_dt * w_dt)
+                    local springFactor = math.clamp(1 - decay, 0.05, 0.95)
+
+                    -- Lực hút nam châm thích ứng (Adaptive Magnetism): Khi chạm người đối thủ (<= 25px), tăng lực dính
                     local magnetMult = 1.0
                     if dist <= 25 then
-                        magnetMult = 1.0 + (1.0 - (dist / 25)) * 0.45 -- tăng tới 1.45x
+                        magnetMult = 1.0 + (1.0 - (dist / 25)) * 0.40 -- tăng tới 1.40x
                     end
 
-                    -- Nội suy Hermite / Smoothstep cho chuyển động tự nhiên
-                    local normDist = math.clamp(dist / 60, 0, 1)
-                    local smoothstepEase = normDist * normDist * (3 - 2 * normDist)
-                    local blendFactor = math.clamp(0.4 + smoothstepEase * 0.6, 0.4, 1.0)
-
-                    -- Tổng hợp lực kéo chuột
-                    local stepMoveX = ((deltaX * alpha * magnetMult * blendFactor) + (feedForwardX * magnetMult)) * sensCompensation
-                    local stepMoveY = ((deltaY * alpha * magnetMult * blendFactor) + (feedForwardY * magnetMult)) * sensCompensation
+                    -- Tổng hợp lực kéo chuột lò xo mượt mà, đầm tay
+                    local stepMoveX = ((deltaX * springFactor * magnetMult) + (feedForwardX * magnetMult)) * sensCompensation
+                    local stepMoveY = ((deltaY * springFactor * magnetMult) + (feedForwardY * magnetMult)) * sensCompensation
 
                     -- Bộ tích lũy điểm ảnh phụ (Subpixel Accumulator) cho chuyển động mượt tuyệt đối
                     ProAimAccumX = ProAimAccumX + stepMoveX
@@ -1875,6 +1898,8 @@ local ESPTable = {}
             else
                 ProAimLockedTarget = nil
                 ProAimLockedChar = nil
+                emaVel = Vector3.zero
+                emaLastTarget = nil
                 ProAimAccumX = 0
                 ProAimAccumY = 0
             end

@@ -58,24 +58,24 @@ return function(Shared, Shield)
     elseif target:IsA("Model") then
         local myTeamName = LocalPlayer.Team and LocalPlayer.Team.Name
         local nTeamName = target:GetAttribute("Team") or target:GetAttribute("team")
-        if myTeamName and nTeamName and myTeamName ~= "" and tostring(myTeamName) == tostring(nTeamName) then
+        if myTeamName and nTeamName and myTeamName ~= "" and myTeamName == nTeamName then
             return true
         end
         local myTeamID = LocalPlayer:GetAttribute("TeamID")
         local nTeamID = target:GetAttribute("TeamID")
-        if myTeamID ~= nil and nTeamID ~= nil and myTeamID ~= "" and tostring(myTeamID) == tostring(nTeamID) then
+        if myTeamID ~= nil and nTeamID ~= nil and myTeamID ~= "" and myTeamID == nTeamID then
             return true
         end
         for i = 1, #Const.TEAM_ATTR_NAMES do
             local name = Const.TEAM_ATTR_NAMES[i]
             local myAttr = LocalPlayer:GetAttribute(name)
             local nAttr = target:GetAttribute(name)
-            if myAttr ~= nil and nAttr ~= nil and myAttr ~= "" and myAttr ~= 0 and tostring(myAttr) == tostring(nAttr) then
+            if myAttr ~= nil and nAttr ~= nil and myAttr ~= "" and myAttr ~= 0 and myAttr == nAttr then
                 return true
             end
             if LocalPlayer.Character then
                 local myCAttr = LocalPlayer.Character:GetAttribute(name)
-                if myCAttr ~= nil and nAttr ~= nil and myCAttr ~= "" and myCAttr ~= 0 and tostring(myCAttr) == tostring(nAttr) then
+                if myCAttr ~= nil and nAttr ~= nil and myCAttr ~= "" and myCAttr ~= 0 and myCAttr == nAttr then
                     return true
                 end
             end
@@ -159,19 +159,17 @@ local function RefreshNPCCache()
         if npcAddedSet[model] then return end
         if model:GetAttribute("Dead") == true then return end
         
-        local hum = model:FindFirstChildOfClass("Humanoid") or model:FindFirstChild("EnemyHumanoid") or model:FindFirstChild("Humanoid")
+        local hum = model:FindFirstChildOfClass("Humanoid")
         local hrp = model:FindFirstChild("HumanoidRootPart") 
             or model:FindFirstChild("PhysicalHitbox")
             or model:FindFirstChild("HitboxBody") 
             or model:FindFirstChild("BodyHitbox") 
-            or model:FindFirstChild("HitboxBodySmall")
             or model:FindFirstChild("UpperTorso") 
             or model:FindFirstChild("Torso") 
             or model:FindFirstChild("Head") 
             or model:FindFirstChild("HeadHitbox")
             or model:FindFirstChild("HitboxHead")
             or model:FindFirstChild("PhysicalHitboxHead")
-            or model:FindFirstChild("HitboxHeadSmall")
             or model.PrimaryPart
         
         local isAlive = false
@@ -179,7 +177,7 @@ local function RefreshNPCCache()
             isAlive = (hum.Health > 0 or hum.Health == math.huge or hum.MaxHealth <= 0)
         elseif model:GetAttribute("Health") then
             isAlive = ((tonumber(model:GetAttribute("Health")) or 0) > 0)
-        elseif model:GetAttribute("IsNPC") == true or model:GetAttribute("NPCCharacter") == true or model:GetAttribute("Bot") == true or (model:GetAttribute("UserId") and tonumber(model:GetAttribute("UserId")) < 0) then
+        elseif model:GetAttribute("IsNPC") == true or model:GetAttribute("NPCCharacter") == true then
             isAlive = (model:GetAttribute("Dead") ~= true)
         else
             local mName = string.lower(model.Name)
@@ -247,19 +245,8 @@ local function RefreshNPCCache()
         end
     end
 
-    -- 1. Quét thư mục Workspace.ShootingRangeEntities (DPS Dummy phòng tập - hỗ trợ tên có khoảng trắng hoặc viết thường)
-    local shootingFolder = Workspace:FindFirstChild("ShootingRangeEntities")
-        or Workspace:FindFirstChild("shootingrangeentities")
-        or Workspace:FindFirstChild("ShootingRangeEntities ")
-    if not shootingFolder then
-        for _, child in ipairs(Workspace:GetChildren()) do
-            local cName = string.lower(child.Name):gsub("%s+", "")
-            if cName == "shootingrangeentities" or string.find(cName, "shootingrange", 1, true) then
-                shootingFolder = child
-                break
-            end
-        end
-    end
+    -- 1. Quét thư mục Workspace.ShootingRangeEntities (DPS Dummy phòng tập)
+    local shootingFolder = Workspace:FindFirstChild("ShootingRangeEntities") or Workspace:FindFirstChild("shootingrangeentities")
     if shootingFolder then
         for _, child in ipairs(shootingFolder:GetChildren()) do
             checkAndAddBot(child)
@@ -282,7 +269,7 @@ local function RefreshNPCCache()
         end
     end
 
-    -- 4. Quét CollectionService Tags đặc thù (Bot, Target, Entity, NPCCharacter, Dummy...)
+    -- 4. Quét CollectionService Tags đặc thù (Entity, NPCCharacter, Dummy...)
     for i = 1, #Const.BOT_TAGS do
         local tName = Const.BOT_TAGS[i]
         local ok, tagList = pcall(function() return CollectionService:GetTagged(tName) end)
@@ -291,20 +278,6 @@ local function RefreshNPCCache()
                 if item:IsA("Model") then
                     checkAndAddBot(item)
                 end
-            end
-        end
-    end
-
-    -- 5. Quét đối tượng Model trực tiếp trong Workspace (Nhận diện Bot spawn như tinfoilted, UserId < 0, Tags Bot/Target)
-    for _, child in ipairs(Workspace:GetChildren()) do
-        if child:IsA("Model") and not npcAddedSet[child] and not playerCharsCache[child] and child ~= LocalPlayer.Character then
-            local uId = child:GetAttribute("UserId")
-            local isBotAttr = child:GetAttribute("IsBot") or child:GetAttribute("Bot") or child:GetAttribute("IsNPC")
-            local hasBotTag = CollectionService:HasTag(child, "Bot") or CollectionService:HasTag(child, "Target") or CollectionService:HasTag(child, "NPCCharacter")
-            if (uId and tonumber(uId) and tonumber(uId) < 0) or isBotAttr == true or hasBotTag then
-                checkAndAddBot(child)
-            elseif child:FindFirstChildOfClass("Humanoid") and (child:FindFirstChild("Head") or child:FindFirstChild("HumanoidRootPart")) and not Players:GetPlayerFromCharacter(child) then
-                checkAndAddBot(child)
             end
         end
     end
@@ -381,8 +354,6 @@ local function isAutoFireVisible(targetPart)
     return vis
 end
 
-local lastLockedAimbotTarget = nil
-
 local function getClosestPlayer()
     local target = nil
     local shortestDistSq = Settings.FOV * Settings.FOV
@@ -391,8 +362,8 @@ local function getClosestPlayer()
 
     forEachEnemy(function(char, source)
         local hum = char:FindFirstChildOfClass("Humanoid")
-        local head = char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("PhysicalHitboxHead") or char:FindFirstChild("HeadHitbox") or char:FindFirstChild("HitboxHeadSmall")
-        local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("HitboxBodySmall") or char:FindFirstChild("Torso") or char.PrimaryPart
+        local head = char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("PhysicalHitboxHead") or char:FindFirstChild("HeadHitbox")
+        local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("Torso") or char.PrimaryPart
         head = head or hrp
 
         local isAlive = false
@@ -418,19 +389,16 @@ local function getClosestPlayer()
                     local dx = pos.X - fovPos.X
                     local dy = pos.Y - fovPos.Y
                     local distSq = dx * dx + dy * dy
-                    -- [STICKY HYSTERESIS]: Ưu tiên 30% cho mục tiêu đã khóa để chống rung lắc đảo mục tiêu
-                    local effectiveDistSq = (lastLockedAimbotTarget and (source == lastLockedAimbotTarget or char == lastLockedAimbotTarget)) and (distSq * 0.70) or distSq
-                    if effectiveDistSq < shortestDistSq then
+                    if distSq < shortestDistSq then
                         if isVisible(head) or isVisible(hrp) then
                             target = source
-                            shortestDistSq = effectiveDistSq
+                            shortestDistSq = distSq
                         end
                     end
                 end
             end
         end
     end)
-    lastLockedAimbotTarget = target
     return target
 end
 
@@ -462,8 +430,6 @@ local function getTargetPart(character)
         or character:FindFirstChild("Torso") 
         or character.PrimaryPart
 end
-
-local lastLockedProAimTarget = nil
 
 local function getClosestPlayerToCursor(mousePos)
     local maxDist = Settings.FOV or Settings.ProAimFOV or 120
@@ -524,7 +490,6 @@ local function getClosestPlayerToCursor(mousePos)
         end
     end)
 
-    lastLockedProAimTarget = closestTarget
     return closestTarget, closestPart, closestScreenPos
 end
 

@@ -15,14 +15,8 @@ return function(Shared, Targeting)
     local forEachEnemy = Targeting.forEachEnemy
     local isSafeShield = Targeting.isSafeShield
 
-    -- Hitbox Expander Cache & Reset Logic (Tối ưu hóa 200+ Bot: One-Shot Mutator)
+    -- Hitbox Expander Cache & Reset Logic
     local originalHitboxes = {}
-    local expandedPartsCache = {}
-    local lastHitboxTick = 0
-    local lastHitboxPart = nil
-    local lastHitboxSize = nil
-    local lastHitboxInvis = nil
-
     local function ResetHitboxes()
         for part, orig in pairs(originalHitboxes) do
             if part and part.Parent then
@@ -34,7 +28,6 @@ return function(Shared, Targeting)
             end
         end
         table.clear(originalHitboxes)
-        table.clear(expandedPartsCache)
     end
 
     -- Character defaults & state tracking
@@ -203,67 +196,56 @@ return function(Shared, Targeting)
             end
         end
 
-        -- Hitbox Expander (Mở rộng Hitbox Đầu hoặc Thân - Tối ưu hóa One-Shot Cache cho 200+ Bot)
+        -- Hitbox Expander (Mở rộng Hitbox Đầu hoặc Thân - Hỗ trợ cả Người chơi & NPC/Bot)
         if Settings.HitboxExpander then
-            local now = tick()
             local isHead = (Settings.HitboxPart == "Head" or Settings.HitboxPart == "Đầu")
-            local settingsChanged = (lastHitboxPart ~= Settings.HitboxPart)
-                or (lastHitboxSize ~= Settings.HitboxSize)
-                or (lastHitboxInvis ~= Settings.HitboxInvisible)
-
-            if settingsChanged then
-                lastHitboxPart = Settings.HitboxPart
-                lastHitboxSize = Settings.HitboxSize
-                lastHitboxInvis = Settings.HitboxInvisible
+            local targetName = isHead and "Head" or "HumanoidRootPart"
+            if cachedHitboxVal ~= Settings.HitboxSize then
                 cachedHitboxVal = Settings.HitboxSize
                 cachedHitboxSizeVec = Vector3.new(cachedHitboxVal, cachedHitboxVal, cachedHitboxVal)
-                table.clear(expandedPartsCache)
-                lastHitboxTick = 0
             end
+            local sizeVal = cachedHitboxSizeVec
+            local targetTransparency = Settings.HitboxInvisible and 1 or 0.55
 
-            -- Giãn cách kiểm tra 0.35s (3 Hz thay vì 144 Hz). Tiết kiệm 99% CPU khi có 200+ Bot!
-            if settingsChanged or (now - lastHitboxTick >= 0.35) then
-                lastHitboxTick = now
-                local sizeVal = cachedHitboxSizeVec or Vector3.new(Settings.HitboxSize, Settings.HitboxSize, Settings.HitboxSize)
-                local targetTransparency = Settings.HitboxInvisible and 1 or 0.55
-
-                local function expandPart(p)
-                    if p and p:IsA("BasePart") then
-                        if expandedPartsCache[p] ~= sizeVal then
-                            if not originalHitboxes[p] then
-                                originalHitboxes[p] = {
-                                    Size = p.Size,
-                                    Transparency = p.Transparency,
-                                    CanCollide = p.CanCollide
-                                }
-                            end
-                            p.Size = sizeVal
-                            p.Transparency = targetTransparency
-                            p.CanCollide = false
-                            expandedPartsCache[p] = sizeVal
-                        end
+            local function expandPart(p)
+                if p and p:IsA("BasePart") then
+                    if not originalHitboxes[p] then
+                        originalHitboxes[p] = {
+                            Size = p.Size,
+                            Transparency = p.Transparency,
+                            CanCollide = p.CanCollide
+                        }
+                    end
+                    if p.Size ~= sizeVal then
+                        p.Size = sizeVal
+                    end
+                    if p.Transparency ~= targetTransparency then
+                        p.Transparency = targetTransparency
+                    end
+                    if p.CanCollide then
+                        p.CanCollide = false
                     end
                 end
-
-                forEachEnemy(function(char, source)
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 then
-                        if isHead then
-                            expandPart(char:FindFirstChild("Head"))
-                            expandPart(char:FindFirstChild("HitboxHead"))
-                            expandPart(char:FindFirstChild("PhysicalHitboxHead"))
-                            expandPart(char:FindFirstChild("HitboxHeadSmall"))
-                        else
-                            expandPart(char:FindFirstChild("HumanoidRootPart"))
-                            expandPart(char:FindFirstChild("UpperTorso"))
-                            expandPart(char:FindFirstChild("Torso"))
-                            expandPart(char:FindFirstChild("HitboxBody"))
-                            expandPart(char:FindFirstChild("PhysicalHitbox"))
-                            expandPart(char:FindFirstChild("HitboxBodySmall"))
-                        end
-                    end
-                end)
             end
+
+            forEachEnemy(function(char, source)
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    if isHead then
+                        expandPart(char:FindFirstChild("Head"))
+                        expandPart(char:FindFirstChild("HitboxHead"))
+                        expandPart(char:FindFirstChild("PhysicalHitboxHead"))
+                        expandPart(char:FindFirstChild("HitboxHeadSmall"))
+                    else
+                        expandPart(char:FindFirstChild("HumanoidRootPart"))
+                        expandPart(char:FindFirstChild("UpperTorso"))
+                        expandPart(char:FindFirstChild("Torso"))
+                        expandPart(char:FindFirstChild("HitboxBody"))
+                        expandPart(char:FindFirstChild("PhysicalHitbox"))
+                        expandPart(char:FindFirstChild("HitboxBodySmall"))
+                    end
+                end
+            end)
         else
             if next(originalHitboxes) then
                 ResetHitboxes()

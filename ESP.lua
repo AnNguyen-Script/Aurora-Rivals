@@ -31,7 +31,7 @@ ChamsFolder.Name = IDS.ChamsFolder
 pcall(function() ChamsFolder.Parent = parentGui end)
 if not ChamsFolder.Parent then pcall(function() ChamsFolder.Parent = Camera end) end
 
-local function getEquippedWeapon(target, char, isNPC)
+local function getEquippedWeapon(target, char)
     if not char then return "Unarmed" end
 
     -- 1. [FIGHTER INTERFACES]: Kiểm tra PlayerGui (Rivals HUD - Cực kỳ chuẩn xác cho LocalPlayer & các fighter có frame)
@@ -97,7 +97,7 @@ local function getEquippedWeapon(target, char, isNPC)
         or char:GetAttribute("CurrentWeapon")
         or char:GetAttribute("Equipped")
         or char:GetAttribute("Gun")
-    if not wAttr and not isNPC and target then
+    if not wAttr and target then
         wAttr = target:GetAttribute("EquippedWeapon")
             or target:GetAttribute("Weapon")
             or target:GetAttribute("CurrentWeapon")
@@ -352,87 +352,39 @@ Players.PlayerRemoving:Connect(removeESP)
 
         for target, esp in pairs(ESPTable) do
             local isVisibleNow = false
-        local isValid = false
-        local char = nil
-        local targetName = ""
-        local isNPC = false
+            local isValid = false
+            local char = nil
+            local targetName = ""
 
-        if typeof(target) == "Instance" then
-            if target:IsA("Player") then
+            if typeof(target) == "Instance" and target:IsA("Player") then
                 if target.Parent == Players then
                     isValid = true
                     char = target.Character
                     targetName = target.DisplayName or target.Name
                 end
-            elseif target:IsA("Model") or target:IsA("Actor") then
-                if target.Parent ~= nil then
-                    isValid = true
-                    char = target
-                    local dName = target:GetAttribute("DisplayName")
-                    if dName and dName ~= "" then
-                        targetName = dName .. " [BOT]"
-                    else
-                        targetName = target.Name .. " [BOT]"
-                    end
-                    isNPC = true
-                end
             end
-        end
 
-        if not isValid or (isNPC and not Settings.TargetNPC) then
             if not isValid then
                 removeESP(target)
-            else
-                esp.Box.Visible = false
-                esp.Name.Visible = false
-                esp.HealthBg.Visible = false
-                esp.Health.Visible = false
-                esp.Tracer.Visible = false
-                esp.Info.Visible = false
-                if esp.Chams then esp.Chams.Enabled = false end
-                if esp.Arrow1 then esp.Arrow1.Visible = false end
-                if esp.Arrow2 then esp.Arrow2.Visible = false end
-                if esp.Arrow3 then esp.Arrow3.Visible = false end
-                if esp.Skeleton then
-                    for i = 1, #esp.Skeleton do
-                        if esp.Skeleton[i] then esp.Skeleton[i].Visible = false end
-                    end
+                continue
+            end
+
+            local isAlive = false
+            local hrp = nil
+            local head = nil
+            local hum = nil
+            local maxH = 100
+
+            if char then
+                hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char.PrimaryPart
+                head = char:FindFirstChild("Head") or hrp
+                hum = char:FindFirstChildOfClass("Humanoid")
+
+                if hum then
+                    isAlive = hum.Health > 0
+                    maxH = math.max(hum.MaxHealth, 1)
                 end
             end
-            continue
-        end
-
-        local isAlive = false
-        local hrp = nil
-        local head = nil
-        local hum = nil
-        local maxH = 100
-
-        if char then
-            hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char.PrimaryPart
-            head = char:FindFirstChild("Head") or hrp
-            hum = char:FindFirstChildOfClass("Humanoid")
-
-            if hum then
-                isAlive = hum.Health > 0
-                maxH = math.max(hum.MaxHealth, 1)
-            else
-                local healthVal = char:FindFirstChild("Health") or char:FindFirstChild("health")
-                if healthVal and (healthVal:IsA("NumberValue") or healthVal:IsA("IntValue")) then
-                    isAlive = healthVal.Value > 0
-                    local maxHealthVal = char:FindFirstChild("MaxHealth") or char:FindFirstChild("maxHealth")
-                    if maxHealthVal and (maxHealthVal:IsA("NumberValue") or maxHealthVal:IsA("IntValue")) then
-                        maxH = math.max(maxHealthVal.Value, 1)
-                    end
-                elseif char:GetAttribute("Health") then
-                    isAlive = ((tonumber(char:GetAttribute("Health")) or 0) > 0)
-                    local attrMaxH = char:GetAttribute("MaxHealth")
-                    if attrMaxH then maxH = math.max(tonumber(attrMaxH) or 100, 1) end
-                elseif isNPC then
-                    isAlive = true
-                end
-            end
-        end
 
         if Settings.ESPEnabled and hrp and head and isAlive then
                 local passTeamCheck = not isSameTeam(target)
@@ -537,7 +489,7 @@ Players.PlayerRemoving:Connect(removeESP)
                                         end
                                     end
                                     if Settings.ESPWeapon then
-                                        local wName = getEquippedWeapon(target, char, isNPC)
+                                        local wName = getEquippedWeapon(target, char)
                                         infoText = infoText .. (wName or "Unarmed")
                                     end
                                     esp._cachedInfoText = infoText:gsub("%s+$", "")

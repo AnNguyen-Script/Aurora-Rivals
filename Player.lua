@@ -222,9 +222,15 @@ return function(Shared, Targeting)
                                 CanCollide = part.CanCollide
                             }
                         end
-                        part.Size = sizeVal
-                        part.Transparency = targetTransparency
-                        part.CanCollide = false
+                        if part.Size ~= sizeVal then
+                            part.Size = sizeVal
+                        end
+                        if part.Transparency ~= targetTransparency then
+                            part.Transparency = targetTransparency
+                        end
+                        if part.CanCollide then
+                            part.CanCollide = false
+                        end
                     end
                 end
             end)
@@ -390,7 +396,9 @@ return function(Shared, Targeting)
 
             -- SpeedHack: Bật thì áp dụng, tắt thì lập tức khôi phục về default
             if Settings.SpeedHack then
-                humanoid.WalkSpeed = Settings.WalkSpeed
+                if humanoid.WalkSpeed ~= Settings.WalkSpeed then
+                    humanoid.WalkSpeed = Settings.WalkSpeed
+                end
                 wasSpeedHack = true
             elseif wasSpeedHack then
                 ResetSpeed()
@@ -398,8 +406,10 @@ return function(Shared, Targeting)
 
             -- JumpHack: Bật thì áp dụng, tắt thì lập tức khôi phục về default
             if Settings.JumpHack then
-                humanoid.UseJumpPower = true
-                humanoid.JumpPower = Settings.JumpPower
+                if not humanoid.UseJumpPower then humanoid.UseJumpPower = true end
+                if humanoid.JumpPower ~= Settings.JumpPower then
+                    humanoid.JumpPower = Settings.JumpPower
+                end
                 wasJumpHack = true
             elseif wasJumpHack then
                 ResetJump()
@@ -407,7 +417,9 @@ return function(Shared, Targeting)
 
             -- GravityHack: Bật thì áp dụng, tắt thì khôi phục trọng lực Roblox 196.2
             if Settings.GravityHack then
-                Workspace.Gravity = Settings.Gravity
+                if Workspace.Gravity ~= Settings.Gravity then
+                    Workspace.Gravity = Settings.Gravity
+                end
                 wasGravityHack = true
             elseif wasGravityHack then
                 ResetGravity()
@@ -485,7 +497,7 @@ return function(Shared, Targeting)
             else
                 if wasFly then
                     ResetFly()
-                else
+                elseif humanoid.PlatformStand then
                     humanoid.PlatformStand = false
                 end
                 if Settings.SlowFall then

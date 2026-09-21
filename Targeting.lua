@@ -303,32 +303,56 @@ local function forEachEnemy(callback)
     end
 end
 
+local lastRaycastTick = 0
+local raycastCache = {}
+
 local function isVisible(targetPart)
     if not Settings.WallCheck then return true end
     if not targetPart or not targetPart.Parent then return false end
+    local now = tick()
+    if (now - lastRaycastTick) > 0.025 then
+        table.clear(raycastCache)
+        lastRaycastTick = now
+    else
+        local cached = raycastCache[targetPart]
+        if cached ~= nil then return cached end
+    end
     local origin = Camera.CFrame.Position
     local direction = targetPart.Position - origin
     Const.STATIC_RAY_FILTER[1] = LocalPlayer.Character
     Const.STATIC_RAY_FILTER[2] = targetPart.Parent
     WallCheckRayParams.FilterDescendantsInstances = Const.STATIC_RAY_FILTER
     local result = Workspace:Raycast(origin, direction, WallCheckRayParams)
-    return not result
+    local vis = (not result)
+    raycastCache[targetPart] = vis
+    return vis
 end
 
 local function isAutoFireVisible(targetPart)
     if not Settings.AutoFireWallCheck then return true end
     if not targetPart or not targetPart.Parent then return false end
+    local now = tick()
+    if (now - lastRaycastTick) > 0.025 then
+        table.clear(raycastCache)
+        lastRaycastTick = now
+    else
+        local cached = raycastCache[targetPart]
+        if cached ~= nil then return cached end
+    end
     local origin = Camera.CFrame.Position
     local direction = targetPart.Position - origin
     Const.STATIC_RAY_FILTER[1] = LocalPlayer.Character
     Const.STATIC_RAY_FILTER[2] = targetPart.Parent
     WallCheckRayParams.FilterDescendantsInstances = Const.STATIC_RAY_FILTER
     local result = Workspace:Raycast(origin, direction, WallCheckRayParams)
-    return not result
+    local vis = (not result)
+    raycastCache[targetPart] = vis
+    return vis
 end
 
 local function getClosestPlayer()
-    local target, shortestDist = nil, Settings.FOV
+    local target = nil
+    local shortestDistSq = Settings.FOV * Settings.FOV
     local origin = Camera.CFrame.Position
     local fovPos = (Shared.FOVring and Shared.FOVring.Position) or UserInputService:GetMouseLocation()
 
@@ -361,10 +385,10 @@ local function getClosestPlayer()
                     local dx = pos.X - fovPos.X
                     local dy = pos.Y - fovPos.Y
                     local distSq = dx * dx + dy * dy
-                    if distSq < (shortestDist * shortestDist) then
+                    if distSq < shortestDistSq then
                         if isVisible(head) or isVisible(hrp) then
                             target = source
-                            shortestDist = math.sqrt(distSq)
+                            shortestDistSq = distSq
                         end
                     end
                 end

@@ -207,30 +207,42 @@ return function(Shared, Targeting)
             local sizeVal = cachedHitboxSizeVec
             local targetTransparency = Settings.HitboxInvisible and 1 or 0.55
 
+            local function expandPart(p)
+                if p and p:IsA("BasePart") then
+                    if not originalHitboxes[p] then
+                        originalHitboxes[p] = {
+                            Size = p.Size,
+                            Transparency = p.Transparency,
+                            CanCollide = p.CanCollide
+                        }
+                    end
+                    if p.Size ~= sizeVal then
+                        p.Size = sizeVal
+                    end
+                    if p.Transparency ~= targetTransparency then
+                        p.Transparency = targetTransparency
+                    end
+                    if p.CanCollide then
+                        p.CanCollide = false
+                    end
+                end
+            end
+
             forEachEnemy(function(char, source)
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
-                    local part = char:FindFirstChild(targetName)
-                    if not part and not isHead then
-                        part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char.PrimaryPart
-                    end
-                    if part and part:IsA("BasePart") then
-                        if not originalHitboxes[part] then
-                            originalHitboxes[part] = {
-                                Size = part.Size,
-                                Transparency = part.Transparency,
-                                CanCollide = part.CanCollide
-                            }
-                        end
-                        if part.Size ~= sizeVal then
-                            part.Size = sizeVal
-                        end
-                        if part.Transparency ~= targetTransparency then
-                            part.Transparency = targetTransparency
-                        end
-                        if part.CanCollide then
-                            part.CanCollide = false
-                        end
+                    if isHead then
+                        expandPart(char:FindFirstChild("Head"))
+                        expandPart(char:FindFirstChild("HitboxHead"))
+                        expandPart(char:FindFirstChild("PhysicalHitboxHead"))
+                        expandPart(char:FindFirstChild("HitboxHeadSmall"))
+                    else
+                        expandPart(char:FindFirstChild("HumanoidRootPart"))
+                        expandPart(char:FindFirstChild("UpperTorso"))
+                        expandPart(char:FindFirstChild("Torso"))
+                        expandPart(char:FindFirstChild("HitboxBody"))
+                        expandPart(char:FindFirstChild("PhysicalHitbox"))
+                        expandPart(char:FindFirstChild("HitboxBodySmall"))
                     end
                 end
             end)

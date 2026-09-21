@@ -214,7 +214,7 @@ end
 -- CẤU HÌNH GỐC (SETTINGS)
 Shared.Settings = {
     AimEnabled = false, AimHoldMode = false, AimSafe = false, AimDist = 1000,
-    TargetPart = "Head", WallCheck = false, TeamCheck = true, TargetNPC = false, SafeShieldCheck = false,
+    TargetPart = "Head", WallCheck = false, TeamCheck = true, SafeShieldCheck = false,
     FOV = 170, FOVVisible = false, AimSnapline = false,
     AimSmoothness = 0.75, AimJitter = 0, ReactionDelay = 0,
 
@@ -576,181 +576,13 @@ local function isSafeShield(target, char)
     return false
 end
 
--- Bộ đệm & Bộ quét Bot (Tối ưu hóa: Squared Distance, 0 GC Churn)
-local NPCCache = Shared.NPCCache or {}
-    Shared.NPCCache = NPCCache
-local lastNPCRefresh = 0
-local playerCharsCache = {}
-local npcAddedSet = {}
-
-local function RefreshNPCCache()
-    local now = tick()
-    if now - lastNPCRefresh < 0.3 then return end
-    lastNPCRefresh = now
-    
-    table.clear(NPCCache)
-    table.clear(playerCharsCache)
-    table.clear(npcAddedSet)
-    
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.Character then playerCharsCache[p.Character] = true end
-    end
-    
-    -- Lấy vị trí người chơi và giới hạn khoảng cách quét tối đa theo thanh trượt Aim Dist & ESP Dist
-    local myPos = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position) or Camera.CFrame.Position
-    local maxScanDist = math.max(Settings.AimDist or 1000, Settings.ESPDist or 1000, Settings.ProAimDist or 1000)
-    local maxDistSq = maxScanDist * maxScanDist
-
-    local function checkAndAddBot(model)
-        if not model or not model:IsA("Model") then return end
-        if model == LocalPlayer.Character or playerCharsCache[model] then return end
-        if Players:GetPlayerFromCharacter(model) then return end
-        if npcAddedSet[model] then return end
-        if model:GetAttribute("Dead") == true then return end
-        
-        local hum = model:FindFirstChildOfClass("Humanoid")
-        local hrp = model:FindFirstChild("HumanoidRootPart") 
-            or model:FindFirstChild("PhysicalHitbox")
-            or model:FindFirstChild("HitboxBody") 
-            or model:FindFirstChild("BodyHitbox") 
-            or model:FindFirstChild("UpperTorso") 
-            or model:FindFirstChild("Torso") 
-            or model:FindFirstChild("Head") 
-            or model:FindFirstChild("HeadHitbox")
-            or model:FindFirstChild("HitboxHead")
-            or model:FindFirstChild("PhysicalHitboxHead")
-            or model.PrimaryPart
-        
-        local isAlive = false
-        if hum then
-            isAlive = (hum.Health > 0 or hum.Health == math.huge or hum.MaxHealth <= 0)
-        elseif model:GetAttribute("Health") then
-            isAlive = ((tonumber(model:GetAttribute("Health")) or 0) > 0)
-        elseif model:GetAttribute("IsNPC") == true or model:GetAttribute("NPCCharacter") == true then
-            isAlive = (model:GetAttribute("Dead") ~= true)
-        else
-            local mName = string.lower(model.Name)
-            if string.find(mName, "dummy", 1, true) or string.find(mName, "bot", 1, true) then
-                isAlive = true
-            end
-        end
-        
-        if hrp and isAlive then
-            -- Tối ưu hóa: Squared Distance không qua phép tính math.sqrt
-            local diff = hrp.Position - myPos
-            local distSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
-            if distSq <= maxDistSq then
-                npcAddedSet[model] = true
-                table.insert(NPCCache, model)
-                local espTbl = Shared.ESPTable or ESPTable
-                if espTbl and not espTbl[model] then
-                    createESP(model)
-                end
-                return
-            end
-        end
-
-        -- Hỗ trợ cấu trúc bọc 2 lớp (như trong PseudoPlayers hoặc ShootingRangeEntities)
-        for _, sub in ipairs(model:GetChildren()) do
-            if sub:IsA("Model") and not npcAddedSet[sub] and sub:GetAttribute("Dead") ~= true then
-                local sHum = sub:FindFirstChildOfClass("Humanoid")
-                local sHrp = sub:FindFirstChild("HumanoidRootPart") 
-                    or sub:FindFirstChild("PhysicalHitbox")
-                    or sub:FindFirstChild("HitboxBody") 
-                    or sub:FindFirstChild("BodyHitbox") 
-                    or sub:FindFirstChild("UpperTorso") 
-                    or sub:FindFirstChild("Torso") 
-                    or sub:FindFirstChild("Head") 
-                    or sub:FindFirstChild("HeadHitbox")
-                    or sub:FindFirstChild("HitboxHead")
-                    or sub:FindFirstChild("PhysicalHitboxHead")
-                    or sub.PrimaryPart
-                local sAlive = false
-                if sHum then
-                    sAlive = (sHum.Health > 0 or sHum.Health == math.huge or sHum.MaxHealth <= 0)
-                elseif sub:GetAttribute("Health") then
-                    sAlive = ((tonumber(sub:GetAttribute("Health")) or 0) > 0)
-                elseif sub:GetAttribute("IsNPC") == true or sub:GetAttribute("NPCCharacter") == true then
-                    sAlive = (sub:GetAttribute("Dead") ~= true)
-                else
-                    local sName = string.lower(sub.Name)
-                    if string.find(sName, "dummy", 1, true) or string.find(sName, "bot", 1, true) then
-                        sAlive = true
-                    end
-                end
-                if sHrp and sAlive then
-                    local sDiff = sHrp.Position - myPos
-                    local sDistSq = sDiff.X * sDiff.X + sDiff.Y * sDiff.Y + sDiff.Z * sDiff.Z
-                    if sDistSq <= maxDistSq then
-                        npcAddedSet[sub] = true
-                        table.insert(NPCCache, sub)
-                        local espTbl = Shared.ESPTable or ESPTable
-                        if espTbl and not espTbl[sub] then
-                            createESP(sub)
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    -- 1. Quét thư mục Workspace.ShootingRangeEntities (DPS Dummy phòng tập)
-    local shootingFolder = Workspace:FindFirstChild("ShootingRangeEntities") or Workspace:FindFirstChild("shootingrangeentities")
-    if shootingFolder then
-        for _, child in ipairs(shootingFolder:GetChildren()) do
-            checkAndAddBot(child)
-        end
-    end
-
-    -- 2. Quét thư mục Workspace.PseudoPlayers (Rivals PVP Bots)
-    local pseudoFolder = Workspace:FindFirstChild("PseudoPlayers") or Workspace:FindFirstChild("pseudoplayers")
-    if pseudoFolder then
-        for _, child in ipairs(pseudoFolder:GetChildren()) do
-            checkAndAddBot(child)
-        end
-    end
-
-    -- 3. Quét thư mục Workspace.bots (hoặc Workspace.Bots)
-    local botsFolder = Workspace:FindFirstChild("bots") or Workspace:FindFirstChild("Bots")
-    if botsFolder then
-        for _, child in ipairs(botsFolder:GetChildren()) do
-            checkAndAddBot(child)
-        end
-    end
-
-    -- 4. Quét CollectionService Tags đặc thù (Entity, NPCCharacter, Dummy...)
-    for i = 1, #Const.BOT_TAGS do
-        local tName = Const.BOT_TAGS[i]
-        local ok, tagList = pcall(function() return CollectionService:GetTagged(tName) end)
-        if ok and tagList then
-            for _, item in ipairs(tagList) do
-                if item:IsA("Model") then
-                    checkAndAddBot(item)
-                end
-            end
-        end
-    end
-end
-
--- Hàm quét toàn bộ kẻ địch (Người chơi thật + NPC/Bot)
+-- Hàm quét toàn bộ kẻ địch (Chỉ quét Người chơi thật)
 local function forEachEnemy(callback)
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and not isSameTeam(player) then
             local char = player.Character
             if char then
                 callback(char, player)
-            end
-        end
-    end
-
-    if Settings.TargetNPC then
-        if tick() - lastNPCRefresh >= 0.3 then
-            RefreshNPCCache()
-        end
-        for i = 1, #NPCCache do
-            local npc = NPCCache[i]
-            if npc and npc.Parent and not isSameTeam(npc) then
-                callback(npc, npc)
             end
         end
     end
@@ -815,17 +647,7 @@ local function getClosestPlayer()
         local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("Torso") or char.PrimaryPart
         head = head or hrp
 
-        local isAlive = false
-        if hum then
-            isAlive = (hum.Health > 0 or hum.Health == math.huge or hum.MaxHealth <= 0)
-        elseif char:GetAttribute("Health") then
-            isAlive = ((tonumber(char:GetAttribute("Health")) or 0) > 0)
-        else
-            local cName = string.lower(char.Name)
-            if char:GetAttribute("Dead") == false or string.find(cName, "dummy", 1, true) or string.find(cName, "bot", 1, true) then
-                isAlive = true
-            end
-        end
+        local isAlive = hum and (hum.Health > 0)
 
         if isAlive and head and hrp then
             local diff = head.Position - origin
@@ -892,19 +714,7 @@ local function getClosestPlayerToCursor(mousePos)
 
     forEachEnemy(function(char, source)
         local hum = char and char:FindFirstChildOfClass("Humanoid")
-        local isAlive = false
-        if hum then
-            isAlive = hum.Health > 0
-        else
-            local healthVal = char:FindFirstChild("Health") or char:FindFirstChild("health")
-            if healthVal and (healthVal:IsA("NumberValue") or healthVal:IsA("IntValue")) then
-                isAlive = healthVal.Value > 0
-            elseif char:GetAttribute("Health") then
-                isAlive = ((tonumber(char:GetAttribute("Health")) or 0) > 0)
-            elseif Settings.TargetNPC then
-                isAlive = true
-            end
-        end
+        local isAlive = hum and (hum.Health > 0)
 
         if isAlive and not isSafeShield(source, char) then
             local targetPartName = Settings.TargetPart or Settings.ProAimTargetPart or "Head"
@@ -972,8 +782,8 @@ end
     Targeting.getProAimTarget = getProAimTarget
     Targeting.getProAimTargetCached = getProAimTargetCached
     Targeting.forEachEnemy = forEachEnemy
-    Targeting.botCache = NPCCache
-    Targeting.NPCCache = NPCCache
+    Targeting.botCache = {}
+    Targeting.NPCCache = {}
 
     return Targeting
 end
@@ -2180,7 +1990,7 @@ ChamsFolder.Name = IDS.ChamsFolder
 pcall(function() ChamsFolder.Parent = parentGui end)
 if not ChamsFolder.Parent then pcall(function() ChamsFolder.Parent = Camera end) end
 
-local function getEquippedWeapon(target, char, isNPC)
+local function getEquippedWeapon(target, char)
     if not char then return "Unarmed" end
 
     -- 1. [FIGHTER INTERFACES]: Kiểm tra PlayerGui (Rivals HUD - Cực kỳ chuẩn xác cho LocalPlayer & các fighter có frame)
@@ -2246,7 +2056,7 @@ local function getEquippedWeapon(target, char, isNPC)
         or char:GetAttribute("CurrentWeapon")
         or char:GetAttribute("Equipped")
         or char:GetAttribute("Gun")
-    if not wAttr and not isNPC and target then
+    if not wAttr and target then
         wAttr = target:GetAttribute("EquippedWeapon")
             or target:GetAttribute("Weapon")
             or target:GetAttribute("CurrentWeapon")
@@ -2501,87 +2311,39 @@ Players.PlayerRemoving:Connect(removeESP)
 
         for target, esp in pairs(ESPTable) do
             local isVisibleNow = false
-        local isValid = false
-        local char = nil
-        local targetName = ""
-        local isNPC = false
+            local isValid = false
+            local char = nil
+            local targetName = ""
 
-        if typeof(target) == "Instance" then
-            if target:IsA("Player") then
+            if typeof(target) == "Instance" and target:IsA("Player") then
                 if target.Parent == Players then
                     isValid = true
                     char = target.Character
                     targetName = target.DisplayName or target.Name
                 end
-            elseif target:IsA("Model") or target:IsA("Actor") then
-                if target.Parent ~= nil then
-                    isValid = true
-                    char = target
-                    local dName = target:GetAttribute("DisplayName")
-                    if dName and dName ~= "" then
-                        targetName = dName .. " [BOT]"
-                    else
-                        targetName = target.Name .. " [BOT]"
-                    end
-                    isNPC = true
-                end
             end
-        end
 
-        if not isValid or (isNPC and not Settings.TargetNPC) then
             if not isValid then
                 removeESP(target)
-            else
-                esp.Box.Visible = false
-                esp.Name.Visible = false
-                esp.HealthBg.Visible = false
-                esp.Health.Visible = false
-                esp.Tracer.Visible = false
-                esp.Info.Visible = false
-                if esp.Chams then esp.Chams.Enabled = false end
-                if esp.Arrow1 then esp.Arrow1.Visible = false end
-                if esp.Arrow2 then esp.Arrow2.Visible = false end
-                if esp.Arrow3 then esp.Arrow3.Visible = false end
-                if esp.Skeleton then
-                    for i = 1, #esp.Skeleton do
-                        if esp.Skeleton[i] then esp.Skeleton[i].Visible = false end
-                    end
+                continue
+            end
+
+            local isAlive = false
+            local hrp = nil
+            local head = nil
+            local hum = nil
+            local maxH = 100
+
+            if char then
+                hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char.PrimaryPart
+                head = char:FindFirstChild("Head") or hrp
+                hum = char:FindFirstChildOfClass("Humanoid")
+
+                if hum then
+                    isAlive = hum.Health > 0
+                    maxH = math.max(hum.MaxHealth, 1)
                 end
             end
-            continue
-        end
-
-        local isAlive = false
-        local hrp = nil
-        local head = nil
-        local hum = nil
-        local maxH = 100
-
-        if char then
-            hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char.PrimaryPart
-            head = char:FindFirstChild("Head") or hrp
-            hum = char:FindFirstChildOfClass("Humanoid")
-
-            if hum then
-                isAlive = hum.Health > 0
-                maxH = math.max(hum.MaxHealth, 1)
-            else
-                local healthVal = char:FindFirstChild("Health") or char:FindFirstChild("health")
-                if healthVal and (healthVal:IsA("NumberValue") or healthVal:IsA("IntValue")) then
-                    isAlive = healthVal.Value > 0
-                    local maxHealthVal = char:FindFirstChild("MaxHealth") or char:FindFirstChild("maxHealth")
-                    if maxHealthVal and (maxHealthVal:IsA("NumberValue") or maxHealthVal:IsA("IntValue")) then
-                        maxH = math.max(maxHealthVal.Value, 1)
-                    end
-                elseif char:GetAttribute("Health") then
-                    isAlive = ((tonumber(char:GetAttribute("Health")) or 0) > 0)
-                    local attrMaxH = char:GetAttribute("MaxHealth")
-                    if attrMaxH then maxH = math.max(tonumber(attrMaxH) or 100, 1) end
-                elseif isNPC then
-                    isAlive = true
-                end
-            end
-        end
 
         if Settings.ESPEnabled and hrp and head and isAlive then
                 local passTeamCheck = not isSameTeam(target)
@@ -2686,7 +2448,7 @@ Players.PlayerRemoving:Connect(removeESP)
                                         end
                                     end
                                     if Settings.ESPWeapon then
-                                        local wName = getEquippedWeapon(target, char, isNPC)
+                                        local wName = getEquippedWeapon(target, char)
                                         infoText = infoText .. (wName or "Unarmed")
                                     end
                                     esp._cachedInfoText = infoText:gsub("%s+$", "")
@@ -5334,23 +5096,6 @@ CreateToggle(PanelESPSet, "Team Check", Theme.DotGreen, "TeamCheck", function(v)
     Settings.TeamCheck = v
     Settings.ESPTeamCheck = v
     Settings.ProAimTeamCheck = v
-end)
-CreateToggle(PanelESPSet, "Bot [BETA]", Theme.DotGreen, "TargetNPC", function(v)
-    Settings.TargetNPC = v
-    if not v then
-        if Shared.NPCCache then table.clear(Shared.NPCCache) end
-        if Shared.ESPTable then
-            for target, esp in pairs(Shared.ESPTable) do
-                if typeof(target) == "Instance" and not target:IsA("Player") then
-                    if Shared.removeESP then
-                        Shared.removeESP(target)
-                    elseif ESP and ESP.removeESP then
-                        ESP.removeESP(target)
-                    end
-                end
-            end
-        end
-    end
 end)
 CreateSlider(PanelESPSet, "Max Aim Dist", "AimDist", 1, 2000, " m", function(v) 
     Settings.AimDist = v

@@ -154,8 +154,9 @@ local ESPTable = {}
     -- 2. AIM HOLD (Hard Lock + smooth + jitter)
     if isAiming and Settings.AimEnabled and Settings.AimHoldMode then
         local target = closestTarget
-        if target and target.Character then
-            local tPart = getTargetPart(target.Character)
+        local targetChar = target and (target:IsA("Player") and target.Character or target)
+        if targetChar then
+            local tPart = getTargetPart(targetChar)
             if tPart then
                 local desired = CFrame.new(Camera.CFrame.Position, tPart.Position)
                 desired = AddJitter(desired, Settings.AimJitter)

@@ -443,6 +443,16 @@ Players.PlayerRemoving:Connect(removeESP)
                     local maxDist = Settings.ESPDist or 1000
 
                     if distSq <= (maxDist * maxDist) then
+                        -- [FAST DOT-PRODUCT CULLING]: Kiểm tra nhanh xem mục tiêu có ở trước mặt không
+                        local camLook = Camera.CFrame.LookVector
+                        local dot = diff.X * camLook.X + diff.Y * camLook.Y + diff.Z * camLook.Z
+
+                        -- Nếu mục tiêu sau lưng và không bật mũi tên ngoài màn hình -> Ẩn ngay lập tức không tốn 1 phép tính ma trận nào
+                        if dot <= 0 and not Settings.OffscreenArrows then
+                            hideAllESP(esp)
+                            continue
+                        end
+
                         local dist = math.sqrt(distSq)
                         espTotalInRange = espTotalInRange + 1
 
@@ -468,6 +478,12 @@ Players.PlayerRemoving:Connect(removeESP)
 
                         if onScreen and rootPos.Z > 0 then
                             espTotalOnScreen = espTotalOnScreen + 1
+
+                            -- [MAX RENDERED CAP]: Giới hạn tối đa 24 mục tiêu vẽ cùng lúc để bảo vệ bộ đệm Drawing khi có 200+ Bot
+                            if espTotalOnScreen > 24 and dist > 80 then
+                                hideOnScreenESP(esp)
+                                continue
+                            end
                             isVisibleNow = true
 
                             local headPos = Camera:WorldToViewportPoint(head.Position + VEC3_UP_HEAD)
@@ -604,8 +620,9 @@ Players.PlayerRemoving:Connect(removeESP)
                                 if esp.Tracer.Visible then esp.Tracer.Visible = false end
                             end
 
-                            -- [SKELETON LOD]: Tự động ẩn Skeleton khi địch > 150m (quá xa, nhìn rối mắt và tốn FPS)
-                            if Settings.ESPSkeleton and dist <= 150 then
+                            -- [DYNAMIC SKELETON LOD]: Tự động ẩn Skeleton khi cự ly > 80m hoặc khi có > 12 mục tiêu trên màn hình
+                            local skelLimit = (espTotalOnScreen > 12) and 60 or 80
+                            if Settings.ESPSkeleton and dist <= skelLimit then
                                 esp._skeletonVisible = true
                                 local isR15 = char:FindFirstChild("UpperTorso") ~= nil
                                 local connections = isR15 and Const.R15_BONES or Const.R6_BONES

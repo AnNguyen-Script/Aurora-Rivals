@@ -9,10 +9,12 @@ return function(Shared, Shield)
     local Players = Shared.Players
     local Camera = Shared.Camera
     local Workspace = Shared.Workspace
+    local CollectionService = Shared.CollectionService or game:GetService("CollectionService")
     local Const = Shared.Const
     local UserInputService = Shared.UserInputService
     local WallCheckRayParams = Shared.WallCheckRayParams
-    local ESPTable = Shared.ESPTable
+    local ESPTable = Shared.ESPTable or {}
+    Shared.ESPTable = ESPTable
     local createESP = function(p) if Shared.createESP then Shared.createESP(p) end end
 
     local cachedProTarget = nil
@@ -193,7 +195,8 @@ local function RefreshNPCCache()
             if distSq <= maxDistSq then
                 npcAddedSet[model] = true
                 table.insert(NPCCache, model)
-                if not ESPTable[model] then
+                local espTbl = Shared.ESPTable or ESPTable
+                if espTbl and not espTbl[model] then
                     createESP(model)
                 end
                 return
@@ -234,7 +237,8 @@ local function RefreshNPCCache()
                     if sDistSq <= maxDistSq then
                         npcAddedSet[sub] = true
                         table.insert(NPCCache, sub)
-                        if not ESPTable[sub] then
+                        local espTbl = Shared.ESPTable or ESPTable
+                        if espTbl and not espTbl[sub] then
                             createESP(sub)
                         end
                     end
@@ -543,17 +547,19 @@ end
 
 
     Targeting.isSameTeam = isSameTeam
-    Targeting.hasShieldProtection = hasShieldProtection
+    Targeting.hasShieldProtection = isSafeShield
     Targeting.isSafeShield = isSafeShield
     Targeting.isAutoFireVisible = isAutoFireVisible
-    Targeting.WallCheck = WallCheck
+    Targeting.WallCheck = isVisible
+    Targeting.isVisible = isVisible
     Targeting.getTargetPart = getTargetPart
     Targeting.getClosestPlayer = getClosestPlayer
     Targeting.getClosestPlayerToCursor = getClosestPlayerToCursor
     Targeting.getProAimTarget = getProAimTarget
     Targeting.getProAimTargetCached = getProAimTargetCached
     Targeting.forEachEnemy = forEachEnemy
-    Targeting.botCache = botCache
+    Targeting.botCache = NPCCache
+    Targeting.NPCCache = NPCCache
 
     return Targeting
 end

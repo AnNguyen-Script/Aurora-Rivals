@@ -56,24 +56,24 @@ return function(Shared, Shield)
     elseif target:IsA("Model") then
         local myTeamName = LocalPlayer.Team and LocalPlayer.Team.Name
         local nTeamName = target:GetAttribute("Team") or target:GetAttribute("team")
-        if myTeamName and nTeamName and myTeamName ~= "" and myTeamName == nTeamName then
+        if myTeamName and nTeamName and myTeamName ~= "" and tostring(myTeamName) == tostring(nTeamName) then
             return true
         end
         local myTeamID = LocalPlayer:GetAttribute("TeamID")
         local nTeamID = target:GetAttribute("TeamID")
-        if myTeamID ~= nil and nTeamID ~= nil and myTeamID ~= "" and myTeamID == nTeamID then
+        if myTeamID ~= nil and nTeamID ~= nil and myTeamID ~= "" and tostring(myTeamID) == tostring(nTeamID) then
             return true
         end
         for i = 1, #Const.TEAM_ATTR_NAMES do
             local name = Const.TEAM_ATTR_NAMES[i]
             local myAttr = LocalPlayer:GetAttribute(name)
             local nAttr = target:GetAttribute(name)
-            if myAttr ~= nil and nAttr ~= nil and myAttr ~= "" and myAttr ~= 0 and myAttr == nAttr then
+            if myAttr ~= nil and nAttr ~= nil and myAttr ~= "" and myAttr ~= 0 and tostring(myAttr) == tostring(nAttr) then
                 return true
             end
             if LocalPlayer.Character then
                 local myCAttr = LocalPlayer.Character:GetAttribute(name)
-                if myCAttr ~= nil and nAttr ~= nil and myCAttr ~= "" and myCAttr ~= 0 and myCAttr == nAttr then
+                if myCAttr ~= nil and nAttr ~= nil and myCAttr ~= "" and myCAttr ~= 0 and tostring(myCAttr) == tostring(nAttr) then
                     return true
                 end
             end
@@ -175,7 +175,7 @@ local function RefreshNPCCache()
             isAlive = (hum.Health > 0 or hum.Health == math.huge or hum.MaxHealth <= 0)
         elseif model:GetAttribute("Health") then
             isAlive = ((tonumber(model:GetAttribute("Health")) or 0) > 0)
-        elseif model:GetAttribute("IsNPC") == true or model:GetAttribute("NPCCharacter") == true then
+        elseif model:GetAttribute("IsNPC") == true or model:GetAttribute("NPCCharacter") == true or model:GetAttribute("Bot") == true or (model:GetAttribute("UserId") and tonumber(model:GetAttribute("UserId")) < 0) then
             isAlive = (model:GetAttribute("Dead") ~= true)
         else
             local mName = string.lower(model.Name)
@@ -265,7 +265,7 @@ local function RefreshNPCCache()
         end
     end
 
-    -- 4. Quét CollectionService Tags đặc thù (Entity, NPCCharacter, Dummy...)
+    -- 4. Quét CollectionService Tags đặc thù (Bot, Target, Entity, NPCCharacter, Dummy...)
     for i = 1, #Const.BOT_TAGS do
         local tName = Const.BOT_TAGS[i]
         local ok, tagList = pcall(function() return CollectionService:GetTagged(tName) end)
@@ -274,6 +274,20 @@ local function RefreshNPCCache()
                 if item:IsA("Model") then
                     checkAndAddBot(item)
                 end
+            end
+        end
+    end
+
+    -- 5. Quét đối tượng Model trực tiếp trong Workspace (Nhận diện Bot spawn như tinfoilted, UserId < 0, Tags Bot/Target)
+    for _, child in ipairs(Workspace:GetChildren()) do
+        if child:IsA("Model") and not npcAddedSet[child] and not playerCharsCache[child] and child ~= LocalPlayer.Character then
+            local uId = child:GetAttribute("UserId")
+            local isBotAttr = child:GetAttribute("IsBot") or child:GetAttribute("Bot") or child:GetAttribute("IsNPC")
+            local hasBotTag = CollectionService:HasTag(child, "Bot") or CollectionService:HasTag(child, "Target") or CollectionService:HasTag(child, "NPCCharacter")
+            if (uId and tonumber(uId) and tonumber(uId) < 0) or isBotAttr == true or hasBotTag then
+                checkAndAddBot(child)
+            elseif child:FindFirstChildOfClass("Humanoid") and (child:FindFirstChild("Head") or child:FindFirstChild("HumanoidRootPart")) and not Players:GetPlayerFromCharacter(child) then
+                checkAndAddBot(child)
             end
         end
     end

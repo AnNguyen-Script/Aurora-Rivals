@@ -138,12 +138,15 @@ Shared.Const = {
     },
     HitboxCandidateNames = {
         "Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso",
+        "HitboxHead", "PhysicalHitboxHead", "HitboxHeadSmall",
+        "HitboxBody", "PhysicalHitbox", "HitboxBodySmall", "HeadHitbox", "BodyHitbox",
         "LeftArm", "RightArm", "LeftLeg", "RightLeg",
         "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
         "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
         "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot"
     },
     BotContainerNames = {
+        "ShootingRangeEntities", "shootingrangeentities",
         "Dummies", "Bots", "NPCs", "Enemies", "Zombies", "Monsters",
         "AI", "Targets", "Spawns", "Units", "Minions", "Mobs", "Creatures",
         "BadGuys", "Guards", "Soldiers", "ShootingRange"

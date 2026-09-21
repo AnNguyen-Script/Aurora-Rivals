@@ -157,17 +157,19 @@ local function RefreshNPCCache()
         if npcAddedSet[model] then return end
         if model:GetAttribute("Dead") == true then return end
         
-        local hum = model:FindFirstChildOfClass("Humanoid")
+        local hum = model:FindFirstChildOfClass("Humanoid") or model:FindFirstChild("EnemyHumanoid") or model:FindFirstChild("Humanoid")
         local hrp = model:FindFirstChild("HumanoidRootPart") 
             or model:FindFirstChild("PhysicalHitbox")
             or model:FindFirstChild("HitboxBody") 
             or model:FindFirstChild("BodyHitbox") 
+            or model:FindFirstChild("HitboxBodySmall")
             or model:FindFirstChild("UpperTorso") 
             or model:FindFirstChild("Torso") 
             or model:FindFirstChild("Head") 
             or model:FindFirstChild("HeadHitbox")
             or model:FindFirstChild("HitboxHead")
             or model:FindFirstChild("PhysicalHitboxHead")
+            or model:FindFirstChild("HitboxHeadSmall")
             or model.PrimaryPart
         
         local isAlive = false
@@ -241,8 +243,19 @@ local function RefreshNPCCache()
         end
     end
 
-    -- 1. Quét thư mục Workspace.ShootingRangeEntities (DPS Dummy phòng tập)
-    local shootingFolder = Workspace:FindFirstChild("ShootingRangeEntities") or Workspace:FindFirstChild("shootingrangeentities")
+    -- 1. Quét thư mục Workspace.ShootingRangeEntities (DPS Dummy phòng tập - hỗ trợ tên có khoảng trắng hoặc viết thường)
+    local shootingFolder = Workspace:FindFirstChild("ShootingRangeEntities")
+        or Workspace:FindFirstChild("shootingrangeentities")
+        or Workspace:FindFirstChild("ShootingRangeEntities ")
+    if not shootingFolder then
+        for _, child in ipairs(Workspace:GetChildren()) do
+            local cName = string.lower(child.Name):gsub("%s+", "")
+            if cName == "shootingrangeentities" or string.find(cName, "shootingrange", 1, true) then
+                shootingFolder = child
+                break
+            end
+        end
+    end
     if shootingFolder then
         for _, child in ipairs(shootingFolder:GetChildren()) do
             checkAndAddBot(child)
@@ -374,8 +387,8 @@ local function getClosestPlayer()
 
     forEachEnemy(function(char, source)
         local hum = char:FindFirstChildOfClass("Humanoid")
-        local head = char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("PhysicalHitboxHead") or char:FindFirstChild("HeadHitbox")
-        local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("Torso") or char.PrimaryPart
+        local head = char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("PhysicalHitboxHead") or char:FindFirstChild("HeadHitbox") or char:FindFirstChild("HitboxHeadSmall")
+        local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("HitboxBodySmall") or char:FindFirstChild("Torso") or char.PrimaryPart
         head = head or hrp
 
         local isAlive = false

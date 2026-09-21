@@ -129,7 +129,6 @@ end
 local NPCCache = Shared.NPCCache or {}
     Shared.NPCCache = NPCCache
 local lastNPCRefresh = 0
-local lastFullWorkspaceScan = 0
 local playerCharsCache = {}
 local npcAddedSet = {}
 
@@ -292,19 +291,16 @@ local function RefreshNPCCache()
         end
     end
 
-    -- 5. Quét đối tượng Model trực tiếp trong Workspace (Giãn cách 3.0s để triệt tiêu 100% rác GC khi có 200+ Bot)
-    if (#NPCCache == 0) or (now - lastFullWorkspaceScan >= 3.0) then
-        lastFullWorkspaceScan = now
-        for _, child in ipairs(Workspace:GetChildren()) do
-            if child:IsA("Model") and not npcAddedSet[child] and not playerCharsCache[child] and child ~= LocalPlayer.Character then
-                local uId = child:GetAttribute("UserId")
-                local isBotAttr = child:GetAttribute("IsBot") or child:GetAttribute("Bot") or child:GetAttribute("IsNPC")
-                local hasBotTag = CollectionService:HasTag(child, "Bot") or CollectionService:HasTag(child, "Target") or CollectionService:HasTag(child, "NPCCharacter")
-                if (uId and tonumber(uId) and tonumber(uId) < 0) or isBotAttr == true or hasBotTag then
-                    checkAndAddBot(child)
-                elseif child:FindFirstChildOfClass("Humanoid") and (child:FindFirstChild("Head") or child:FindFirstChild("HumanoidRootPart")) and not Players:GetPlayerFromCharacter(child) then
-                    checkAndAddBot(child)
-                end
+    -- 5. Quét đối tượng Model trực tiếp trong Workspace (Nhận diện Bot spawn như tinfoilted, UserId < 0, Tags Bot/Target)
+    for _, child in ipairs(Workspace:GetChildren()) do
+        if child:IsA("Model") and not npcAddedSet[child] and not playerCharsCache[child] and child ~= LocalPlayer.Character then
+            local uId = child:GetAttribute("UserId")
+            local isBotAttr = child:GetAttribute("IsBot") or child:GetAttribute("Bot") or child:GetAttribute("IsNPC")
+            local hasBotTag = CollectionService:HasTag(child, "Bot") or CollectionService:HasTag(child, "Target") or CollectionService:HasTag(child, "NPCCharacter")
+            if (uId and tonumber(uId) and tonumber(uId) < 0) or isBotAttr == true or hasBotTag then
+                checkAndAddBot(child)
+            elseif child:FindFirstChildOfClass("Humanoid") and (child:FindFirstChild("Head") or child:FindFirstChild("HumanoidRootPart")) and not Players:GetPlayerFromCharacter(child) then
+                checkAndAddBot(child)
             end
         end
     end
@@ -413,11 +409,7 @@ local function getClosestPlayer()
             local maxDist = Settings.AimDist or 1000
 
             if physicalDistSq <= (maxDist * maxDist) then
-                -- [FAST FRUSTUM CULLING]: Bỏ qua tức thì các mục tiêu sau lưng mà không cần gọi WorldToViewportPoint
-                local camLook = Camera.CFrame.LookVector
-                local dot = diff.X * camLook.X + diff.Y * camLook.Y + diff.Z * camLook.Z
-                if dot > 0 then
-                    local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
                 if onScreen then
                     local dx = pos.X - fovPos.X
                     local dy = pos.Y - fovPos.Y
@@ -430,7 +422,6 @@ local function getClosestPlayer()
                             shortestDistSq = effectiveDistSq
                         end
                     end
-                end
                 end
             end
         end
@@ -508,11 +499,7 @@ local function getClosestPlayerToCursor(mousePos)
                 local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
                 local maxPhysicalDist = Settings.AimDist or Settings.ProAimDist or 1000
                 if physicalDistSq <= (maxPhysicalDist * maxPhysicalDist) then
-                    -- [FAST FRUSTUM CULLING]: Bỏ qua tức thì các mục tiêu sau lưng
-                    local camLook = Camera.CFrame.LookVector
-                    local dot = diff.X * camLook.X + diff.Y * camLook.Y + diff.Z * camLook.Z
-                    if dot > 0 then
-                        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
                     if onScreen then
                         local dx = screenPos.X - mousePos.X
                         local dy = screenPos.Y - mousePos.Y
@@ -527,7 +514,6 @@ local function getClosestPlayerToCursor(mousePos)
                                 closestScreenPos = screenPos
                             end
                         end
-                    end
                     end
                 end
             end
@@ -568,26 +554,6 @@ end
     Targeting.getProAimTargetCached = getProAimTargetCached
     Targeting.forEachEnemy = forEachEnemy
     Targeting.botCache = botCache
-
-    -- [ZERO-POLLING EVENT LISTENER]: Bắt Bot mới sinh tức thời trong 0ms bằng Signals C++
-    pcall(function()
-        for i = 1, #Const.BOT_TAGS do
-            local tag = Const.BOT_TAGS[i]
-            CollectionService:GetInstanceAddedSignal(tag):Connect(function(inst)
-                if inst:IsA("Model") and Settings.TargetNPC then
-                    checkAndAddBot(inst)
-                end
-            end)
-        end
-        local sFolder = Workspace:FindFirstChild("ShootingRangeEntities") or Workspace:FindFirstChild("shootingrangeentities")
-        if sFolder then
-            sFolder.ChildAdded:Connect(function(child)
-                if Settings.TargetNPC then
-                    checkAndAddBot(child)
-                end
-            end)
-        end
-    end)
 
     return Targeting
 end

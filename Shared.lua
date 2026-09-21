@@ -259,14 +259,14 @@ Shared.Settings = {
     UndergroundHotkey = Enum.KeyCode.Q
 }
 
-Shared.GetActivePreset = function()
-    Shared.ESPTable = {}
+Shared.ESPTable = {}
 Shared.NPCCache = {}
 Shared.undergroundSurfaceY = nil
 Shared.originalTeleportCFrame = nil
 Shared.originalSpeedTeleCFrame = nil
 
-return Shared.ThemePresets[Shared.Settings.ThemeName] or Shared.ThemePresets.Dark
+Shared.GetActivePreset = function()
+    return Shared.ThemePresets[Shared.Settings.ThemeName] or Shared.ThemePresets.Dark
 end
 
 Shared.ColorList = {

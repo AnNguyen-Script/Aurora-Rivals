@@ -339,8 +339,9 @@ local ESPTable = {}
                     feedForwardY = (nextScr.Y - curScr.Y) * 0.85
                 end
 
-                -- Deadzone: nếu khoảng cách < 0.75 pixel -> đã trúng tâm, giữ nguyên
-                if dist >= 0.75 then
+                -- Deadzone: nếu khoảng cách < 0.75 pixel (hoặc <= 2.5 pixel khi bật AimSafe) -> đã trúng tâm, giữ nguyên
+                local deadzoneLimit = Settings.AimSafe and 2.5 or 0.75
+                if dist >= deadzoneLimit then
                     local userSmooth = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1.0)
 
                     -- [THUẬT TOÁN 3: LÒ XO GIẢM CHẤN TỚI HẠN (CRITICALLY DAMPED SPRING-DAMPER PHYSICS)]
@@ -444,10 +445,20 @@ local ESPTable = {}
                                     end
                                 end)
 
-                                -- Deadzone: Nếu khoảng cách < 1 pixel thì giữ nguyên
-                                if dist >= 1 then
-                                    -- Lực hút Snap nhạy: 0.55 ở tầm xa, 0.85 khi sát người để dính chặt
-                                    local snapFactor = (dist <= 25) and 0.85 or 0.55
+                                -- Deadzone: Nếu khoảng cách < 1 pixel (hoặc <= 3 pixel khi bật AimSafe) thì giữ nguyên
+                                local snapDeadzone = Settings.AimSafe and 3.0 or 1.0
+                                if dist >= snapDeadzone then
+                                    -- Khi AimSafe bật: Ease-out giảm tốc đàn hồi khi vào gần (dist <= 20px) để tâm lướt êm, không khựng cứng
+                                    local snapFactor = 0.55
+                                    if Settings.AimSafe then
+                                        if dist <= 20 then
+                                            snapFactor = 0.35 + (dist / 20) * 0.30
+                                        else
+                                            snapFactor = 0.55
+                                        end
+                                    else
+                                        snapFactor = (dist <= 25) and 0.85 or 0.55
+                                    end
                                     local moveX = math.round(deltaX * snapFactor * sensCompensation)
                                     local moveY = math.round(deltaY * snapFactor * sensCompensation)
                                     if moveX ~= 0 or moveY ~= 0 then

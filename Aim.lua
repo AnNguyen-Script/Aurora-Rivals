@@ -290,6 +290,13 @@ local ESPTable = {}
         -- 3. Xử lý bám mục tiêu siêu dính & siêu mượt bằng mousemoverel
         if ProAimLockedTarget then
             local char = ProAimLockedChar or ProAimLockedTarget.Parent
+            -- Nếu Aim Safe đang bật: tự động cập nhật bộ phận khóa (Head <-> Torso) theo nhịp Aim Safe
+            if Settings.AimSafe and char then
+                local safePart = getTargetPart(char)
+                if safePart and safePart ~= ProAimLockedTarget then
+                    ProAimLockedTarget = safePart
+                end
+            end
             local rootPart = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
             local aimWorldPos = ProAimLockedTarget.Position
 
@@ -369,10 +376,16 @@ local ESPTable = {}
                     local decay = 1 / (1 + w_dt + 0.48 * w_dt * w_dt)
                     local springFactor = math.clamp(1 - decay, 0.05, 0.95)
 
-                    -- Lực hút nam châm thích ứng (Adaptive Magnetism): Khi chạm người đối thủ (<= 25px), tăng lực dính
+                    -- Lực hút nam châm thích ứng (Adaptive Magnetism)
                     local magnetMult = 1.0
-                    if dist <= 25 then
-                        magnetMult = 1.0 + (1.0 - (dist / 25)) * 0.40 -- tăng tới 1.40x
+                    if Settings.AimSafe then
+                        if dist <= 25 then
+                            magnetMult = 0.85 + (dist / 25) * 0.15 -- giảm tốc mềm mại khi áp sát
+                        end
+                    else
+                        if dist <= 25 then
+                            magnetMult = 1.0 + (1.0 - (dist / 25)) * 0.40 -- tăng tới 1.40x
+                        end
                     end
 
                     -- Tổng hợp lực kéo chuột lò xo mượt mà, đầm tay

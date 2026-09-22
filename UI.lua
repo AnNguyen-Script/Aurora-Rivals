@@ -2252,7 +2252,21 @@ drawFovToggleFrame = CreateToggle(PanelAimbot, "Draw FOV", Theme.DotGreen, "FOVV
     FOVring.Visible = v
 end)
 
-CreateToggle(PanelAimbot, "Aim Safe", Theme.DotGreen, "AimSafe", function(v) Settings.AimSafe = v end)
+local aimSafeSliderFrame = nil
+CreateToggle(PanelAimbot, "Aim Safe", Theme.DotGreen, "AimSafe", function(v) 
+    Settings.AimSafe = v 
+    if aimSafeSliderFrame then
+        aimSafeSliderFrame.Visible = (v == true)
+    end
+end)
+
+aimSafeSliderFrame = CreateSlider(PanelAimbot, "Headshot Rate", "AimSafeHeadshotRate", 20, 100, "%", function(v)
+    Settings.AimSafeHeadshotRate = v
+end)
+
+if aimSafeSliderFrame then
+    aimSafeSliderFrame.Visible = (Settings.AimSafe == true)
+end
 
 if fovSliderFrame then
     fovSliderFrame.Visible = (Settings.AimEnabled == true)

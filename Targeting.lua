@@ -20,6 +20,10 @@ return function(Shared, Shield)
     local cachedProTarget = nil
     local cachedProValid = 0
     local aimSafeCounter = 0
+    local lastAimSafeTarget = nil
+    local lastAimSafePart = nil
+    local lastAimSafeTime = 0
+    local aimSafeBurstShots = 0
 
     local function isSameTeam(target)
     if not target then return true end
@@ -231,10 +235,42 @@ local function getTargetPart(character)
         partName = Const.SAFE_PARTS[math.random(1, #Const.SAFE_PARTS)]
     end
     if Settings.AimSafe then
-        aimSafeCounter = aimSafeCounter + 1
-        if aimSafeCounter >= 4 then
-            partName = "HumanoidRootPart"
-            aimSafeCounter = 0
+        local now = tick()
+        -- Cửa sổ ổn định nhịp bắn (Burst Window 0.35s):
+        -- Nếu đang khóa cùng 1 mục tiêu trong vòng 0.35s thì giữ ổn định, không đổi loạn xạ giữa các frame
+        if character == lastAimSafeTarget and (now - lastAimSafeTime < 0.35) and lastAimSafePart then
+            partName = lastAimSafePart
+            lastAimSafeTime = now
+        else
+            -- Bắt đầu nhịp bắn mới hoặc mục tiêu mới:
+            if character ~= lastAimSafeTarget or (now - lastAimSafeTime >= 0.5) then
+                aimSafeBurstShots = 1
+            else
+                aimSafeBurstShots = aimSafeBurstShots + 1
+            end
+
+            local headshotRate = math.clamp(Settings.AimSafeHeadshotRate or 65, 20, 100)
+
+            -- Thuật toán Spray Burst Pattern:
+            -- Viên 1 & 2 (Mở đầu loạt bắn): Tăng thêm 15% tỷ lệ Headshot để bắt nhịp flick chuẩn
+            -- Viên 3+ (Xả đạn kéo dài): Ghìm tâm xuống ngực/thân mô phỏng ghìm độ giật súng
+            local effectiveRate = headshotRate
+            if aimSafeBurstShots <= 2 then
+                effectiveRate = math.min(100, headshotRate + 15)
+            else
+                effectiveRate = math.max(20, headshotRate - 15)
+            end
+
+            local roll = math.random(1, 100)
+            if roll <= effectiveRate then
+                partName = "Head"
+            else
+                partName = "UpperTorso"
+            end
+
+            lastAimSafeTarget = character
+            lastAimSafePart = partName
+            lastAimSafeTime = now
         end
     end
     return character:FindFirstChild(partName) 

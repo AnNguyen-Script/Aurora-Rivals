@@ -206,21 +206,24 @@ local function getClosestPlayer()
 
         local isAlive = hum and (hum.Health > 0)
 
-        if isAlive and head and hrp then
-            local diff = head.Position - origin
-            local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
-            local maxDist = Settings.AimDist or 1000
+        if isAlive then
+            local aimPart = (Settings.AimSafe and getTargetPart(char)) or head or hrp
+            if aimPart then
+                local diff = aimPart.Position - origin
+                local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                local maxDist = Settings.AimDist or 1000
 
-            if physicalDistSq <= (maxDist * maxDist) then
-                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                if onScreen then
-                    local dx = pos.X - fovPos.X
-                    local dy = pos.Y - fovPos.Y
-                    local distSq = dx * dx + dy * dy
-                    if distSq < shortestDistSq then
-                        if isVisible(head) or isVisible(hrp) then
-                            target = source
-                            shortestDistSq = distSq
+                if physicalDistSq <= (maxDist * maxDist) then
+                    local pos, onScreen = Camera:WorldToViewportPoint(aimPart.Position)
+                    if onScreen then
+                        local dx = pos.X - fovPos.X
+                        local dy = pos.Y - fovPos.Y
+                        local distSq = dx * dx + dy * dy
+                        if distSq < shortestDistSq then
+                            if isVisible(aimPart) then
+                                target = source
+                                shortestDistSq = distSq
+                            end
                         end
                     end
                 end
@@ -306,11 +309,7 @@ local function getClosestPlayerToCursor(mousePos)
         local isAlive = hum and (hum.Health > 0)
 
         if isAlive and not isSafeShield(source, char) then
-            local targetPartName = Settings.TargetPart or Settings.ProAimTargetPart or "Head"
-            if targetPartName == "Safe" or targetPartName == "Random" then
-                targetPartName = (math.random(1, 10) <= 6) and "Head" or "HumanoidRootPart"
-            end
-            local part = char:FindFirstChild(targetPartName) or char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char.PrimaryPart
+            local part = getTargetPart(char)
             
             if part then
                 local diff = part.Position - origin

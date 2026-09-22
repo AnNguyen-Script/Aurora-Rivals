@@ -147,7 +147,8 @@ local lastRaycastTick = 0
 local raycastCache = {}
 
 local function isVisible(targetPart)
-    if not Settings.WallCheck then return true end
+    local isWallCheckActive = Settings.WallCheck or Settings.AutoFireWallCheck or Settings.ProAimWallCheck
+    if not isWallCheckActive then return true end
     if not targetPart or not targetPart.Parent then return false end
     local now = tick()
     if (now - lastRaycastTick) > 0.025 then
@@ -169,7 +170,8 @@ local function isVisible(targetPart)
 end
 
 local function isAutoFireVisible(targetPart)
-    if not Settings.AutoFireWallCheck then return true end
+    local isWallCheckActive = Settings.WallCheck or Settings.AutoFireWallCheck or Settings.ProAimWallCheck
+    if not isWallCheckActive then return true end
     if not targetPart or not targetPart.Parent then return false end
     local now = tick()
     if (now - lastRaycastTick) > 0.025 then

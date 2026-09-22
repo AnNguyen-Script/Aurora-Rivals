@@ -655,21 +655,24 @@ local function getClosestPlayer()
 
         local isAlive = hum and (hum.Health > 0)
 
-        if isAlive and head and hrp then
-            local diff = head.Position - origin
-            local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
-            local maxDist = Settings.AimDist or 1000
+        if isAlive then
+            local aimPart = (Settings.AimSafe and getTargetPart(char)) or head or hrp
+            if aimPart then
+                local diff = aimPart.Position - origin
+                local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                local maxDist = Settings.AimDist or 1000
 
-            if physicalDistSq <= (maxDist * maxDist) then
-                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                if onScreen then
-                    local dx = pos.X - fovPos.X
-                    local dy = pos.Y - fovPos.Y
-                    local distSq = dx * dx + dy * dy
-                    if distSq < shortestDistSq then
-                        if isVisible(head) or isVisible(hrp) then
-                            target = source
-                            shortestDistSq = distSq
+                if physicalDistSq <= (maxDist * maxDist) then
+                    local pos, onScreen = Camera:WorldToViewportPoint(aimPart.Position)
+                    if onScreen then
+                        local dx = pos.X - fovPos.X
+                        local dy = pos.Y - fovPos.Y
+                        local distSq = dx * dx + dy * dy
+                        if distSq < shortestDistSq then
+                            if isVisible(aimPart) then
+                                target = source
+                                shortestDistSq = distSq
+                            end
                         end
                     end
                 end
@@ -755,11 +758,7 @@ local function getClosestPlayerToCursor(mousePos)
         local isAlive = hum and (hum.Health > 0)
 
         if isAlive and not isSafeShield(source, char) then
-            local targetPartName = Settings.TargetPart or Settings.ProAimTargetPart or "Head"
-            if targetPartName == "Safe" or targetPartName == "Random" then
-                targetPartName = (math.random(1, 10) <= 6) and "Head" or "HumanoidRootPart"
-            end
-            local part = char:FindFirstChild(targetPartName) or char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char.PrimaryPart
+            local part = getTargetPart(char)
             
             if part then
                 local diff = part.Position - origin
@@ -1063,7 +1062,18 @@ return function(Shared, Targeting)
             forEachEnemy(function(char, source)
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
-                    if isHead then
+                    if Settings.AimSafe then
+                        expandPart(char:FindFirstChild("Head"))
+                        expandPart(char:FindFirstChild("HitboxHead"))
+                        expandPart(char:FindFirstChild("PhysicalHitboxHead"))
+                        expandPart(char:FindFirstChild("HitboxHeadSmall"))
+                        expandPart(char:FindFirstChild("HumanoidRootPart"))
+                        expandPart(char:FindFirstChild("UpperTorso"))
+                        expandPart(char:FindFirstChild("Torso"))
+                        expandPart(char:FindFirstChild("HitboxBody"))
+                        expandPart(char:FindFirstChild("PhysicalHitbox"))
+                        expandPart(char:FindFirstChild("HitboxBodySmall"))
+                    elseif isHead then
                         expandPart(char:FindFirstChild("Head"))
                         expandPart(char:FindFirstChild("HitboxHead"))
                         expandPart(char:FindFirstChild("PhysicalHitboxHead"))
@@ -1676,6 +1686,13 @@ local ESPTable = {}
         -- 3. Xử lý bám mục tiêu siêu dính & siêu mượt bằng mousemoverel
         if ProAimLockedTarget then
             local char = ProAimLockedChar or ProAimLockedTarget.Parent
+            -- Nếu Aim Safe đang bật: tự động cập nhật bộ phận khóa (Head <-> Torso) theo nhịp Aim Safe
+            if Settings.AimSafe and char then
+                local safePart = getTargetPart(char)
+                if safePart and safePart ~= ProAimLockedTarget then
+                    ProAimLockedTarget = safePart
+                end
+            end
             local rootPart = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
             local aimWorldPos = ProAimLockedTarget.Position
 
@@ -1755,10 +1772,16 @@ local ESPTable = {}
                     local decay = 1 / (1 + w_dt + 0.48 * w_dt * w_dt)
                     local springFactor = math.clamp(1 - decay, 0.05, 0.95)
 
-                    -- Lực hút nam châm thích ứng (Adaptive Magnetism): Khi chạm người đối thủ (<= 25px), tăng lực dính
+                    -- Lực hút nam châm thích ứng (Adaptive Magnetism)
                     local magnetMult = 1.0
-                    if dist <= 25 then
-                        magnetMult = 1.0 + (1.0 - (dist / 25)) * 0.40 -- tăng tới 1.40x
+                    if Settings.AimSafe then
+                        if dist <= 25 then
+                            magnetMult = 0.85 + (dist / 25) * 0.15 -- giảm tốc mềm mại khi áp sát
+                        end
+                    else
+                        if dist <= 25 then
+                            magnetMult = 1.0 + (1.0 - (dist / 25)) * 0.40 -- tăng tới 1.40x
+                        end
                     end
 
                     -- Tổng hợp lực kéo chuột lò xo mượt mà, đầm tay

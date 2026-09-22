@@ -213,7 +213,7 @@ end
 
 -- CẤU HÌNH GỐC (SETTINGS)
 Shared.Settings = {
-    AimEnabled = false, AimHoldMode = false, AimSafe = false, AimDist = 1000,
+    AimEnabled = false, AimHoldMode = false, AimSafe = false, AimSafeHeadshotRate = 65, AimDist = 1000,
     TargetPart = "Head", WallCheck = false, TeamCheck = true, SafeShieldCheck = false,
     FOV = 170, FOVVisible = false, AimSnapline = false,
     AimSmoothness = 0.75, AimJitter = 0, ReactionDelay = 0,
@@ -469,6 +469,10 @@ return function(Shared, Shield)
     local cachedProTarget = nil
     local cachedProValid = 0
     local aimSafeCounter = 0
+    local lastAimSafeTarget = nil
+    local lastAimSafePart = nil
+    local lastAimSafeTime = 0
+    local aimSafeBurstShots = 0
 
     local function isSameTeam(target)
     if not target then return true end
@@ -680,10 +684,42 @@ local function getTargetPart(character)
         partName = Const.SAFE_PARTS[math.random(1, #Const.SAFE_PARTS)]
     end
     if Settings.AimSafe then
-        aimSafeCounter = aimSafeCounter + 1
-        if aimSafeCounter >= 4 then
-            partName = "HumanoidRootPart"
-            aimSafeCounter = 0
+        local now = tick()
+        -- Cửa sổ ổn định nhịp bắn (Burst Window 0.35s):
+        -- Nếu đang khóa cùng 1 mục tiêu trong vòng 0.35s thì giữ ổn định, không đổi loạn xạ giữa các frame
+        if character == lastAimSafeTarget and (now - lastAimSafeTime < 0.35) and lastAimSafePart then
+            partName = lastAimSafePart
+            lastAimSafeTime = now
+        else
+            -- Bắt đầu nhịp bắn mới hoặc mục tiêu mới:
+            if character ~= lastAimSafeTarget or (now - lastAimSafeTime >= 0.5) then
+                aimSafeBurstShots = 1
+            else
+                aimSafeBurstShots = aimSafeBurstShots + 1
+            end
+
+            local headshotRate = math.clamp(Settings.AimSafeHeadshotRate or 65, 20, 100)
+
+            -- Thuật toán Spray Burst Pattern:
+            -- Viên 1 & 2 (Mở đầu loạt bắn): Tăng thêm 15% tỷ lệ Headshot để bắt nhịp flick chuẩn
+            -- Viên 3+ (Xả đạn kéo dài): Ghìm tâm xuống ngực/thân mô phỏng ghìm độ giật súng
+            local effectiveRate = headshotRate
+            if aimSafeBurstShots <= 2 then
+                effectiveRate = math.min(100, headshotRate + 15)
+            else
+                effectiveRate = math.max(20, headshotRate - 15)
+            end
+
+            local roll = math.random(1, 100)
+            if roll <= effectiveRate then
+                partName = "Head"
+            else
+                partName = "UpperTorso"
+            end
+
+            lastAimSafeTarget = character
+            lastAimSafePart = partName
+            lastAimSafeTime = now
         end
     end
     return character:FindFirstChild(partName) 
@@ -1687,8 +1723,9 @@ local ESPTable = {}
                     feedForwardY = (nextScr.Y - curScr.Y) * 0.85
                 end
 
-                -- Deadzone: nếu khoảng cách < 0.75 pixel -> đã trúng tâm, giữ nguyên
-                if dist >= 0.75 then
+                -- Deadzone: nếu khoảng cách < 0.75 pixel (hoặc <= 2.5 pixel khi bật AimSafe) -> đã trúng tâm, giữ nguyên
+                local deadzoneLimit = Settings.AimSafe and 2.5 or 0.75
+                if dist >= deadzoneLimit then
                     local userSmooth = math.clamp(Settings.ProAimSmoothness or 0.75, 0.01, 1.0)
 
                     -- [THUẬT TOÁN 3: LÒ XO GIẢM CHẤN TỚI HẠN (CRITICALLY DAMPED SPRING-DAMPER PHYSICS)]
@@ -1792,10 +1829,20 @@ local ESPTable = {}
                                     end
                                 end)
 
-                                -- Deadzone: Nếu khoảng cách < 1 pixel thì giữ nguyên
-                                if dist >= 1 then
-                                    -- Lực hút Snap nhạy: 0.55 ở tầm xa, 0.85 khi sát người để dính chặt
-                                    local snapFactor = (dist <= 25) and 0.85 or 0.55
+                                -- Deadzone: Nếu khoảng cách < 1 pixel (hoặc <= 3 pixel khi bật AimSafe) thì giữ nguyên
+                                local snapDeadzone = Settings.AimSafe and 3.0 or 1.0
+                                if dist >= snapDeadzone then
+                                    -- Khi AimSafe bật: Ease-out giảm tốc đàn hồi khi vào gần (dist <= 20px) để tâm lướt êm, không khựng cứng
+                                    local snapFactor = 0.55
+                                    if Settings.AimSafe then
+                                        if dist <= 20 then
+                                            snapFactor = 0.35 + (dist / 20) * 0.30
+                                        else
+                                            snapFactor = 0.55
+                                        end
+                                    else
+                                        snapFactor = (dist <= 25) and 0.85 or 0.55
+                                    end
                                     local moveX = math.round(deltaX * snapFactor * sensCompensation)
                                     local moveY = math.round(deltaY * snapFactor * sensCompensation)
                                     if moveX ~= 0 or moveY ~= 0 then
@@ -5092,7 +5139,21 @@ drawFovToggleFrame = CreateToggle(PanelAimbot, "Draw FOV", Theme.DotGreen, "FOVV
     FOVring.Visible = v
 end)
 
-CreateToggle(PanelAimbot, "Aim Safe", Theme.DotGreen, "AimSafe", function(v) Settings.AimSafe = v end)
+local aimSafeSliderFrame = nil
+CreateToggle(PanelAimbot, "Aim Safe", Theme.DotGreen, "AimSafe", function(v) 
+    Settings.AimSafe = v 
+    if aimSafeSliderFrame then
+        aimSafeSliderFrame.Visible = (v == true)
+    end
+end)
+
+aimSafeSliderFrame = CreateSlider(PanelAimbot, "Headshot Rate", "AimSafeHeadshotRate", 20, 100, "%", function(v)
+    Settings.AimSafeHeadshotRate = v
+end)
+
+if aimSafeSliderFrame then
+    aimSafeSliderFrame.Visible = (Settings.AimSafe == true)
+end
 
 if fovSliderFrame then
     fovSliderFrame.Visible = (Settings.AimEnabled == true)

@@ -596,7 +596,8 @@ local lastRaycastTick = 0
 local raycastCache = {}
 
 local function isVisible(targetPart)
-    if not Settings.WallCheck then return true end
+    local isWallCheckActive = Settings.WallCheck or Settings.AutoFireWallCheck or Settings.ProAimWallCheck
+    if not isWallCheckActive then return true end
     if not targetPart or not targetPart.Parent then return false end
     local now = tick()
     if (now - lastRaycastTick) > 0.025 then
@@ -618,7 +619,8 @@ local function isVisible(targetPart)
 end
 
 local function isAutoFireVisible(targetPart)
-    if not Settings.AutoFireWallCheck then return true end
+    local isWallCheckActive = Settings.WallCheck or Settings.AutoFireWallCheck or Settings.ProAimWallCheck
+    if not isWallCheckActive then return true end
     if not targetPart or not targetPart.Parent then return false end
     local now = tick()
     if (now - lastRaycastTick) > 0.025 then
@@ -1530,11 +1532,21 @@ local ESPTable = {}
     end
 
     if snapTarget then
-        local targetPos, onScreen = Camera:WorldToViewportPoint(snapTarget.Position)
-        if onScreen then
-            AimSnaplineDraw.From = center
-            AimSnaplineDraw.To = Vector2.new(targetPos.X, targetPos.Y)
-            if not AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = true end
+        local isWallCheckActive = Settings.WallCheck or Settings.AutoFireWallCheck or Settings.ProAimWallCheck
+        local isTargetVisible = true
+        if isWallCheckActive and WallCheck then
+            isTargetVisible = WallCheck(snapTarget)
+        end
+
+        if isTargetVisible then
+            local targetPos, onScreen = Camera:WorldToViewportPoint(snapTarget.Position)
+            if onScreen then
+                AimSnaplineDraw.From = center
+                AimSnaplineDraw.To = Vector2.new(targetPos.X, targetPos.Y)
+                if not AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = true end
+            else
+                if AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = false end
+            end
         else
             if AimSnaplineDraw.Visible then AimSnaplineDraw.Visible = false end
         end
@@ -1548,7 +1560,12 @@ local ESPTable = {}
         local targetChar = target and (target:IsA("Player") and target.Character or target)
         if targetChar then
             local tPart = getTargetPart(targetChar)
-            if tPart then
+            local isWallCheckActive = Settings.WallCheck or Settings.AutoFireWallCheck or Settings.ProAimWallCheck
+            local canAim = tPart ~= nil
+            if canAim and isWallCheckActive and WallCheck then
+                canAim = WallCheck(tPart)
+            end
+            if canAim and tPart then
                 local desired = CFrame.new(Camera.CFrame.Position, tPart.Position)
                 desired = AddJitter(desired, Settings.AimJitter)
                 if Settings.AimSmoothness >= 1 then
@@ -1600,7 +1617,8 @@ local ESPTable = {}
         end
 
         -- WallCheck với Bộ đệm duy trì mục tiêu 0.2s (Sticky Grace Period)
-        if Settings.WallCheck and WallCheck then
+        local isWallCheckActive = Settings.WallCheck or Settings.AutoFireWallCheck or Settings.ProAimWallCheck
+        if isWallCheckActive and WallCheck then
             if not WallCheck(part) then
                 -- Nếu vừa bị khuất sau vật cản mỏng/người khác: cho phép duy trì tối đa 0.2 giây
                 if (currentTime - ProAimLastVisibleTime) > 0.2 then
@@ -1805,8 +1823,9 @@ local ESPTable = {}
                 if targetPart then
                     local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
                     if onScreen then
+                        local isWallCheckActive = Settings.WallCheck or Settings.AutoFireWallCheck or Settings.ProAimWallCheck
                         local canSnap = true
-                        if Settings.AutoFireWallCheck and isAutoFireVisible then
+                        if isWallCheckActive and isAutoFireVisible then
                             canSnap = isAutoFireVisible(targetPart)
                         end
 
@@ -5181,7 +5200,11 @@ end
 
 local PanelAimbotSet = CreatePanel(TabAimbot, "Exploits", "", 0.5, 0, 0.5, 1)
 CreateToggleWithKeybind(PanelAimbotSet, "Kill Aura", Theme.DotRed, "AutoFire", "AutoFireHotkey", function(v) Settings.AutoFire = v end, function(v) Settings.AutoFireHotkey = v end)
-CreateToggle(PanelAimbotSet, "Wall Check ", Theme.DotRed, "AutoFireWallCheck", function(v) Settings.AutoFireWallCheck = v end)
+CreateToggle(PanelAimbotSet, "Wall Check ", Theme.DotRed, "AutoFireWallCheck", function(v) 
+    Settings.AutoFireWallCheck = v 
+    Settings.WallCheck = v
+    Settings.ProAimWallCheck = v
+end)
 CreateToggle(PanelAimbotSet, 'Slient Aim <font color="#ff3333">[BETA]</font>', Theme.DotRed, "AutoFireHoldM2", function(v) Settings.AutoFireHoldM2 = v end)
 CreateToggleWithKeybind(PanelAimbotSet, 'NO RECOIL <font color="#ff3333">[BETA]</font>', Theme.DotRed, "NoRecoil", "NoRecoilHotkey", function(v) Settings.NoRecoil = v end, function(v) Settings.NoRecoilHotkey = v end)
 

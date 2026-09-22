@@ -397,8 +397,8 @@ local featureConfigs = {
     {name = "Aimbot Safe", get = function() return Settings.ProAimEnabled end},
     {name = "Hitbox Expander", get = function() return Settings.HitboxExpander end},
     {name = "No Recoil", get = function() return Settings.NoRecoil end},
-    {name = "Kill Aura", get = function() return Settings.AutoFire end},
-    {name = "Silent Aim", get = function() return Settings.AutoFireHoldM2 end},
+    {name = "Slient Aim", get = function() return Settings.AutoFire end},
+    {name = "Aimbot Head", get = function() return Settings.AutoFireHoldM2 end},
     {name = "Auto Teleport", get = function() return Settings.AutoTeleport end},
     {name = "Speed Teleport", get = function() return Settings.SpeedTele end},
     {name = "Underground", get = function() return Settings.UndergroundNoclip end},
@@ -2293,13 +2293,13 @@ if aimlockSmoothSliderFrame then
 end
 
 local PanelAimbotSet = CreatePanel(TabAimbot, "Exploits", "", 0.5, 0, 0.5, 1)
-CreateToggleWithKeybind(PanelAimbotSet, "Kill Aura", Theme.DotRed, "AutoFire", "AutoFireHotkey", function(v) Settings.AutoFire = v end, function(v) Settings.AutoFireHotkey = v end)
+CreateToggleWithKeybind(PanelAimbotSet, "Slient Aim", Theme.DotRed, "AutoFire", "AutoFireHotkey", function(v) Settings.AutoFire = v end, function(v) Settings.AutoFireHotkey = v end)
 CreateToggle(PanelAimbotSet, "Wall Check ", Theme.DotRed, "AutoFireWallCheck", function(v) 
     Settings.AutoFireWallCheck = v 
     Settings.WallCheck = v
     Settings.ProAimWallCheck = v
 end)
-CreateToggle(PanelAimbotSet, 'Slient Aim <font color="#ff3333">[BETA]</font>', Theme.DotRed, "AutoFireHoldM2", function(v) Settings.AutoFireHoldM2 = v end)
+CreateToggle(PanelAimbotSet, "Aimbot Head", Theme.DotRed, "AutoFireHoldM2", function(v) Settings.AutoFireHoldM2 = v end)
 CreateToggleWithKeybind(PanelAimbotSet, 'NO RECOIL <font color="#ff3333">[BETA]</font>', Theme.DotRed, "NoRecoil", "NoRecoilHotkey", function(v) Settings.NoRecoil = v end, function(v) Settings.NoRecoilHotkey = v end)
 
 local hitboxSizeSliderFrame = nil
@@ -3429,7 +3429,7 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         Settings.AutoFire = not Settings.AutoFire
         if UI_Elements.AutoFire then UI_Elements.AutoFire.SetValue(Settings.AutoFire) end
         UpdateTabDots()
-        SendNotification("Hotkey", "Kill Aura: " .. (Settings.AutoFire and "BẬT" or "TẮT"))
+        SendNotification("Hotkey", "Slient Aim: " .. (Settings.AutoFire and "BẬT" or "TẮT"))
     elseif input.KeyCode == Settings.AutoTeleportHotkey and Settings.AutoTeleportHotkey ~= Enum.KeyCode.None then
         if not Settings.AutoTeleport and not CheckAndBypassCharacterAC("Auto Teleport") then
             return

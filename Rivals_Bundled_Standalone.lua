@@ -473,6 +473,7 @@ return function(Shared, Shield)
     local lastAimSafePart = nil
     local lastAimSafeTime = 0
     local aimSafeBurstShots = 0
+    local getTargetPart
 
     local function isSameTeam(target)
     if not target then return true end
@@ -641,47 +642,6 @@ local function isAutoFireVisible(targetPart)
     return vis
 end
 
-local function getClosestPlayer()
-    local target = nil
-    local shortestDistSq = Settings.FOV * Settings.FOV
-    local origin = Camera.CFrame.Position
-    local fovPos = (Shared.FOVring and Shared.FOVring.Position) or UserInputService:GetMouseLocation()
-
-    forEachEnemy(function(char, source)
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        local head = char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("PhysicalHitboxHead") or char:FindFirstChild("HeadHitbox")
-        local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("Torso") or char.PrimaryPart
-        head = head or hrp
-
-        local isAlive = hum and (hum.Health > 0)
-
-        if isAlive then
-            local aimPart = (Settings.AimSafe and getTargetPart(char)) or head or hrp
-            if aimPart then
-                local diff = aimPart.Position - origin
-                local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
-                local maxDist = Settings.AimDist or 1000
-
-                if physicalDistSq <= (maxDist * maxDist) then
-                    local pos, onScreen = Camera:WorldToViewportPoint(aimPart.Position)
-                    if onScreen then
-                        local dx = pos.X - fovPos.X
-                        local dy = pos.Y - fovPos.Y
-                        local distSq = dx * dx + dy * dy
-                        if distSq < shortestDistSq then
-                            if isVisible(aimPart) then
-                                target = source
-                                shortestDistSq = distSq
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-    return target
-end
-
 local function getTargetPart(character)
     if not character then return nil end
     local partName = Settings.TargetPart
@@ -741,6 +701,47 @@ local function getTargetPart(character)
         or character:FindFirstChild("UpperTorso") 
         or character:FindFirstChild("Torso") 
         or character.PrimaryPart
+end
+
+local function getClosestPlayer()
+    local target = nil
+    local shortestDistSq = Settings.FOV * Settings.FOV
+    local origin = Camera.CFrame.Position
+    local fovPos = (Shared.FOVring and Shared.FOVring.Position) or UserInputService:GetMouseLocation()
+
+    forEachEnemy(function(char, source)
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local head = char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("PhysicalHitboxHead") or char:FindFirstChild("HeadHitbox")
+        local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("PhysicalHitbox") or char:FindFirstChild("HitboxBody") or char:FindFirstChild("BodyHitbox") or char:FindFirstChild("Torso") or char.PrimaryPart
+        head = head or hrp
+
+        local isAlive = hum and (hum.Health > 0)
+
+        if isAlive then
+            local aimPart = (Settings.AimSafe and getTargetPart(char)) or head or hrp
+            if aimPart then
+                local diff = aimPart.Position - origin
+                local physicalDistSq = diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z
+                local maxDist = Settings.AimDist or 1000
+
+                if physicalDistSq <= (maxDist * maxDist) then
+                    local pos, onScreen = Camera:WorldToViewportPoint(aimPart.Position)
+                    if onScreen then
+                        local dx = pos.X - fovPos.X
+                        local dy = pos.Y - fovPos.Y
+                        local distSq = dx * dx + dy * dy
+                        if distSq < shortestDistSq then
+                            if isVisible(aimPart) then
+                                target = source
+                                shortestDistSq = distSq
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    return target
 end
 
 local function getClosestPlayerToCursor(mousePos)
@@ -1062,18 +1063,7 @@ return function(Shared, Targeting)
             forEachEnemy(function(char, source)
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
-                    if Settings.AimSafe then
-                        expandPart(char:FindFirstChild("Head"))
-                        expandPart(char:FindFirstChild("HitboxHead"))
-                        expandPart(char:FindFirstChild("PhysicalHitboxHead"))
-                        expandPart(char:FindFirstChild("HitboxHeadSmall"))
-                        expandPart(char:FindFirstChild("HumanoidRootPart"))
-                        expandPart(char:FindFirstChild("UpperTorso"))
-                        expandPart(char:FindFirstChild("Torso"))
-                        expandPart(char:FindFirstChild("HitboxBody"))
-                        expandPart(char:FindFirstChild("PhysicalHitbox"))
-                        expandPart(char:FindFirstChild("HitboxBodySmall"))
-                    elseif isHead then
+                    if isHead then
                         expandPart(char:FindFirstChild("Head"))
                         expandPart(char:FindFirstChild("HitboxHead"))
                         expandPart(char:FindFirstChild("PhysicalHitboxHead"))

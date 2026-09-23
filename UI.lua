@@ -111,28 +111,7 @@ ESPCounterLabel.TextXAlignment = Enum.TextXAlignment.Center
 ESPCounterLabel.TextYAlignment = Enum.TextYAlignment.Center
 ESPCounterLabel.Parent = ESPCounterBox
 
--- Watermark
-local WatermarkFrame = Instance.new("Frame")
-WatermarkFrame.Size = UDim2.new(0, 300, 0, 20)
-WatermarkFrame.Position = UDim2.new(1, -310, 1, -30)
-WatermarkFrame.BackgroundTransparency = 1
-WatermarkFrame.Parent = ScreenGui
 
-local Watermark = Instance.new("TextLabel")
-Watermark.Size = UDim2.new(1, 0, 1, 0)
-Watermark.BackgroundTransparency = 1
-Watermark.RichText = true
-Watermark.Text = "✨ ĐẶC QUYỀN ✨ " .. IDS.Watermark .. " | <font color=\"#FFD700\">An Nguyễn Studio</font>"
-Watermark.TextColor3 = Color3.fromRGB(255, 215, 0)
-Watermark.Font = Theme.FontBold
-Watermark.TextSize = 14
-Watermark.TextXAlignment = Enum.TextXAlignment.Right
-Watermark.TextStrokeTransparency = 0.5
-Watermark.Parent = WatermarkFrame
-
-local function UpdateWatermarkColor(color)
-    pcall(function() Watermark.TextColor3 = color end)
-end
 
 local NotifyFrame = Instance.new("Frame")
 NotifyFrame.Name = RandomString(6)
@@ -252,7 +231,7 @@ local function MakeDraggable(topbar, main)
     end)
 end
 
-MakeDraggable(WatermarkFrame, WatermarkFrame)
+
 
 -- ============================================================
 -- TOP BAR
@@ -3523,10 +3502,8 @@ end)
     UI.ScreenGui = ScreenGui
     UI.MainFrame = MainFrame
     UI.StatusText = StatusText
-    UI.UpdateWatermarkColor = UpdateWatermarkColor
     UI.GetMenuConnected = function() return isMenuConnected end
     UI.ESPCounterBox = ESPCounterBox
-    UI.WatermarkFrame = WatermarkFrame
     UI.NotifyFrame = NotifyFrame
     UI.UpdateTabDots = UpdateTabDots
     UI.ApplyTheme = ApplyTheme

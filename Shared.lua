@@ -168,8 +168,7 @@ Shared.IDS = {
     UI          = Shared.RandomString(12),
     ChamsFolder = Shared.RandomString(10),
     Folder      = Shared.RandomString(8),
-    ConfigName  = "Rivals_Pro_Config.json",
-    Watermark   = "SYS v" .. math.random(2, 9) .. "." .. math.random(0, 9) .. "." .. math.random(0, 9)
+    ConfigName  = "Rivals_Pro_Config.json"
 }
 
 -- Lấy GUI cha an toàn nhất

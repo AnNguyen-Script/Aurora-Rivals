@@ -175,8 +175,7 @@ Shared.IDS = {
     UI          = Shared.RandomString(12),
     ChamsFolder = Shared.RandomString(10),
     Folder      = Shared.RandomString(8),
-    ConfigName  = "Rivals_Pro_Config.json",
-    Watermark   = "SYS v" .. math.random(2, 9) .. "." .. math.random(0, 9) .. "." .. math.random(0, 9)
+    ConfigName  = "Rivals_Pro_Config.json"
 }
 
 -- Lấy GUI cha an toàn nhất
@@ -3030,28 +3029,7 @@ ESPCounterLabel.TextXAlignment = Enum.TextXAlignment.Center
 ESPCounterLabel.TextYAlignment = Enum.TextYAlignment.Center
 ESPCounterLabel.Parent = ESPCounterBox
 
--- Watermark
-local WatermarkFrame = Instance.new("Frame")
-WatermarkFrame.Size = UDim2.new(0, 300, 0, 20)
-WatermarkFrame.Position = UDim2.new(1, -310, 1, -30)
-WatermarkFrame.BackgroundTransparency = 1
-WatermarkFrame.Parent = ScreenGui
 
-local Watermark = Instance.new("TextLabel")
-Watermark.Size = UDim2.new(1, 0, 1, 0)
-Watermark.BackgroundTransparency = 1
-Watermark.RichText = true
-Watermark.Text = "✨ ĐẶC QUYỀN ✨ " .. IDS.Watermark .. " | <font color=\"#FFD700\">An Nguyễn Studio</font>"
-Watermark.TextColor3 = Color3.fromRGB(255, 215, 0)
-Watermark.Font = Theme.FontBold
-Watermark.TextSize = 14
-Watermark.TextXAlignment = Enum.TextXAlignment.Right
-Watermark.TextStrokeTransparency = 0.5
-Watermark.Parent = WatermarkFrame
-
-local function UpdateWatermarkColor(color)
-    pcall(function() Watermark.TextColor3 = color end)
-end
 
 local NotifyFrame = Instance.new("Frame")
 NotifyFrame.Name = RandomString(6)
@@ -3171,7 +3149,7 @@ local function MakeDraggable(topbar, main)
     end)
 end
 
-MakeDraggable(WatermarkFrame, WatermarkFrame)
+
 
 -- ============================================================
 -- TOP BAR
@@ -6442,10 +6420,8 @@ end)
     UI.ScreenGui = ScreenGui
     UI.MainFrame = MainFrame
     UI.StatusText = StatusText
-    UI.UpdateWatermarkColor = UpdateWatermarkColor
     UI.GetMenuConnected = function() return isMenuConnected end
     UI.ESPCounterBox = ESPCounterBox
-    UI.WatermarkFrame = WatermarkFrame
     UI.NotifyFrame = NotifyFrame
     UI.UpdateTabDots = UpdateTabDots
     UI.ApplyTheme = ApplyTheme
@@ -6504,7 +6480,7 @@ local renderConn = Shared.RunService.RenderStepped:Connect(function(step)
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     local camPos = Camera.CFrame.Position
 
-    -- Cập nhật FPS & Watermark
+    -- Cập nhật FPS
     frames = frames + 1
     if now - lastFPSUpdate >= 1 then
         currentFPS = math.floor(frames / (now - lastFPSUpdate))
@@ -6517,9 +6493,6 @@ local renderConn = Shared.RunService.RenderStepped:Connect(function(step)
         local hours = math.floor((remaining % 86400) / 3600)
         local mins = math.floor((remaining % 3600) / 60)
         local secs = math.floor(remaining % 60)
-        if Shared.UI_Elements.Watermark then
-            Shared.UI_Elements.Watermark.Text = string.format("RIVALS ● %d FPS ● Expire in: %02dd %02dh %02dm %02ds", currentFPS, days, hours, mins, secs)
-        end
         if UI.GetMenuConnected and UI.GetMenuConnected() then
             if UI.StatusText then
                 UI.StatusText.Text = string.format(
@@ -6527,15 +6500,9 @@ local renderConn = Shared.RunService.RenderStepped:Connect(function(step)
                         .. "   -   BLOCKED %d",
                     days, hours, mins, secs, currentFPS, (Shield and Shield.Blocks) or 0)
             end
-            if UI.UpdateWatermarkColor then
-                UI.UpdateWatermarkColor(Color3.fromRGB(0, 255, 0))
-            end
         else
             if UI.StatusText then
                 UI.StatusText.Text = "<font color=\"#ffffff\">● Rivals Menu</font>   <font color=\"#666677\">/</font>   <font color=\"#aaaaaa\">Login</font>"
-            end
-            if UI.UpdateWatermarkColor then
-                UI.UpdateWatermarkColor(Color3.fromRGB(255, 215, 0))
             end
         end
     end

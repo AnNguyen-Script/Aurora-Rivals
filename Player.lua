@@ -231,18 +231,7 @@ return function(Shared, Targeting)
             forEachEnemy(function(char, source)
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
-                    if Settings.AimSafe then
-                        expandPart(char:FindFirstChild("Head"))
-                        expandPart(char:FindFirstChild("HitboxHead"))
-                        expandPart(char:FindFirstChild("PhysicalHitboxHead"))
-                        expandPart(char:FindFirstChild("HitboxHeadSmall"))
-                        expandPart(char:FindFirstChild("HumanoidRootPart"))
-                        expandPart(char:FindFirstChild("UpperTorso"))
-                        expandPart(char:FindFirstChild("Torso"))
-                        expandPart(char:FindFirstChild("HitboxBody"))
-                        expandPart(char:FindFirstChild("PhysicalHitbox"))
-                        expandPart(char:FindFirstChild("HitboxBodySmall"))
-                    elseif isHead then
+                    if isHead then
                         expandPart(char:FindFirstChild("Head"))
                         expandPart(char:FindFirstChild("HitboxHead"))
                         expandPart(char:FindFirstChild("PhysicalHitboxHead"))
